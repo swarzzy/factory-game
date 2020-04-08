@@ -1,0 +1,42 @@
+bin/
+obj/
+build/
+Makefile
+deprecated
+.clang-complete
+.clang_complete
+assets/_3rd
+_misc/
+_deprecated/
+res/_sponza/
+
+
+# CLion
+cmake-build-debug/
+cmake-build-release/
+.idea
+
+# Visual Studio Stuff
+.vs
+*.sln
+*.vcxproj
+*.filters
+*.user
+
+# CMake files
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+cmake_install.cmake
+cmake_uninstall.cmake
+_build/
+_build_msvc/
+_build_clang/
+_build_clang_linux/
+_msbuild.bat
+ctime.ctm
+
+
+#Binaries and libs
+/ext/assimp/assimp-vc141-mtd.pdb
+/ext/assimp/assimp-vc141-mtd.lib
