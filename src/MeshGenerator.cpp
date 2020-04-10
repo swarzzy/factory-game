@@ -160,8 +160,9 @@ void ClaimFurthestChunkMesh(ChunkMesher* mesher, Chunk* chunk) {
             index = i;
             break;
         }
-        // TODO: Make shure this read is atomic on all platforms
-        if (entry->mesh.state != ChunkMesh::State::Queued) {
+        auto state = entry->mesh.state;
+        assert(state != ChunkMesh::State::Empty);
+        if (state == ChunkMesh::State::Complete) {
             iv3 p = entry->chunk->p;
             u32 distSq = LengthSq(chunk->p - p);
             if (distSq > furthestDistSq) {
@@ -172,6 +173,7 @@ void ClaimFurthestChunkMesh(ChunkMesher* mesher, Chunk* chunk) {
     }
 
     auto furthestRecord = mesher->chunkMeshPool + index;
+    furthestRecord->mesh.poolIndex = index;
     if (furthestRecord->chunk) {
         furthestRecord->chunk->mesh = nullptr;
     }
@@ -181,6 +183,60 @@ void ClaimFurthestChunkMesh(ChunkMesher* mesher, Chunk* chunk) {
     chunk->mesh->state = ChunkMesh::State::Empty;
 }
 
+void ReturnChunkMeshToPool(ChunkMesher* mesher, Chunk* chunk) {
+    auto mesh = chunk->mesh;
+    chunk->mesh = nullptr;
+    auto poolIndex= mesh->poolIndex;
+    auto record = mesher->chunkMeshPool + poolIndex;
+    record->chunk = nullptr;
+    assert(mesh->state == ChunkMesh::State::Complete || mesh->state == ChunkMesh::State::Empty);
+    if (mesh->state == ChunkMesh::State::Complete) {
+        FreeChunkMesh(mesher, mesh);
+        mesh->state = ChunkMesh::State::Empty;
+    }
+}
+
+void UploadChunkMeshToGPUWork(void* data, u32 threadID) {
+    auto mesh = (ChunkMesh*)data;
+    assert(mesh->state == ChunkMesh::State::ScheduledUpload);
+    void* ptr = mesh->gpuBufferPtr;
+    assert(ptr);
+    uptr size = mesh->vertexCount * ChunkMesh::VertexSize;
+    uptr offset = 0;
+
+    auto block = mesh->end;
+    while (block) {
+        memcpy((byte*)ptr + offset, block->vertices, sizeof(block->vertices[0]) * block->vertexCount);
+        offset += sizeof(block->vertices[0]) * block->vertexCount;
+        block = block->next;
+    }
+
+    block = mesh->end;
+    while (block) {
+        memcpy((byte*)ptr + offset, block->normals, sizeof(block->normals[0]) * block->vertexCount);
+        offset += sizeof(block->normals[0]) * block->vertexCount;
+        block = block->next;
+    }
+
+    block = mesh->end;
+    while (block) {
+        memcpy((byte*)ptr + offset, block->tangents, sizeof(block->tangents[0]) * block->vertexCount);
+        offset += sizeof(block->tangents[0]) * block->vertexCount;
+        block = block->next;
+    }
+
+    block = mesh->end;
+    while (block) {
+        memcpy((byte*)ptr + offset, block->values, sizeof(block->values[0]) * block->vertexCount);
+        offset += sizeof(block->values[0]) * block->vertexCount;
+        block = block->next;
+    }
+
+    assert(offset == size);
+    WriteFence();
+    mesh->state = ChunkMesh::State::UploadComplete;
+}
+
 void ChunkMesherWork(void* data, u32 threadID) {
     auto chunk = (Chunk*)data;
     auto mesh = chunk->mesh;
@@ -188,12 +244,14 @@ void ChunkMesherWork(void* data, u32 threadID) {
     assert(mesh->state == ChunkMesh::State::Queued);
     if (GlobalPlatform.supportsAsyncGPUTransfer) {
         if (chunk->mesh->vertexCount) {
-            UploadToGPU(chunk->mesh);
+            auto uploaded = UploadToGPU(chunk->mesh, false);
+            assert(uploaded);
         }
-        // TODO: Make shure this read is atomic on all platforms
+        WriteFence();
         mesh->state = ChunkMesh::State::Complete;
     } else {
-        mesh->state = ChunkMesh::State::ReadyForGPUTransfer;
+        WriteFence();
+        mesh->state = ChunkMesh::State::ReadyForUpload;
     }
 }
 
@@ -204,8 +262,28 @@ void ScheduleChunkMeshing(ChunkMesher* mesher, Chunk* chunk) {
     assert(mesh->state == ChunkMesh::State::Empty);
     mesh->state = ChunkMesh::State::Queued;
     mesh->mesher = mesher;
-    // TODO: Do we need fence here?
     WriteFence();
-    // TODO: Spin-locking here for now. We should handle the case when platform queue is full propperly
-    while (!PlatformPushWork(GlobalPlaformWorkQueue, chunk, ChunkMesherWork)) {}
+    if (!PlatformPushWork(GlobalPlaformWorkQueue, chunk, ChunkMesherWork)) {
+        mesh->state = ChunkMesh::State::Empty;
+        ReturnChunkMeshToPool(mesher, chunk);
+    }
+}
+
+void ScheduleChunkMeshUpload(ChunkMesh* mesh) {
+    assert(mesh->state == ChunkMesh::State::ReadyForUpload);
+    BeginGPUUpload(mesh);
+    assert(mesh->gpuBufferPtr);
+    mesh->state = ChunkMesh::State::ScheduledUpload;
+    WriteFence();
+    if (!PlatformPushWork(GlobalPlaformWorkQueue, mesh, UploadChunkMeshToGPUWork)) {
+        mesh->state = ChunkMesh::State::ReadyForUpload;
+    }
+}
+
+void CompleteChunkMeshUpload(ChunkMesh* mesh) {
+    assert(mesh->state == ChunkMesh::State::UploadComplete);
+    bool completed = EndGPUpload(mesh);
+    if (completed) {
+        mesh->state = ChunkMesh::State::Complete;
+    }
 }

@@ -20,7 +20,7 @@ struct ChunkMesher;
 
 struct ChunkMesh {
     enum struct State : u32 {
-        Complete, Empty, Queued, ReadyForGPUTransfer
+        Empty = 0, Complete, Queued, ReadyForUpload, ScheduledUpload, UploadComplete
     };
 
     static const u32 VertexSize = sizeof(v3) + sizeof(v3) + sizeof(v3) + sizeof(u16);
@@ -30,8 +30,11 @@ struct ChunkMesh {
     ChunkMeshBlock* end;
     u32 vertexCount;
     u32 gpuHandle;
+    u64 gpuLock;
+    void* gpuBufferPtr;
 
     ChunkMesher* mesher;
+    u32 poolIndex;
 };
 
 struct ChunkMeshRecord {

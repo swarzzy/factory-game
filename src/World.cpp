@@ -45,7 +45,7 @@ Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z) {
 
 Chunk* AddChunk(GameWorld* world, iv3 coord) {
     auto chunk = (Chunk*)PlatformAlloc(sizeof(Chunk));
-    *chunk = {};
+    memset(chunk, 0 , sizeof(Chunk));
     chunk->p = coord;
     auto entry = Add(&world->chunkHashMap, &chunk->p);
     assert(entry);

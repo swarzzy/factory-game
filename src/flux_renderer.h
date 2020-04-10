@@ -34,8 +34,11 @@ void End(Renderer* renderer);
 
 void UploadToGPU(CubeTexture* texture);
 void UploadToGPU(Mesh* mesh);
-void UploadToGPU(ChunkMesh* mesh);
+bool UploadToGPU(ChunkMesh* mesh, bool async);
 void UploadToGPU(Texture* texture);
+
+void BeginGPUUpload(ChunkMesh* mesh);
+bool EndGPUpload(ChunkMesh* mesh);
 
 void FreeGPUBuffer(u32 id);
 void FreeGPUTexture(u32 id);

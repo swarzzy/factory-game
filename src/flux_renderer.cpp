@@ -215,7 +215,8 @@ void CompleteTextureTransfer(TexTransferBufferInfo* info, Texture* texture) {
     }
 }
 
-void UploadToGPU(ChunkMesh* mesh) {
+void BeginGPUUpload(ChunkMesh* mesh) {
+    assert(!mesh->gpuLock);
     if (!mesh->gpuHandle) {
         GLuint handle;
         glCreateBuffers(1, &handle);
@@ -223,47 +224,103 @@ void UploadToGPU(ChunkMesh* mesh) {
         mesh->gpuHandle = handle;
     }
 
+    void* result = nullptr;
+
     GLuint handle = mesh->gpuHandle;
     glBindBuffer(GL_ARRAY_BUFFER, handle);
     uptr size = mesh->vertexCount * ChunkMesh::VertexSize;
     glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
     glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_STATIC_DRAW);
-    void* ptr = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+    result = glMapBufferRange(GL_ARRAY_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+    mesh->gpuBufferPtr = result;
+}
 
-    uptr offset = 0;
+bool EndGPUpload(ChunkMesh* mesh) {
+    bool completed = false;
+    if (!mesh->gpuLock) {
+        GLuint handle = mesh->gpuHandle;
+        glBindBuffer(GL_ARRAY_BUFFER, handle);
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        mesh->gpuBufferPtr = nullptr;
+        auto fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        assert(fence);
+        static_assert(sizeof(u64) == sizeof(fence));
+        mesh->gpuLock = (u64)fence;
+    } else {
+        auto result = glClientWaitSync((GLsync)mesh->gpuLock, 0, 0);
+        assert(result != GL_WAIT_FAILED);
+        assert(result != GL_TIMEOUT_EXPIRED);
+        if (result == GL_ALREADY_SIGNALED  || result == GL_CONDITION_SATISFIED) {
+            glDeleteSync((GLsync)mesh->gpuLock);
+            mesh->gpuLock = 0;
+            completed = true;
+        }
+    }
+    return completed;
+}
 
-    auto block = mesh->end;
-    while (block) {
-        memcpy((byte*)ptr + offset, block->vertices, sizeof(block->vertices[0]) * block->vertexCount);
-        offset += sizeof(block->vertices[0]) * block->vertexCount;
-        block = block->next;
+bool UploadToGPU(ChunkMesh* mesh, bool async) {
+    if (!mesh->gpuHandle) {
+        GLuint handle;
+        glCreateBuffers(1, &handle);
+        assert(handle);
+        mesh->gpuHandle = handle;
     }
 
-    block = mesh->end;
-    while (block) {
-        memcpy((byte*)ptr + offset, block->normals, sizeof(block->normals[0]) * block->vertexCount);
-        offset += sizeof(block->normals[0]) * block->vertexCount;
-        block = block->next;
+    bool result = false;
+
+    bool writeMemory = async ? mesh->gpuLock == 0 : true;
+    writeMemory = true;
+
+    if (writeMemory) {
+
+        GLuint handle = mesh->gpuHandle;
+        glBindBuffer(GL_ARRAY_BUFFER, handle);
+        uptr size = mesh->vertexCount * ChunkMesh::VertexSize;
+        glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_STATIC_DRAW);
+        void* ptr = glMapBufferRange(GL_ARRAY_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+
+        uptr offset = 0;
+
+        auto block = mesh->end;
+        while (block) {
+            memcpy((byte*)ptr + offset, block->vertices, sizeof(block->vertices[0]) * block->vertexCount);
+            offset += sizeof(block->vertices[0]) * block->vertexCount;
+            block = block->next;
+        }
+
+        block = mesh->end;
+        while (block) {
+            memcpy((byte*)ptr + offset, block->normals, sizeof(block->normals[0]) * block->vertexCount);
+            offset += sizeof(block->normals[0]) * block->vertexCount;
+            block = block->next;
+        }
+
+        block = mesh->end;
+        while (block) {
+            memcpy((byte*)ptr + offset, block->tangents, sizeof(block->tangents[0]) * block->vertexCount);
+            offset += sizeof(block->tangents[0]) * block->vertexCount;
+            block = block->next;
+        }
+
+        block = mesh->end;
+        while (block) {
+            memcpy((byte*)ptr + offset, block->values, sizeof(block->values[0]) * block->vertexCount);
+            offset += sizeof(block->values[0]) * block->vertexCount;
+            block = block->next;
+        }
+
+        assert(offset == size);
+
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        //GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
     }
 
-    block = mesh->end;
-    while (block) {
-        memcpy((byte*)ptr + offset, block->tangents, sizeof(block->tangents[0]) * block->vertexCount);
-        offset += sizeof(block->tangents[0]) * block->vertexCount;
-        block = block->next;
-    }
-
-    block = mesh->end;
-    while (block) {
-        memcpy((byte*)ptr + offset, block->values, sizeof(block->values[0]) * block->vertexCount);
-        offset += sizeof(block->values[0]) * block->vertexCount;
-        block = block->next;
-    }
-
-    assert(offset == size);
-
-    glUnmapBuffer(GL_ARRAY_BUFFER);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    result = true;
+    return result;
 }
 
 

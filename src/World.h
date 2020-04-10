@@ -33,10 +33,11 @@ struct Voxel {
 };
 
 struct Chunk {
-    static const u32 BitShift = 4;
+    static const u32 BitShift = 6;
     static const u32 BitMask = (1 << BitShift) - 1;
     static const u32 Size = 1 << BitShift;
 
+    b32 changedByPlayer;
     iv3 p;
     ChunkMesh* mesh;
     Voxel voxels[Size * Size * Size];

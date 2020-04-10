@@ -168,6 +168,9 @@ void* PlatformAllocClear(uptr size) {
 #define glMapBufferRange gl_call(glMapBufferRange)
 #define glMapNamedBufferRange gl_call(glMapNamedBufferRange)
 #define glVertexAttribIPointer gl_call(glVertexAttribIPointer)
+#define glClientWaitSync gl_call(glClientWaitSync)
+#define glFenceSync gl_call(glFenceSync)
+#define glDeleteSync gl_call(glDeleteSync)
 #include "flux_memory.h"
 // NOTE: Libs
 

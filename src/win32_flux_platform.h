@@ -12,6 +12,10 @@ constexpr u32 OPENGL_MINOR_VERSION = 5;
 
 constexpr f64 SECONDS_PER_TICK = 1.0 / 60.0;
 
+const u32 NumOfWorkerThreads = 4;
+
+//#define OPENGL_WORKER_CONTEXTS
+
 // Macros from windowsx.h
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
@@ -52,8 +56,6 @@ const int OpenGLContextAttribs[] = {
 #endif
     0
 };
-
-const u32 NumOfWorkerThreads = 4;
 
 extern "C"
 {

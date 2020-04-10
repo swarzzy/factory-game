@@ -1001,6 +1001,7 @@ void Win32Init(Win32Context* ctx)
     HGLRC actualGLRC = ctx->wglCreateContextAttribsARB(actualWindowDC, 0, OpenGLContextAttribs);
     panic(actualGLRC, "[Error] Win32: failed to initialize OpenGL extended context");
 
+#if defined (OPENGL_WORKER_CONTEXTS)
     b32 supportsAsyncGPUTransfer = true;
 
     for (u32 i = 0; i < NumOfWorkerThreads; i++) {
@@ -1012,6 +1013,8 @@ void Win32Init(Win32Context* ctx)
         }
         ctx->workersGLRC[i] = glrc;
     }
+    ctx->state.supportsAsyncGPUTransfer = supportsAsyncGPUTransfer;
+#endif
 
     wglMakeCurrent(0, 0);
     wglDeleteContext(fakeGLRC);
@@ -1024,7 +1027,6 @@ void Win32Init(Win32Context* ctx)
     ctx->windowHandle = actualWindowHandle;
     ctx->windowDC = actualWindowDC;
     ctx->openGLRC = actualGLRC;
-    ctx->state.supportsAsyncGPUTransfer = supportsAsyncGPUTransfer;
 
     ctx->Win32MouseTrackEvent.cbSize = sizeof(TRACKMOUSEEVENT);
     ctx->Win32MouseTrackEvent.dwFlags = TME_LEAVE;
@@ -1164,12 +1166,14 @@ DWORD WINAPI Win32ThreadProc(void* param) {
     // so the way of creaing them should be carefully explored.
     // Nvidia's way of creating contexts (http://on-demand.gputechconf.com/gtc/2012/presentations/S0356-GTC2012-Texture-Transfers.pdf)
     // apperas not to be working.
+#if defined (OPENGL_WORKER_CONTEXTS)
     auto windowDC = GetDC(GlobalContext.windowHandle);
     auto result = wglMakeCurrent(windowDC, threadInfo->glrc);
     if (!result) {
         printf("[win32] Failed to make OpenGL context current for worker thread. Error %lu", HRESULT_CODE(GetLastError()));
         _InterlockedExchange((long volatile*)&GlobalContext.state.supportsAsyncGPUTransfer, 0);
     }
+#endif
     while (true) {
         auto didSomeWork = Win32DoWorkerWork(queue, threadInfo->index);
         if (!didSomeWork) {

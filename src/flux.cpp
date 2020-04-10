@@ -5,13 +5,6 @@
 
 #include "Region.h"
 
-void Work(void* data, u32 id) {
-    //while (true) {
-        printf("Thread %d does some work\n", (int)id);
-        //}
-}
-
-
 void FluxInit(Context* context) {
     AssetManager::Init(&context->assetManager, context->renderer);
 
@@ -67,9 +60,6 @@ void FluxReload(Context* context) {
 }
 
 void FluxUpdate(Context* context) {
-    if (GlobalAbsDeltaTime > 0.02f) {
-    printf("Frame time: %f\n", GlobalAbsDeltaTime);
-    }
     auto ui = &context->ui;
     auto world = context->world;
     auto renderer = context->renderer;

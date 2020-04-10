@@ -34,11 +34,19 @@ Region BeginRegion(GameWorld* world, iv3 origin, i32 dim) {
                 if (!GlobalPlatform.supportsAsyncGPUTransfer) {
                     if (chunk->mesh) {
                         auto state = chunk->mesh->state;
-                        if (state == ChunkMesh::State::ReadyForGPUTransfer) {
-                            UploadToGPU(chunk->mesh);
-                            // TODO: Atomic writes?
-                            chunk->mesh->state = ChunkMesh::State::Complete;
+                        if (state == ChunkMesh::State::ReadyForUpload) {
+                            if (chunk->mesh->vertexCount) {
+                                ScheduleChunkMeshUpload(chunk->mesh);
+                            } else {
+                                chunk->mesh->state = ChunkMesh::State::Complete;
+                            }
+                        } else if (state == ChunkMesh::State::UploadComplete) {
+                            //auto begin = PlatformGetTimeStamp();
+                            CompleteChunkMeshUpload(chunk->mesh);
+                            //auto end = PlatformGetTimeStamp();
+                            //printf("[Region] Loaded mesh on gpu: %f ms\n", (end - begin) * 1000.0f);
                         }
+
                     }
                 }
             }
@@ -76,7 +84,6 @@ void DrawRegion(Region* region, RenderGroup* renderGroup, Camera* camera) {
     if (region->debugRender) {
         for (auto& record : region->world->mesher->chunkMeshPool) {
             if (record.chunk) {
-                // TODO: Make shure this read is atomic on all platforms
                 auto meshState = record.chunk->mesh->state;
                 if (meshState == ChunkMesh::State::Complete) {
                     if (record.mesh.vertexCount) {
@@ -94,7 +101,6 @@ void DrawRegion(Region* region, RenderGroup* renderGroup, Camera* camera) {
                 for (i32 x = regionBegin.x; x <= regionEnd.x; x++) {
                     auto chunk = GetChunk(region->world, x, y, z);
                     if (chunk) {
-                        // TODO: Make shure this read is atomic on all platforms
                         auto meshState = chunk->mesh->state;
                         if (meshState == ChunkMesh::State::Complete) {
                             if (chunk->mesh->vertexCount) {
