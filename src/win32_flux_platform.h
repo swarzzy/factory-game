@@ -43,6 +43,18 @@ constexpr f64 SECONDS_PER_TICK = 1.0 / 60.0;
 
 #define GL_SHADING_LANGUAGE_VERSION       0x8B8C
 
+const int OpenGLContextAttribs[] = {
+    WGL_CONTEXT_MAJOR_VERSION_ARB, OPENGL_MAJOR_VERSION,
+    WGL_CONTEXT_MINOR_VERSION_ARB, OPENGL_MINOR_VERSION,
+    WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+#if defined(DEBUG_OPENGL)
+    WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+#endif
+    0
+};
+
+const u32 NumOfWorkerThreads = 4;
+
 extern "C"
 {
     typedef const char*(APIENTRY wglGetExtensionsStringARBFn)(HDC);
@@ -69,6 +81,7 @@ struct WorkQueue {
 struct Win32ThreadInfo {
     u32 index;
     WorkQueue* queue;
+    HGLRC glrc;
 };
 
 struct Win32Context
@@ -85,6 +98,7 @@ struct Win32Context
     InputMode inputMode;
     LibraryData gameLib;
     WorkQueue workQueue;
+    HGLRC workersGLRC[NumOfWorkerThreads];
 
     // NOTE: WGL
     wglGetExtensionsStringARBFn* wglGetExtensionsStringARB;

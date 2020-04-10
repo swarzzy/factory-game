@@ -55,13 +55,12 @@ OpenGLLoadResult LoadOpenGL()
 
     printf("[Info] Loading OpenGL functions...\n");
     printf("[Info] Functions defined: %d\n", (int)OpenGL::FunctionCount);
-    printf("[Info] Function names described: %d\n", (int)array_count(OpenGL::FunctionNames));
+    printf("[Info] Loading functions...");
 
     b32 success = true;
     HMODULE glLibHandle = {};
     for (u32 i = 0; i < OpenGL::FunctionCount; i++)
     {
-        printf("[Info] Loading %s...\n", OpenGL::FunctionNames[i]);
         context->functions.raw[i] = OpenGLGetProcAddress(OpenGL::FunctionNames[i]);
         if (!context->functions.raw[i])
         {
@@ -76,14 +75,20 @@ OpenGLLoadResult LoadOpenGL()
             else
             {
                 context->functions.raw[i] = 0;
-                assert("[Error]: Failed to load OpenGL procedure: %s\n", OpenGL::FunctionNames[i]);
+                printf("\n[Error]: Failed to load OpenGL procedure: %s", OpenGL::FunctionNames[i]);
                 success = false;
             }
         }
     }
 
+    if (success) {
+        printf("   Done\n");
+    } else {
+        panic("Failed to load OpenGL functions");
+    }
+
     // NOTE: Querying extensions
-    printf("\n[Info] Loading OpenGL extensions...\n");
+    printf("[Info] Loading OpenGL extensions...");
     GLint numExtensions;
     context->functions.fn.glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
     for (i32x i = 0; i < numExtensions; i++)
@@ -132,6 +137,8 @@ OpenGLLoadResult LoadOpenGL()
     {
         printf("[Info] ARB_framebuffer_sRGB is not supported\n");
     }
+
+    printf("   Done.\n");
 
     if (success)
     {
@@ -876,6 +883,15 @@ LRESULT CALLBACK Win32WindowProc(HWND windowHandle, UINT message, WPARAM wParam,
     return result;
 }
 
+#if 0
+void Win32CreateGLContextForWorkerThread(u32 threadNum) {
+    HGLRC glrc = GlobalContext.wglCreateContextAttribsARB(GlobalContext.windowDC, GlobalContext.openGLRC, OpenGLContextAttribs);
+    panic(glrc, "[Error] Win32: failed to initialize OpenGL extended context (%lu)", HRESULT_CODE(GetLastError()));
+    auto resultMC = wglMakeCurrent(GlobalContext.windowDC, glrc);
+    panic(resultMC, "[Error] Win32: failed to initialize OpenGL extended context (%lu)", HRESULT_CODE(GetLastError()));
+}
+#endif
+
 void Win32Init(Win32Context* ctx)
 {
     ctx->wpPrev = {sizeof(WINDOWPLACEMENT)};
@@ -982,20 +998,20 @@ void Win32Init(Win32Context* ctx)
     panic(resultDPF, "[Error] Win32: failed to initialize OpenGL extended context.");
     SetPixelFormat(actualWindowDC, actualPixelFormatID, &actualPixelFormat);
 
-    int contextAttribs[] = {
-        WGL_CONTEXT_MAJOR_VERSION_ARB, OPENGL_MAJOR_VERSION,
-        WGL_CONTEXT_MINOR_VERSION_ARB, OPENGL_MINOR_VERSION,
-        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-
-#if defined(DEBUG_OPENGL)
-        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
-#endif
-        0
-    };
-
-    HGLRC actualGLRC = ctx->wglCreateContextAttribsARB(actualWindowDC,
-                                                       0, contextAttribs);
+    HGLRC actualGLRC = ctx->wglCreateContextAttribsARB(actualWindowDC, 0, OpenGLContextAttribs);
     panic(actualGLRC, "[Error] Win32: failed to initialize OpenGL extended context");
+
+    b32 supportsAsyncGPUTransfer = true;
+
+    for (u32 i = 0; i < NumOfWorkerThreads; i++) {
+        HGLRC glrc = ctx->wglCreateContextAttribsARB(actualWindowDC, actualGLRC, OpenGLContextAttribs);
+        if (!glrc) {
+            printf("[win32] Failed to initialize OpenGL context for worker thread. Error %lu\n", HRESULT_CODE(GetLastError()));
+            supportsAsyncGPUTransfer = false;
+            break;
+        }
+        ctx->workersGLRC[i] = glrc;
+    }
 
     wglMakeCurrent(0, 0);
     wglDeleteContext(fakeGLRC);
@@ -1008,6 +1024,7 @@ void Win32Init(Win32Context* ctx)
     ctx->windowHandle = actualWindowHandle;
     ctx->windowDC = actualWindowDC;
     ctx->openGLRC = actualGLRC;
+    ctx->state.supportsAsyncGPUTransfer = supportsAsyncGPUTransfer;
 
     ctx->Win32MouseTrackEvent.cbSize = sizeof(TRACKMOUSEEVENT);
     ctx->Win32MouseTrackEvent.dwFlags = TME_LEAVE;
@@ -1141,6 +1158,18 @@ void Win32CompleteAllWork(WorkQueue* queue) {
 DWORD WINAPI Win32ThreadProc(void* param) {
     auto threadInfo = (Win32ThreadInfo*)param;
     auto queue = threadInfo->queue;
+
+    // NOTE: This way of initializaing shared contexts appears to be working.
+    // Multiple context support for working threads in OpenGL seems to be super inconsistent
+    // so the way of creaing them should be carefully explored.
+    // Nvidia's way of creating contexts (http://on-demand.gputechconf.com/gtc/2012/presentations/S0356-GTC2012-Texture-Transfers.pdf)
+    // apperas not to be working.
+    auto windowDC = GetDC(GlobalContext.windowHandle);
+    auto result = wglMakeCurrent(windowDC, threadInfo->glrc);
+    if (!result) {
+        printf("[win32] Failed to make OpenGL context current for worker thread. Error %lu", HRESULT_CODE(GetLastError()));
+        _InterlockedExchange((long volatile*)&GlobalContext.state.supportsAsyncGPUTransfer, 0);
+    }
     while (true) {
         auto didSomeWork = Win32DoWorkerWork(queue, threadInfo->index);
         if (!didSomeWork) {
@@ -1162,36 +1191,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     auto app = &GlobalContext;
 
-    auto workQueue = &app->workQueue;
-
-    Win32ThreadInfo threadInfo[4];
-    auto semHandle = CreateSemaphoreEx(0, 0, array_count(threadInfo), nullptr, 0, SEMAPHORE_ALL_ACCESS);
-    workQueue->semaphore = semHandle;
-    for (u32x i = 0; i < array_count(threadInfo); i++) {
-        auto info = threadInfo + i;
-        DWORD threadId;
-        auto threadHandle = CreateThread(0, 0, Win32ThreadProc, (void*)info, CREATE_SUSPENDED, &threadId);
-        info->index = GetThreadId(threadHandle);
-        info->queue = workQueue;
-        ResumeThread(threadHandle);
-        CloseHandle(threadHandle);
-    }
-
-#if 0
-    PushString(workQueue, "String 0\n");
-    PushString(workQueue, "String 1\n");
-    PushString(workQueue, "String 2\n");
-    PushString(workQueue, "String 3\n");
-    PushString(workQueue, "String 4\n");
-    PushString(workQueue, "String 5\n");
-    PushString(workQueue, "String 6\n");
-    PushString(workQueue, "String 7\n");
-    PushString(workQueue, "String 8\n");
-    PushString(workQueue, "String 9\n");
-#endif
-
-    Win32CompleteAllWork(workQueue);
-
     UINT sleepGranularityMs = 1;
     auto granularityWasSet = (timeBeginPeriod(sleepGranularityMs) == TIMERR_NOERROR);
 
@@ -1204,6 +1203,24 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     Win32Init(app);
 
     app->wglSwapIntervalEXT(1);
+
+    auto workQueue = &app->workQueue;
+
+    Win32ThreadInfo threadInfo[NumOfWorkerThreads];
+    auto semHandle = CreateSemaphoreEx(0, 0, array_count(threadInfo), nullptr, 0, SEMAPHORE_ALL_ACCESS);
+    workQueue->semaphore = semHandle;
+    for (u32x i = 0; i < array_count(threadInfo); i++) {
+        auto info = threadInfo + i;
+        DWORD threadId;
+        auto threadHandle = CreateThread(0, 0, Win32ThreadProc, (void*)info, CREATE_SUSPENDED, &threadId);
+        info->index = GetThreadId(threadHandle);
+        info->queue = workQueue;
+        info->glrc = app->workersGLRC[i];
+        ResumeThread(threadHandle);
+        CloseHandle(threadHandle);
+    }
+
+    Win32CompleteAllWork(workQueue);
 
     OpenGLLoadResult glResult = LoadOpenGL();
     panic(glResult.success, "Failed to load OpenGL functions");

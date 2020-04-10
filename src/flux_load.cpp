@@ -189,6 +189,10 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         ImGui::SetCurrentContext(platform->imguiContext);
         _GlobalPlatform = platform;
 
+        //platform->supportsAsyncGPUTransfer = false;
+
+        printf("[Info] Asynchronous GPU memory transfer supported: %s\n", platform->supportsAsyncGPUTransfer ? "true" : "false");
+
         platform->gameSpeed = 1.0f;
 
 #if defined(DEBUG_OPENGL)

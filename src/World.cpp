@@ -29,31 +29,6 @@ void DebugFillChunk(Chunk* chunk) {
     }
 }
 
-void ClaimFurthestChunkMesh(GameWorld* world, Chunk* chunk) {
-    u32 furthestDistSq = 0;
-    u32 index;
-    for (u32x i = 0; i < array_count(world->chunkMeshPool); i++) {
-        auto entry = world->chunkMeshPool + i;
-        if (!entry->chunk) {
-            index = i;
-            break;
-        }
-        iv3 p = entry->chunk->p;
-        u32 distSq = LengthSq(chunk->p - p);
-        if (distSq > furthestDistSq) {
-            furthestDistSq = distSq;
-            index = i;
-        }
-    }
-
-    auto furthestRecord = world->chunkMeshPool + index;
-    if (furthestRecord->chunk) {
-        furthestRecord->chunk->mesh = nullptr;
-    }
-    FreeChunkMesh(world->mesher, &furthestRecord->mesh);
-    furthestRecord->chunk = chunk;
-    chunk->mesh = &furthestRecord->mesh;
-}
 
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z) {
     Voxel* result = &chunk->voxels[x + Chunk::Size * y + Chunk::Size * Chunk::Size * z];

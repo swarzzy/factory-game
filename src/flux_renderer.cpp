@@ -226,6 +226,7 @@ void UploadToGPU(ChunkMesh* mesh) {
     GLuint handle = mesh->gpuHandle;
     glBindBuffer(GL_ARRAY_BUFFER, handle);
     uptr size = mesh->vertexCount * ChunkMesh::VertexSize;
+    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
     glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_STATIC_DRAW);
     void* ptr = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 

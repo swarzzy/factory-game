@@ -1,6 +1,6 @@
 #pragma once
 
-u32 AtomicCompareExhange(u32 volatile* dest, u32 comp, u32 newValue);
+u32 AtomicCompareExchange(u32 volatile* dest, u32 comp, u32 newValue);
 u32 AtomicExchange(u32 volatile* dest, u32 value);
 u32 AtomicIncrement(u32 volatile* dest);
 

@@ -67,6 +67,9 @@ void FluxReload(Context* context) {
 }
 
 void FluxUpdate(Context* context) {
+    if (GlobalAbsDeltaTime > 0.02f) {
+    printf("Frame time: %f\n", GlobalAbsDeltaTime);
+    }
     auto ui = &context->ui;
     auto world = context->world;
     auto renderer = context->renderer;
@@ -205,14 +208,6 @@ void FluxUpdate(Context* context) {
         }
     }
 
-    auto camChunkPos = ChunkPosFromWorldPos(camera->targetWorldPosition.voxel);
-    auto playerChunk = GetChunk(&context->gameWorld, camChunkPos.chunk.x, camChunkPos.chunk.y, camChunkPos.chunk.z);
-    if (!playerChunk) {
-        auto addedChunk = AddChunk(&context->gameWorld, camChunkPos.chunk);
-        DebugFillChunk(addedChunk);
-        addedChunk = AddChunk(&context->gameWorld, camChunkPos.chunk - IV3(0, 1, 0));
-        DebugFillChunk(addedChunk);
-    }
 
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->freeBlockCount);
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->totalBlockCount);

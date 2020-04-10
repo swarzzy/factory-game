@@ -1,5 +1,7 @@
 #include "MeshGenerator.h"
 
+#include "flux_intrinsics.h"
+
 bool IsVoxelOccluder(Chunk* chunk, i32 x, i32 y, i32 z) {
     bool occluder = false;
     // NOTE: Assuming blocks on chunk edges always visible
@@ -11,8 +13,22 @@ bool IsVoxelOccluder(Chunk* chunk, i32 x, i32 y, i32 z) {
     return occluder;
 }
 
+void ChunkMesherLock(ChunkMesher* mesher) {
+    while (true) {
+        if (AtomicCompareExchange(&mesher->freeListLock, 0, 1) == 0) {
+            break;
+        }
+    }
+}
+
+void ChunkMesherUnlock(ChunkMesher* mesher) {
+    WriteFence();
+    mesher->freeListLock = 0;
+}
+
 ChunkMeshBlock* GetChunkMeshBlock(ChunkMesher* mesher) {
     ChunkMeshBlock* block;
+    ChunkMesherLock(mesher);
     if (mesher->freeBlockCount) {
         assert(mesher->freeBlockList);
         block = mesher->freeBlockList;
@@ -22,6 +38,7 @@ ChunkMeshBlock* GetChunkMeshBlock(ChunkMesher* mesher) {
         block = (ChunkMeshBlock*)PlatformAlloc(sizeof(ChunkMeshBlock));
         mesher->totalBlockCount++;
     }
+    ChunkMesherUnlock(mesher);
 
     block->next = nullptr;
     block->prev = nullptr;
@@ -30,9 +47,11 @@ ChunkMeshBlock* GetChunkMeshBlock(ChunkMesher* mesher) {
 }
 
 void FreeChunkMeshBlock(ChunkMesher* mesher, ChunkMeshBlock* block) {
+    ChunkMesherLock(mesher);
     block->next = mesher->freeBlockList;
     mesher->freeBlockList = block;
     mesher->freeBlockCount++;
+    ChunkMesherUnlock(mesher);
 }
 
 void FreeChunkMesh(ChunkMesher* mesher, ChunkMesh* mesh) {
@@ -128,4 +147,65 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
             }
         }
     }
+}
+
+void ClaimFurthestChunkMesh(ChunkMesher* mesher, Chunk* chunk) {
+    // TODO: If new and old chunk are currently drawn we should not reclaim that mesh
+    // in order to avoid them ping-ponging each other
+    u32 furthestDistSq = 0;
+    u32 index;
+    for (u32x i = 0; i < array_count(mesher->chunkMeshPool); i++) {
+        auto entry = mesher->chunkMeshPool + i;
+        if (!entry->chunk) {
+            index = i;
+            break;
+        }
+        // TODO: Make shure this read is atomic on all platforms
+        if (entry->mesh.state != ChunkMesh::State::Queued) {
+            iv3 p = entry->chunk->p;
+            u32 distSq = LengthSq(chunk->p - p);
+            if (distSq > furthestDistSq) {
+                furthestDistSq = distSq;
+                index = i;
+            }
+        }
+    }
+
+    auto furthestRecord = mesher->chunkMeshPool + index;
+    if (furthestRecord->chunk) {
+        furthestRecord->chunk->mesh = nullptr;
+    }
+    FreeChunkMesh(mesher, &furthestRecord->mesh);
+    furthestRecord->chunk = chunk;
+    chunk->mesh = &furthestRecord->mesh;
+    chunk->mesh->state = ChunkMesh::State::Empty;
+}
+
+void ChunkMesherWork(void* data, u32 threadID) {
+    auto chunk = (Chunk*)data;
+    auto mesh = chunk->mesh;
+    GenMesh(mesh->mesher, chunk);
+    assert(mesh->state == ChunkMesh::State::Queued);
+    if (GlobalPlatform.supportsAsyncGPUTransfer) {
+        if (chunk->mesh->vertexCount) {
+            UploadToGPU(chunk->mesh);
+        }
+        // TODO: Make shure this read is atomic on all platforms
+        mesh->state = ChunkMesh::State::Complete;
+    } else {
+        mesh->state = ChunkMesh::State::ReadyForGPUTransfer;
+    }
+}
+
+void ScheduleChunkMeshing(ChunkMesher* mesher, Chunk* chunk) {
+    assert(!chunk->mesh);
+    ClaimFurthestChunkMesh(mesher, chunk);
+    auto mesh = chunk->mesh;
+    assert(mesh->state == ChunkMesh::State::Empty);
+    mesh->state = ChunkMesh::State::Queued;
+    mesh->mesher = mesher;
+    // TODO: Do we need fence here?
+    WriteFence();
+    // TODO: Spin-locking here for now. We should handle the case when platform queue is full propperly
+    while (!PlatformPushWork(GlobalPlaformWorkQueue, chunk, ChunkMesherWork)) {}
 }

@@ -1,8 +1,10 @@
 #pragma once
 
-#include "MeshGenerator.h"
 #include "flux_hash_map.h"
 #include "Region.h"
+
+struct ChunkMesh;
+struct ChunkMesher;
 
 struct WorldPos {
     iv3 voxel;
@@ -57,20 +59,13 @@ bool ChunkHashCompFunc(void* a, void* b) {
     return result;
 }
 
-struct ChunkMeshRecord {
-    Chunk* chunk;
-    ChunkMesh mesh;
-};
-
 struct GameWorld {
     HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc> chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
     // TODO: Dynamic view distance
     static const u32 ViewDistance = 4;
     ChunkMesher* mesher;
-    ChunkMeshRecord chunkMeshPool[RegionBlockCount(ViewDistance) + 16];
 };
 
-void ClaimFurthestChunkMesh(GameWorld* world, Chunk* chunk);
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z);
 Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z);
 
