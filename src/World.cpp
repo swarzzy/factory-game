@@ -119,3 +119,11 @@ ChunkPos ChunkPosFromWorldPos(iv3 tile) {
     result = ChunkPos{c, t};
     return result;
 }
+
+WorldPos WorldPosFromChunkPos(ChunkPos p) {
+    WorldPos result = {};
+    result.voxel.x = p.chunk.x * Chunk::Size + p.voxel.x;
+    result.voxel.y = p.chunk.y * Chunk::Size + p.voxel.y;
+    result.voxel.z = p.chunk.z * Chunk::Size + p.voxel.z;
+    return result;
+}

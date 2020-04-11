@@ -5,8 +5,40 @@
 
 #include "Region.h"
 
+#include <stdlib.h>
+
+#if 0
+struct Noise {
+    static const u32 BitShift = 4;
+    static const u32 BitMask = (1 << BitShift) - 1;
+    static const u32 Size = 1 << BitShift;
+    f32 values[Size];
+};
+
+Noise CreateNoise(u32 seed) {
+    Noise noise;
+    srand(seed);
+    for (u32x i = 0; i < Noise::Size; i++) {
+        noise.values[i] = rand() / (f32)RAND_MAX;
+    }
+    return noise;
+}
+
+f32 Sample(Noise* noise, float x) {
+    i32 xi = (i32)x;
+    i32 p = xi & Noise::BitMask;
+    i32 pn = (p == (Noise::Size - 1)) ? 0 : p + 1;
+    f32 t = x - xi;
+    t = SmoothStep(0.0f, 1.0f, t);
+    f32 result = Lerp(noise->values[p], noise->values[pn], t);
+    return result;
+}
+#endif
+
 void FluxInit(Context* context) {
     AssetManager::Init(&context->assetManager, context->renderer);
+
+    RunNoise2DTest();
 
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
@@ -35,11 +67,24 @@ void FluxInit(Context* context) {
         strcpy_s(context->world->name, array_count(context->world->name), DefaultWorld);
     }
     auto gameWorld = &context->gameWorld;
-    gameWorld->mesher = &context->chunkMesher;
+    gameWorld->Init(&context->chunkMesher, 234234);
 
     auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc);
     SetVoxelTexture(context->renderer, VoxelValue::Stone, stone->bits);
-
+#if 0
+    u32 size = 3 * 256 * 256;
+    auto bitmap = (byte*)PlatformAlloc(size);
+    auto noise = CreateNoise2D(2342);
+    for (u32 y = 0; y < 256; y++) {
+        for (u32 x = 0; x < 256; x++) {
+            auto ptr = bitmap + (y * 256 + x) * 3;
+            byte n = (byte)(Sample(&noise, (f32)(x / 20.0f), (f32)(y / 20.0f)) * 255.0f);
+            ptr[0] = n;
+            ptr[1] = n;
+            ptr[2] = n;
+        }
+    }
+#endif
     auto grass = ResourceLoaderLoadImage("../res/tile_grass.png", DynamicRange::LDR, true, 3, PlatformAlloc);
     SetVoxelTexture(context->renderer, VoxelValue::Grass, grass->bits);
 
@@ -153,7 +198,7 @@ void FluxUpdate(Context* context) {
     light.dir = Normalize(V3(0.3f, -1.0f, -0.95f));
     light.from = V3(4.0f, 200.0f, 0.0f);
     light.ambient = V3(0.3f);
-    light.diffuse = V3(5.8f);
+    light.diffuse = V3(1.0f);
     light.specular = V3(1.0f);
     RenderCommandSetDirLight lightCommand = { light };
     Push(group, &lightCommand);

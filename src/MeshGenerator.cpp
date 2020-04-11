@@ -149,7 +149,7 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
     }
 }
 
-void ClaimFurthestChunkMesh(ChunkMesher* mesher, Chunk* chunk) {
+void ClaimFurthestChunkMesh(GameWorld* world, ChunkMesher* mesher, Chunk* chunk) {
     // TODO: If new and old chunk are currently drawn we should not reclaim that mesh
     // in order to avoid them ping-ponging each other
     u32 furthestDistSq = 0;
@@ -175,8 +175,15 @@ void ClaimFurthestChunkMesh(ChunkMesher* mesher, Chunk* chunk) {
     auto furthestRecord = mesher->chunkMeshPool + index;
     furthestRecord->mesh.poolIndex = index;
     if (furthestRecord->chunk) {
+        auto chunkToDelete = furthestRecord->chunk;
         furthestRecord->chunk->mesh = nullptr;
+        // TODO: HACK: Temporary deleting evicted and not modified by player chunks here
+        if (chunk && !chunk->modified) {
+            Delete(&world->chunkHashMap, &chunkToDelete->p);
+            PlatformFree(chunkToDelete);
+        }
     }
+
     FreeChunkMesh(mesher, &furthestRecord->mesh);
     furthestRecord->chunk = chunk;
     chunk->mesh = &furthestRecord->mesh;
@@ -255,9 +262,9 @@ void ChunkMesherWork(void* data, u32 threadID) {
     }
 }
 
-void ScheduleChunkMeshing(ChunkMesher* mesher, Chunk* chunk) {
+void ScheduleChunkMeshing(GameWorld* world, ChunkMesher* mesher, Chunk* chunk) {
     assert(!chunk->mesh);
-    ClaimFurthestChunkMesh(mesher, chunk);
+    ClaimFurthestChunkMesh(world, mesher, chunk);
     auto mesh = chunk->mesh;
     assert(mesh->state == ChunkMesh::State::Empty);
     mesh->state = ChunkMesh::State::Queued;

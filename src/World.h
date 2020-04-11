@@ -2,6 +2,7 @@
 
 #include "flux_hash_map.h"
 #include "Region.h"
+#include "WorldGen.h"
 
 struct ChunkMesh;
 struct ChunkMesher;
@@ -33,11 +34,11 @@ struct Voxel {
 };
 
 struct Chunk {
-    static const u32 BitShift = 6;
+    static const u32 BitShift = 5;
     static const u32 BitMask = (1 << BitShift) - 1;
     static const u32 Size = 1 << BitShift;
 
-    b32 changedByPlayer;
+    b32 modified;
     iv3 p;
     ChunkMesh* mesh;
     Voxel voxels[Size * Size * Size];
@@ -61,10 +62,17 @@ bool ChunkHashCompFunc(void* a, void* b) {
 }
 
 struct GameWorld {
-    HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc> chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
+    HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc> chunkHashMap;
     // TODO: Dynamic view distance
     static const u32 ViewDistance = 4;
+    WorldGen worldGen;
     ChunkMesher* mesher;
+
+    void Init(ChunkMesher* mesher, u32 seed) {
+        this->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
+        this->mesher = mesher;
+        this->worldGen.Init(seed);
+    }
 };
 
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z);
@@ -87,3 +95,4 @@ iv3 GetChunkCoord(i32 x, i32 y, i32 z);
 uv3 GetVoxelCoordInChunk(i32 x, i32 y, i32 z);
 
 ChunkPos ChunkPosFromWorldPos(iv3 tile);
+WorldPos WorldPosFromChunkPos(ChunkPos p);

@@ -109,6 +109,11 @@ namespace F32 {
     constexpr f32 Min = FLT_MIN;
 };
 
+namespace I32 {
+    constexpr i32 Max = INT32_MAX;
+    constexpr i32 Min = INT32_MIN;
+}
+
 namespace U32 {
     constexpr u32 Max = 0xffffffff;
 }

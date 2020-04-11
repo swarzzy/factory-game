@@ -55,6 +55,12 @@ constexpr f32 Lerp(T a, T b, f32 t) {
     return (1.0f - t) * a + t * b;
 }
 
+f32 SmoothStep(f32 e0, f32 e1, f32 x) {
+    f32 t = Saturate((x - e0) / (e1 - e0));
+    f32 result = t * t * (3.0f - 2.0f * t);
+    return result;
+}
+
 constexpr f32 ToDeg(f32 rad) {
     return 180.0f / F32::Pi * rad;
 }

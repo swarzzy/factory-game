@@ -26,10 +26,10 @@ Region BeginRegion(GameWorld* world, iv3 origin, i32 dim) {
                     generated = true;
                     chunk = AddChunk(world, IV3(x, y, z));
                     assert(chunk);
-                    DebugFillChunk(chunk);
+                    GenChunk(&world->worldGen, chunk);
                 }
                 if (!chunk->mesh) {
-                    ScheduleChunkMeshing(world->mesher, chunk);
+                    ScheduleChunkMeshing(world, world->mesher, chunk);
                 }
                 if (!GlobalPlatform.supportsAsyncGPUTransfer) {
                     if (chunk->mesh) {
@@ -63,7 +63,7 @@ Region BeginRegion(GameWorld* world, iv3 origin, i32 dim) {
             for (i32 x = regionBegin.x; x <= regionEnd.x; x++) {
                 auto chunk = GetChunk(world, x, y, z);
                 if (!chunk->mesh) {
-                    ScheduleChunkMeshing(world->mesher, chunk);
+                    ScheduleChunkMeshing(world, world->mesher, chunk);
                 }
             }
         }

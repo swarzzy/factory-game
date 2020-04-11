@@ -55,7 +55,7 @@ void Update(Camera* camera, f32 dt) {
     camera->targetDistance -= camera->frameScrollOffset * camera->zoomSpeed * dt;
     camera->frameScrollOffset = {};
 
-    camera->targetDistance = Clamp(camera->targetDistance, 5.0f, 50.0f);
+    camera->targetDistance = Clamp(camera->targetDistance, 5.0f, 100.0f);
     camera->targetOrbit.y = Clamp(camera->targetOrbit.y, 95.0f, 170.0f);
 
     camera->latitude = Lerp(camera->latitude, camera->targetOrbit.y, dt * camera->latSmooth);
