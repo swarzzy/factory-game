@@ -3,9 +3,9 @@
 #error gl/gl.h included somewhere
 #endif
 
-#include "flux_glcorearb.h"
+#include "glcorearb.h"
 
-#include "flux_platform.h"
+#include "Platform.h"
 
 // NOTE: Extensions
 // ARB_texture_filter_anisotropic

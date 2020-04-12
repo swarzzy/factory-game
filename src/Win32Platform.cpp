@@ -7,7 +7,8 @@
 #define _UNICODE
 #endif
 
-#include "win32_flux_platform.h"
+#include "Win32Platform.h"
+#include "Memory.h"
 
 #include <intrin.h>
 #include <timeapi.h>
@@ -1063,7 +1064,7 @@ void GetExecutablePath(TCHAR* buffer, u32 bufferSizeBytes, u32* bytesWritten)
 #if defined(COMPILER_MSVC)
 __declspec(restrict)
 #endif
-void* Allocate(uptr size)
+void* Allocate(uptr size, uptr alignment, void* data)
 {
     auto memory = malloc(size);
     assert(memory);
@@ -1071,7 +1072,7 @@ void* Allocate(uptr size)
     return memory;
 }
 
-void Deallocate(void* ptr)
+void Deallocate(void* ptr, void* data)
 {
     //printf("[Platform] Deallocating memory at address %llu\n", (u64)ptr);
     free(ptr);
@@ -1101,8 +1102,8 @@ void LoadResourceLoader(Win32Context* context)
     assert(context->state.functions.ResourceLoaderValidateImageFile);
 }
 
-void* ImguiAllocWrapper(size_t size, void* _) { return Allocate((uptr)size); }
-void ImguiFreeWrapper(void* ptr, void*_) { Deallocate(ptr); }
+void* ImguiAllocWrapper(size_t size, void* _) { return Allocate((uptr)size, 0, nullptr); }
+void ImguiFreeWrapper(void* ptr, void*_) { Deallocate(ptr, nullptr); }
 
 #include "../ext/imgui/imgui_impl_opengl3.h"
 
@@ -1182,8 +1183,25 @@ DWORD WINAPI Win32ThreadProc(void* param) {
     }
 }
 
-void PushString(WorkQueue* queue, const char* string) {
-    while (!Win32PushWork(queue, (void*)string, [](void* data, u32) { printf("%s", (const char*)data); })) { Sleep(3); };
+MemoryArena* Win32AllocateArena(uptr size) {
+    uptr headerSize = sizeof(MemoryArena);
+    void* mem = VirtualAlloc(0, size + headerSize,
+                             MEM_RESERVE | MEM_COMMIT,
+                             PAGE_READWRITE);
+    assert(mem, "Allocation failed");
+    assert((uptr)mem % 128 == 0, "Memory aligment violation");
+    MemoryArena header = {};
+    header.free = size;
+    header.size = size;
+    header.begin = (void*)((byte*)mem + headerSize);
+    memcpy(mem, &header, sizeof(MemoryArena));
+    return (MemoryArena*)mem;
+}
+
+void Win32FreeArena(MemoryArena* arena) {
+    void* base = (void*)((byte*)arena->begin - sizeof(MemoryArena));
+    auto result = VirtualFree(base, 0, MEM_RELEASE);
+    assert(result);
 }
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCmd)
@@ -1245,6 +1263,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     app->state.functions.Allocate = Allocate;
     app->state.functions.Deallocate = Deallocate;
     app->state.functions.Reallocate = Reallocate;
+
+    app->state.functions.AllocateArena = Win32AllocateArena;
+    app->state.functions.FreeArena = Win32FreeArena;
 
     app->state.functions.PushWork = Win32PushWork;
     app->state.functions.CompleteAllWork = Win32CompleteAllWork;
@@ -1363,7 +1384,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     }
 }
 
-#include "win32_flux_code_loader.cpp"
+#include "Win32CodeLoader.cpp"
 
 // Functions used by imgui
 

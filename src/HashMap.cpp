@@ -1,4 +1,4 @@
-#include "flux_hash_map.h"
+#include "HashMap.h"
 
 hash_map_template_decl
 void Drop(hash_map_template* map) {
@@ -41,7 +41,7 @@ void Grow(hash_map_template* map) {
             *v = oldBucket->value;
         }
     }
-    PlatformFree(map->table);
+    PlatformFree(map->table, nullptr);
     map->table = newMap.table;
     map->size = newSize;
 }

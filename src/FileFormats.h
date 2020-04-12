@@ -1,5 +1,5 @@
 #pragma once
-#include "flux_platform.h"
+#include "Common.h"
 
 #pragma pack(push, 1)
 

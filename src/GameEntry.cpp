@@ -1,5 +1,6 @@
-#include "flux_platform.h"
-#include "flux.h"
+#include "Platform.h"
+#include "Game.h"
+#include "Memory.h"
 
 #define DEBUG_OPENGL
 // NOTE: Defined only in debug build
@@ -50,9 +51,11 @@ bool MouseButtonPressed(MouseButton button) {
 #define ResourceLoaderLoadImage platform_call(ResourceLoaderLoadImage)
 #define ResourceLoaderValidateImageFile platform_call(ResourceLoaderValidateImageFile)
 #define PlatformGetTimeStamp platform_call(GetTimeStamp)
+#define PlatformAllocateArena platform_call(AllocateArena)
+#define PlatformFreeArena platform_call(FreeArena)
 
 void* PlatformAllocClear(uptr size) {
-    void* memory = PlatformAlloc(size);
+    void* memory = PlatformAlloc(size, 0, nullptr);
     memset(memory, 0, size);
     return memory;
 }
@@ -171,16 +174,16 @@ void* PlatformAllocClear(uptr size) {
 #define glClientWaitSync gl_call(glClientWaitSync)
 #define glFenceSync gl_call(glFenceSync)
 #define glDeleteSync gl_call(glDeleteSync)
-#include "flux_memory.h"
+#include "Memory.h"
 // NOTE: Libs
 
-void* PlatformCalloc(uptr num, uptr size) { void* ptr = PlatformAlloc(num * size); memset(ptr, 0, num * size); return ptr; }
+void* PlatformCalloc(uptr num, uptr size) { void* ptr = PlatformAlloc(num * size, 0, nullptr); memset(ptr, 0, num * size); return ptr; }
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "../ext/imgui/imgui.h"
 
-void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size); }
-void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr); }
+void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size, 0, nullptr); }
+void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr, nullptr); }
 
 #include "../ext/imgui/imgui_internal.h"
 
@@ -205,15 +208,20 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, 0, GL_FALSE);
         glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_OTHER, GL_DEBUG_SEVERITY_LOW, 0, 0, GL_FALSE);
 #endif
-        auto contextMemory = PlatformAlloc(sizeof(Context));
         // NOTE: Looks like this syntax actually incorrect and somehow leads to stack owerflow in this case!
         //*context = {};
+        auto gameArena = PlatformAllocateArena(Megabytes(1024));
+        auto tempArena = AllocateSubArena(gameArena, gameArena->size / 2, true);
+        auto contextMemory = PushSize(gameArena, sizeof(Context));
         auto context = new(contextMemory) Context();
         *data = context;
+        context->gameArena = gameArena;
+        context->tempArena = tempArena;
 
-        context->renderer = InitializeRenderer(UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), 8);
+        context->renderer = InitializeRenderer(gameArena, tempArena, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), 8);
+
         //context->renderer->clearColor = V4(0.8f, 0.8f, 0.8f, 1.0f);
-        context->renderGroup = RenderGroup::Make(Megabytes(10), 16384 * 2 * 2);
+        context->renderGroup = RenderGroup::Make(gameArena, Megabytes(1), 8192);
 
         FluxInit(context);
     } break;
@@ -227,7 +235,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         glDebugMessageCallback(OpenglDebugCallback, 0);
 #endif
-        RecompileShaders(context->renderer);
+        RecompileShaders(context->tempArena, context->renderer);
         printf("[Info] Game was hot-reloaded\n");
         FluxReload(context);
     } break;
@@ -276,18 +284,16 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
     printf("[OpenGL] Debug message (source: %s, type: %s, severity: %s): %s\n", sourceStr, typeStr, severityStr, message);
 }
 
-#include "flux.cpp"
-#include "flux_math.cpp"
-#include "flux_debug_overlay.cpp"
-#include "flux_camera.cpp"
-#include "flux_render_group.cpp"
-#include "flux_renderer.cpp"
-#include "flux_shaders.cpp"
-#include "flux_world.cpp"
-#include "flux_ui.cpp"
-#include "flux_resource_manager.cpp"
-#include "flux_memory.cpp"
-#include "flux_hash_map.cpp"
+#include "Game.cpp"
+#include "Math.cpp"
+#include "DebugOverlay.cpp"
+#include "Camera.cpp"
+#include "RenderGroup.cpp"
+#include "Renderer.cpp"
+#include "Resource.cpp"
+#include "Shaders.cpp"
+#include "Memory.cpp"
+#include "HashMap.cpp"
 
 #include "World.cpp"
 #include "MeshGenerator.cpp"
@@ -301,7 +307,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #else
 #error Unsupported OS
 #endif
-#include "flux_intrinsics.cpp"
+#include "Intrinsics.cpp"
 
 #include "../ext/imgui/imconfig.h"
 #include "../ext/imgui/imgui.cpp"

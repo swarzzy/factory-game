@@ -1,6 +1,5 @@
 #pragma once
-#include "flux_renderer.h"
-#include "flux_world.h"
+#include "Renderer.h"
 
 struct DirectionalLight {
     v3 from;
@@ -16,7 +15,6 @@ enum struct RenderCommand : u32 {
     LineBegin,
     LinePushVertex,
     LineEnd,
-    DrawWater,
     BeginChunkBatch,
     PushChunk,
     EndChunkBatch
@@ -37,16 +35,11 @@ struct RenderCommandPushChunk {
     v3 offset;
 };
 
-struct RenderCommandDrawWater {
-    m4x4 transform;
-    Mesh* mesh;
-};
-
 struct RenderCommandDrawMesh {
     m4x4 transform;
-    u32 meshID;
+    Mesh* mesh;
     // TODO: Pointer?
-    Material material;
+    Material* material;
     enum DrawMeshFlags : u32 { Highlight, Wireframe } flags;
 };
 
@@ -95,7 +88,7 @@ struct RenderGroup {
     u32 irradanceMapHandle;
     u32 envMapHandle;
 
-    static RenderGroup Make(uptr renderBufferSize, u32 commandQueueCapacity);
+    static RenderGroup Make(MemoryArena* arena, uptr renderBufferSize, u32 commandQueueCapacity);
 };
 
 void Push(RenderGroup* group, RenderCommandDrawMesh* command);
@@ -103,7 +96,6 @@ void Push(RenderGroup* group, RenderCommandSetDirLight* command);
 void Push(RenderGroup* group, RenderCommandLineBegin* command);
 void Push(RenderGroup* group, RenderCommandPushLineVertex* command);
 void Push(RenderGroup* group, RenderCommandLineEnd* command);
-void Push(RenderGroup* group, RenderCommandDrawWater* command);
 void Push(RenderGroup* group, RenderCommandBeginChunkBatch* command);
 void Push(RenderGroup* group, RenderCommandPushChunk* command);
 void Push(RenderGroup* group, RenderCommandEndChunkBatch* command);

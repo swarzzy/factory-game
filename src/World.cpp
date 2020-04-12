@@ -1,5 +1,5 @@
 #include "World.h"
-#include "flux_renderer.h"
+#include "Renderer.h"
 
 void DebugFillChunk(Chunk* chunk) {
     if (chunk->p.y == 0) {
@@ -44,7 +44,7 @@ Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z) {
 }
 
 Chunk* AddChunk(GameWorld* world, iv3 coord) {
-    auto chunk = (Chunk*)PlatformAlloc(sizeof(Chunk));
+    auto chunk = (Chunk*)PlatformAlloc(sizeof(Chunk), 0, nullptr);
     memset(chunk, 0 , sizeof(Chunk));
     chunk->p = coord;
     auto entry = Add(&world->chunkHashMap, &chunk->p);

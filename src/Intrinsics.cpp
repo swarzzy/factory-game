@@ -1,4 +1,4 @@
-#include "flux_intrinsics.h"
+#include "Intrinsics.h"
 
 #if defined(PLATFORM_WINDOWS)
 

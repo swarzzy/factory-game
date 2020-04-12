@@ -1,4 +1,4 @@
-#include "flux_debug_overlay.h"
+#include "DebugOverlay.h"
 
 void DrawDebugPerformanceCounters() {
     const float DISTANCE = 10.0f;

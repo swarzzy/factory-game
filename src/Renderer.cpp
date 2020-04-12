@@ -1,9 +1,10 @@
-#include "flux_renderer.h"
+#include "Renderer.h"
 
 #include "World.h"
+#include "Resource.h"
 
-#include "flux_std140.h"
-#include "flux_shaders.h"
+#include "Std140.h"
+#include "Shaders.h"
 
 struct Renderer {
     union {
@@ -65,13 +66,14 @@ struct Renderer {
     b32 debugG;
     b32 debugNormals;
 
-    static constexpr u32 TextureTransferBufferCount = array_count(typedecl(AssetManager, assetQueue));
+    static constexpr u32 TextureTransferBufferCount = 32;
     u32 textureTransferBuffersUsageCount;
     b32 textureTransferBuffersUsage[TextureTransferBufferCount];
     GLuint textureTransferBuffers[TextureTransferBufferCount];
 
     Material fallbackPhongMaterial;
     Material fallbackMetallicMaterial;
+
     // TODO: Check is using 0 handle has consistant behavior on all GPUs
     // Maybe we need to create some placeholder texture here
     GLuint nullTexture2D = 0;
@@ -523,12 +525,12 @@ void ChangeRenderResolution(Renderer* renderer, uv2 newRes, u32 newSampleCount) 
     }
 }
 
-Renderer* InitializeRenderer(uv2 renderRes, u32 sampleCount) {
+Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 renderRes, u32 sampleCount) {
     Renderer* renderer = nullptr;
-    renderer = (Renderer*)PlatformAlloc(sizeof(Renderer));
+    renderer = (Renderer*)PushSize(arena, sizeof(Renderer));
     *renderer = {};
 
-    RecompileShaders(renderer);
+    RecompileShaders(tempArena, renderer);
 
     GLint maxSamples = 1;
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
@@ -662,8 +664,9 @@ Renderer* InitializeRenderer(uv2 renderRes, u32 sampleCount) {
         glBindTexture(GL_TEXTURE_1D, renderer->randomValuesTexture);
         defer { glBindTexture(GL_TEXTURE_1D, 0); };
 
-        u8* randomTextureBuffer = (u8*)PlatformAlloc(sizeof(u8) * Renderer::RandomValuesTextureSize);
-        defer { PlatformFree(randomTextureBuffer); };
+        auto tempMemory = BeginTemporaryMemory(tempArena);
+        defer { EndTemporaryMemory(&tempMemory); };
+        u8* randomTextureBuffer = (u8*)PushSize(tempArena, sizeof(u8) * Renderer::RandomValuesTextureSize);
         RandomSeries series = {};
         for (u32x i = 0; i < Renderer::RandomValuesTextureSize; i++)
         {
@@ -801,14 +804,14 @@ void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHand
 #endif
 
     // TODO: Make this constexpr
-    static auto projInv = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f)).Unwrap();
+    static auto projInv = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f));
     static m3x3 capViews[] = {
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f)))),
     };
 
     auto prog = renderer->shaders.IrradanceConvolver;
@@ -850,14 +853,14 @@ void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sour
     assert(t->useMips);
     assert(t->filter == TextureFilter::Trilinear);
 
-    const m4x4 capProj = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f)).Unwrap();
+    const m4x4 capProj = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f));
     const m3x3 capViews[] = {
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f)))),
     };
 
     auto prog = renderer->shaders.EnvMapPrefilter;
@@ -914,7 +917,7 @@ void DrawSkybox(Renderer* renderer, RenderGroup* group, const m4x4* invView, con
 }
 
 m3x3 MakeNormalMatrix(m4x4 model) {
-    auto inverted= Inverse(model).Unwrap();
+    auto inverted= Inverse(model);
     inverted = Transpose(inverted);
     auto normal = M3x3(inverted);
     return normal;
@@ -1044,7 +1047,7 @@ m4x4 CalcShadowProjection(const CameraBase* camera, f32 nearPlane, f32 farPlane,
     return result;
 }
 
-void RenderShadowMap(Renderer* renderer, RenderGroup* group, AssetManager* manager) {
+void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
     if (group->commandQueueAt) {
         auto shader = renderer->shaders.Shadow;
         for (u32 i = 0; i < group->commandQueueAt; i++) {
@@ -1057,7 +1060,7 @@ void RenderShadowMap(Renderer* renderer, RenderGroup* group, AssetManager* manag
             case RenderCommand::DrawMesh: {
                 auto* data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
 
-                auto mesh = GetMesh(manager, data->meshID);
+                auto mesh = data->mesh;
                 if (mesh) {
                     auto normalMatrix = MakeNormalMatrix(data->transform);
 
@@ -1084,7 +1087,7 @@ void RenderShadowMap(Renderer* renderer, RenderGroup* group, AssetManager* manag
     }
 }
 
-void ShadowPass(Renderer* renderer, RenderGroup* group, AssetManager* manager) {
+void ShadowPass(Renderer* renderer, RenderGroup* group) {
     auto light = &group->dirLight;
     auto camera = group->camera;
 
@@ -1104,11 +1107,11 @@ void ShadowPass(Renderer* renderer, RenderGroup* group, AssetManager* manager) {
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->shadowMapFramebuffers[cascadeIndex]);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glUniform1i(ShadowPassShader::CascadeIndexLocation, cascadeIndex);
-        RenderShadowMap(renderer, group, manager);
+        RenderShadowMap(renderer, group);
     }
 }
 
-void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager) {
+void MainPass(Renderer* renderer, RenderGroup* group) {
 
     DEBUG_OVERLAY_SLIDER(renderer->gamma, 1.0f, 10.0f);
     DEBUG_OVERLAY_SLIDER(renderer->exposure, 0.0f, 10.0f);
@@ -1171,39 +1174,6 @@ void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager
                     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
                 }
             } break;
-            case RenderCommand::DrawWater: {
-                auto* data = (RenderCommandDrawWater*)(group->renderBuffer + command->rbOffset);
-                auto program = renderer->shaders.Water;
-
-                m3x3 normalMatrix = MakeNormalMatrix(data->transform);
-
-                glUseProgram(program);
-
-                auto meshBuffer = Map(renderer->meshUniformBuffer);
-                meshBuffer->modelMatrix = data->transform;
-                meshBuffer->normalMatrix = normalMatrix;
-                Unmap(renderer->meshUniformBuffer);
-
-                auto* mesh = data->mesh;
-
-
-                glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
-
-                glEnableVertexAttribArray(WaterShader::Position);
-                glEnableVertexAttribArray(WaterShader::Normal);
-                glEnableVertexAttribArray(WaterShader::UV);
-
-                u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
-
-                glVertexAttribPointer(WaterShader::Position, 3, GL_FLOAT, GL_FALSE, 0, 0);
-                glVertexAttribPointer(WaterShader::Normal, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
-                glVertexAttribPointer(WaterShader::UV, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
-
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
-
-                glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
-            } break;
             case RenderCommand::LineBegin: {
                 auto* data = (RenderCommandLineBegin*)(group->renderBuffer + command->rbOffset);
 
@@ -1233,259 +1203,6 @@ void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager
 
                 glDrawArrays(lineType, 0, command->instanceCount);
 
-            } break;
-            case RenderCommand::DrawMesh: {
-                auto data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
-                auto mesh = GetMesh(assetManager, data->meshID);
-                if (mesh) {
-                    if (data->material.workflow == Material::Phong) {
-                        auto meshProg = renderer->shaders.Mesh;
-
-                        glUseProgram(meshProg);
-                        auto meshBuffer = Map(renderer->meshUniformBuffer);
-
-                        glBindTextureUnit(MeshShader::ShadowMap, renderer->shadowMapDepthTarget);
-
-                        if (data->material.phong.useDiffuseMap) {
-                            auto diffuseMap = GetTexture(assetManager, data->material.phong.diffuseMap);
-                            if (diffuseMap) {
-                                meshBuffer->phongUseDiffuseMap = 1;
-                                glBindTextureUnit(MeshShader::DiffMap, diffuseMap->gpuHandle);
-                            } else {
-                                meshBuffer->phongUseDiffuseMap = 0;
-                                meshBuffer->customPhongDiffuse = renderer->fallbackPhongMaterial.phong.diffuseValue;
-                            }
-                        } else {
-                            meshBuffer->phongUseDiffuseMap = 0;
-                            meshBuffer->customPhongDiffuse = data->material.phong.diffuseValue;
-                        }
-
-                        if (data->material.phong.useSpecularMap) {
-                            auto specularMap = GetTexture(assetManager, data->material.phong.specularMap);
-                            if (specularMap) {
-                                meshBuffer->phongUseSpecularMap = 1;
-                                glBindTextureUnit(MeshShader::SpecMap, specularMap->gpuHandle);
-                            } else {
-                                meshBuffer->phongUseSpecularMap = 0;
-                                meshBuffer->customPhongSpecular = renderer->fallbackPhongMaterial.phong.specularValue;
-                            }
-                        } else {
-                            meshBuffer->phongUseSpecularMap = 0;
-                            meshBuffer->customPhongSpecular = data->material.phong.specularValue;
-                        }
-
-                        m3x3 normalMatrix = MakeNormalMatrix(data->transform);
-
-                        meshBuffer->modelMatrix = data->transform;
-                        meshBuffer->normalMatrix = normalMatrix;
-                        Unmap(renderer->meshUniformBuffer);
-
-                        while (mesh) {
-                            glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
-
-                            glEnableVertexAttribArray(0);
-                            glEnableVertexAttribArray(1);
-                            glEnableVertexAttribArray(2);
-
-                            u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                            u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
-
-                            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-                            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
-                            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
-
-                            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
-
-                            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
-                            mesh = mesh->next;
-                        }
-                    } else if (data->material.workflow == Material::PBRMetallic ||
-                               data->material.workflow == Material::PBRSpecular) {
-                        assert(group->irradanceMapHandle);
-
-                        auto meshProg = renderer->shaders.PbrMesh;
-                        glUseProgram(meshProg);
-
-                        auto meshBuffer = Map(renderer->meshUniformBuffer);
-
-                        // TODO: Are they need to be binded every shader invocation?
-                        glBindTextureUnit(MeshPBRShader::IrradanceMap, group->irradanceMapHandle);
-                        glBindTextureUnit(MeshPBRShader::EnviromentMap, group->envMapHandle);
-                        glBindTextureUnit(MeshPBRShader::ShadowMap, renderer->shadowMapDepthTarget);
-
-                        auto m = &data->material;
-
-                        // Getting materials
-                        switch (m->workflow) {
-                        case Material::PBRMetallic: {
-                            meshBuffer->metallicWorkflow = 1;
-
-                            // TODO: Refactor these
-                            if (data->material.pbrMetallic.useAlbedoMap) {
-                                auto albedoMap = GetTexture(assetManager, data->material.pbrMetallic.albedoMap);
-                                if (albedoMap) {
-                                    meshBuffer->pbrUseAlbedoMap = 1;
-                                    glBindTextureUnit(MeshPBRShader::AlbedoMap, albedoMap->gpuHandle);
-                                } else {
-                                    meshBuffer->pbrUseAlbedoMap = 0;
-                                    meshBuffer->pbrAlbedoValue = renderer->fallbackMetallicMaterial.pbrMetallic.albedoValue;
-                                }
-                            } else {
-                                meshBuffer->pbrUseAlbedoMap = 0;
-                                meshBuffer->pbrAlbedoValue = data->material.pbrMetallic.albedoValue;
-                            }
-
-                            if (data->material.pbrMetallic.useRoughnessMap) {
-                                auto roughnessMap = GetTexture(assetManager, data->material.pbrMetallic.roughnessMap);
-                                if (roughnessMap) {
-                                    meshBuffer->pbrUseRoughnessMap = 1;
-                                    glBindTextureUnit(MeshPBRShader::RoughnessMap, roughnessMap->gpuHandle);
-                                } else {
-                                    meshBuffer->pbrUseRoughnessMap = 0;
-                                    meshBuffer->pbrRoughnessValue = renderer->fallbackMetallicMaterial.pbrMetallic.roughnessValue;;
-                                }
-                            } else {
-                                meshBuffer->pbrUseRoughnessMap = 0;
-                                meshBuffer->pbrRoughnessValue = data->material.pbrMetallic.roughnessValue;
-                            }
-
-                            if (data->material.pbrMetallic.useMetallicMap) {
-                                auto metallicMap = GetTexture(assetManager, data->material.pbrMetallic.metallicMap);
-                                if (metallicMap) {
-                                    meshBuffer->pbrUseMetallicMap = 1;
-                                    glBindTextureUnit(MeshPBRShader::MetallicMap, metallicMap->gpuHandle);
-                                } else {
-                                    meshBuffer->pbrUseMetallicMap = 0;
-                                    meshBuffer->pbrMetallicValue = renderer->fallbackMetallicMaterial.pbrMetallic.metallicValue;;
-                                }
-                            } else {
-                                meshBuffer->pbrUseMetallicMap = 0;
-                                meshBuffer->pbrMetallicValue = data->material.pbrMetallic.metallicValue;
-                            }
-
-                            if (data->material.pbrMetallic.useNormalMap) {
-                                meshBuffer->normalFormat = m->pbrMetallic.normalFormat == NormalFormat::OpenGL ? 0 : 1;
-                                auto normalMap = GetTexture(assetManager, data->material.pbrMetallic.normalMap);
-                                if (normalMap) {
-                                    meshBuffer->pbrUseNormalMap = 1;
-                                    glBindTextureUnit(MeshPBRShader::NormalMap, normalMap->gpuHandle);
-                                } else {
-                                    meshBuffer->pbrUseNormalMap = 0;
-                                }
-                            } else {
-                                meshBuffer->pbrUseNormalMap = 0;
-                            }
-
-                            if (data->material.pbrMetallic.useAOMap) {
-                                auto aoMap = GetTexture(assetManager, data->material.pbrMetallic.AOMap);
-                                if (aoMap) {
-                                    meshBuffer->pbrUseAOMap = 1;
-                                    glBindTextureUnit(MeshPBRShader::AOMap, aoMap->gpuHandle);
-                                } else {
-                                    meshBuffer->pbrUseAOMap = 0;
-                                }
-                            } else {
-                                meshBuffer->pbrUseAOMap = 0;
-                            }
-
-                            if (data->material.pbrMetallic.emitsLight) {
-                                meshBuffer->emitsLight = 1;
-                                if (data->material.pbrMetallic.useEmissionMap) {
-                                    auto emissionMap = GetTexture(assetManager, data->material.pbrMetallic.emissionMap);
-                                    if (emissionMap) {
-                                        meshBuffer->pbrUseEmissionMap = 1;
-                                        glBindTextureUnit(MeshPBRShader::EmissionMap, emissionMap->gpuHandle);
-                                    } else {
-                                        meshBuffer->pbrUseEmissionMap = 0;
-                                    }
-                                } else {
-                                    meshBuffer->pbrUseEmissionMap = 0;
-                                    meshBuffer->pbrEmissionValue = data->material.pbrMetallic.emissionValue * data->material.pbrMetallic.emissionIntensity;
-                                }
-                            } else {
-                                meshBuffer->emitsLight = 0;
-                            }
-
-                        } break;
-                        case Material::PBRSpecular: {
-                            // TODO: Implement
-#if 0
-                            meshBuffer->metallicWorkflow = 0;
-
-                            auto albedoMap = GetTexture(assetManager, m->pbrMetallic.albedo);
-                            auto specularMap = GetTexture(assetManager, m->pbrSpecular.specular);
-                            auto glossMap = GetTexture(assetManager, m->pbrSpecular.gloss);
-                            auto normalMap = GetTexture(assetManager, m->pbrMetallic.normals);
-
-                            auto albedoHandle = albedoMap ? albedoMap->gpuHandle : renderer->nullTexture2D;
-                            glBindTextureUnit(MeshPBRShader::AlbedoMap, albedoHandle);
-
-                            auto specularHandle = specularMap ? specularMap->gpuHandle : renderer->nullTexture2D;
-                            glBindTextureUnit(MeshPBRShader::SpecularMap, specularHandle);
-
-                            auto glossHandle = glossMap ? glossMap->gpuHandle : renderer->nullTexture2D;
-                            glBindTextureUnit(MeshPBRShader::GlossMap, glossHandle);
-
-                            auto normalHandle = normalMap ? normalMap->gpuHandle : renderer->nullTexture2D;
-                            glBindTextureUnit(MeshPBRShader::NormalMap, normalHandle);
-#endif
-                        } break;
-                            invalid_default();
-                        }
-
-                        glBindTextureUnit(MeshPBRShader::BRDFLut, renderer->BRDFLutHandle);
-
-                        auto normalMatrix = MakeNormalMatrix(data->transform);
-                        meshBuffer->modelMatrix = data->transform;
-                        meshBuffer->normalMatrix = normalMatrix;
-
-                        Unmap(renderer->meshUniformBuffer);
-
-                        while (mesh) {
-                            glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
-
-                            bool hasBitangents = mesh->bitangents ? true : false;
-
-                            // TODO: This is very slow and stupid
-                            // There are probably sould be different shaders for meshes that have bitangents
-                            // and for those that do not.
-                            // Or maybe bitangents sholdn't be optional at all?
-                            auto meshBuffer = Map(renderer->meshUniformBuffer);
-                            meshBuffer->hasBitangents = hasBitangents ? 1 : 0;
-                            Unmap(renderer->meshUniformBuffer);
-
-
-                            glEnableVertexAttribArray(0);
-                            glEnableVertexAttribArray(1);
-                            glEnableVertexAttribArray(2);
-                            glEnableVertexAttribArray(3);
-                            if (hasBitangents) {
-                                glEnableVertexAttribArray(4);
-                            }
-
-                            u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                            u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
-                            u64 tangentsOffset = uvsOffset + mesh->vertexCount * sizeof(v2);
-
-                            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-                            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
-                            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
-                            glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)tangentsOffset);
-
-                            if (hasBitangents) {
-                                u64 bitangentsOffset = tangentsOffset + mesh->vertexCount * sizeof(v3);
-                                glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, (void*)bitangentsOffset);
-                            }
-
-                            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
-
-                            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
-                            mesh = mesh->next;
-                        }
-                    } else {
-                        unreachable();
-                    }
-                }
             } break;
             }
         }

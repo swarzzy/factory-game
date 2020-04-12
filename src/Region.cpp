@@ -1,8 +1,8 @@
 #include "Region.h"
 
-#include "flux_render_group.h"
-#include "flux_renderer.h"
-#include "flux_camera.h"
+#include "RenderGroup.h"
+#include "Renderer.h"
+#include "Camera.h"
 
 Region BeginRegion(GameWorld* world, iv3 origin, i32 dim) {
     Region region = {};

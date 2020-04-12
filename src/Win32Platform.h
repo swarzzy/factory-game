@@ -1,8 +1,8 @@
 #pragma once
-#include "flux_platform.h"
+#include "Platform.h"
 #include <windows.h>
 
-#include "win32_flux_code_loader.h"
+#include "Win32CodeLoader.h"
 
 #define DISCRETE_GRAPHICS_DEFAULT
 #define ENABLE_CONSOLE

@@ -1,7 +1,6 @@
-
 #pragma once
-#include "flux_option.h"
 #include <stdlib.h>
+#include "Intrinsics.h"
 
 struct RandomSeries {
     // TODO: Random
@@ -582,7 +581,7 @@ f32 Determinant(m4x4 m) {
     return result;
 }
 
-Option<m3x3> Inverse(m3x3 m) {
+m3x3 Inverse(m3x3 m) {
     f32 a11 = m._22 * m._33 - m._23 * m._32;
     f32 a12 = - (m._21 * m._33 - m._23 * m._31);
     f32 a13 = m._21 * m._32 - m._22 * m._31;
@@ -611,12 +610,13 @@ Option<m3x3> Inverse(m3x3 m) {
         inv._32 = a23 * oneOverDet;
         inv._33 = a33 * oneOverDet;
 
-        return Option<m3x3>::Some(inv);
+        return inv;
     }
-    return Option<m3x3>::None();
+    assert(false);
+    return M3x3(0.0f);
 }
 
-Option<m4x4> Inverse(m4x4 m) {
+m4x4 Inverse(m4x4 m) {
     f32 a11_22 = m._33 * m._44 - m._34 * m._43;
     f32 a11_23 = m._32 * m._44 - m._34 * m._42;
     f32 a11_24 = m._32 * m._43 - m._33 * m._42;
@@ -716,7 +716,8 @@ Option<m4x4> Inverse(m4x4 m) {
     f32 det = m._11 * A11 + m._12 * A12 + m._13 * A13 + m._14 * A14;
 
     if (det == 0) {
-        return Option<m4x4>::None();
+        assert(false);
+        return M4x4(0.0f);
     } else {
         m4x4 result;
         f32 oneOverDet = 1.0f / det;
@@ -737,7 +738,7 @@ Option<m4x4> Inverse(m4x4 m) {
         result._43 = A34 * oneOverDet;
         result._44 = A44 * oneOverDet;
 
-        return Option<m4x4>::Some(result);
+        return result;
     }
 }
 

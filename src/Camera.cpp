@@ -1,4 +1,4 @@
-#include "flux_camera.h"
+#include "Camera.h"
 
 void GatherInput(Camera* camera) {
     auto z = Normalize(V3(camera->front.x, 0.0f, camera->front.z));
@@ -82,8 +82,8 @@ void Update(Camera* camera, f32 dt) {
 
     camera->viewMatrix = LookAtGLRH(camera->position, V3(0.0f), V3(0.0f, 1.0f, 0.0f));
     camera->projectionMatrix = PerspectiveGLRH(camera->nearPlane, camera->farPlane, camera->fovDeg, camera->aspectRatio);
-    camera->invViewMatrix = Inverse(camera->viewMatrix).Unwrap();
-    camera->invProjectionMatrix = Inverse(camera->projectionMatrix).Unwrap();
+    camera->invViewMatrix = Inverse(camera->viewMatrix);
+    camera->invProjectionMatrix = Inverse(camera->projectionMatrix);
 
     v4 mouseView = camera->invProjectionMatrix * mouseClip;
     mouseView = V4(mouseView.xy, -1.0f, 0.0f);

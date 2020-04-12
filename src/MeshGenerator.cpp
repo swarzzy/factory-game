@@ -1,6 +1,6 @@
 #include "MeshGenerator.h"
 
-#include "flux_intrinsics.h"
+#include "Intrinsics.h"
 
 bool IsVoxelOccluder(Chunk* chunk, i32 x, i32 y, i32 z) {
     bool occluder = false;
@@ -35,7 +35,7 @@ ChunkMeshBlock* GetChunkMeshBlock(ChunkMesher* mesher) {
         mesher->freeBlockList = block->next;
         mesher->freeBlockCount--;
     } else {
-        block = (ChunkMeshBlock*)PlatformAlloc(sizeof(ChunkMeshBlock));
+        block = (ChunkMeshBlock*)PlatformAlloc(sizeof(ChunkMeshBlock), 0, nullptr);
         mesher->totalBlockCount++;
     }
     ChunkMesherUnlock(mesher);
@@ -180,7 +180,7 @@ void ClaimFurthestChunkMesh(GameWorld* world, ChunkMesher* mesher, Chunk* chunk)
         // TODO: HACK: Temporary deleting evicted and not modified by player chunks here
         if (chunk && !chunk->modified) {
             Delete(&world->chunkHashMap, &chunkToDelete->p);
-            PlatformFree(chunkToDelete);
+            PlatformFree(chunkToDelete, nullptr);
         }
     }
 

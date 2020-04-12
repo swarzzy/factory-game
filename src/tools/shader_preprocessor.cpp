@@ -1,7 +1,7 @@
 #define PLATFORM_WINDOWS
 #include <windows.h>
-#include "../flux_platform.h"
-#include "../flux_intrinsics.cpp"
+#include "../Common.h"
+#include "../Intrinsics.cpp"
 #include <vector>
 #include <string>
 #include <sstream>

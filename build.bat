@@ -38,20 +38,20 @@ cl /W3 /wd4530 /Gm- /GR- /Od /Zi /MTd /nologo /diagnostics:classic /WX /std:c++1
 
 
 echo Preprocessing shaders...
-build\shader_preprocessor.exe src/flux_shader_config.txt
-COPY shader_preprocessor_output.h src\flux_shaders_generated.h
+build\shader_preprocessor.exe src/ShaderConfig.txt
+COPY shader_preprocessor_output.h src\GENERATED_Shaders.h
 DEL shader_preprocessor_output.h
 
 if %BuildResourceLoader% equ true (
 echo Building resource loader...
-start /b "__flux_compilation__" cmd /c cl /EHsc /Fo%ObjOutDir% %CommonDefines% %ResourceLoaderFlags%  src/flux_resource_loader.cpp /link %ResourceLoaderLinkerFlags%
+start /b "__flux_compilation__" cmd /c cl /EHsc /Fo%ObjOutDir% %CommonDefines% %ResourceLoaderFlags%  src/ResourceLoader.cpp /link %ResourceLoaderLinkerFlags%
 )
 
 echo Building platform...
-start /b "__flux_compilation__" cmd /c cl /DPLATFORM_CODE /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/win32_flux_platform.cpp /link %PlatformLinkerFlags%
+start /b "__flux_compilation__" cmd /c cl /DPLATFORM_CODE /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/Win32Platform.cpp /link %PlatformLinkerFlags%
 
 echo Building game...
-start /b /wait "__flux_compilation__" cmd /c cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/flux_load.cpp /link %GameLinkerFlags%
+start /b /wait "__flux_compilation__" cmd /c cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/GameEntry.cpp /link %GameLinkerFlags%
 
 ctime -end ctime.ctm
 :end

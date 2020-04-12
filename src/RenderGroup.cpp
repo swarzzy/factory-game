@@ -1,14 +1,14 @@
-#include "flux_render_group.h"
-#include "flux_memory.h"
+#include "RenderGroup.h"
+#include "Memory.h"
 
-RenderGroup RenderGroup::Make(uptr renderBufferSize, u32 commandQueueCapacity) {
+RenderGroup RenderGroup::Make(MemoryArena* arena, uptr renderBufferSize, u32 commandQueueCapacity) {
     RenderGroup group = {};
     group.commandQueueCapacity = commandQueueCapacity;
-    group.commandQueue = (CommandQueueEntry*)PlatformAlloc(sizeof(CommandQueueEntry) * commandQueueCapacity);
+    group.commandQueue = (CommandQueueEntry*)PushSize(arena, sizeof(CommandQueueEntry) * commandQueueCapacity);
 
     group.renderBufferSize = renderBufferSize;
     group.renderBufferFree = renderBufferSize;
-    group.renderBuffer = (byte*)PlatformAlloc(renderBufferSize);
+    group.renderBuffer = (byte*)PushSize(arena, renderBufferSize);
     group.renderBufferAt = group.renderBuffer;
 
     return group;
@@ -107,20 +107,6 @@ void Push(RenderGroup* group, RenderCommandPushLineVertex* command) {
 void Push(RenderGroup* group, RenderCommandLineEnd* command) {
     ValidateCommand(group, RenderCommand::LineEnd);
     group->pendingLineBatchCommandHeader = nullptr;
-}
-
-void Push(RenderGroup* group, RenderCommandDrawWater* command) {
-    ValidateCommand(group, RenderCommand::DrawWater);
-
-    auto renderDataPtr = PushRenderData(group, sizeof(RenderCommandDrawWater), alignof(RenderCommandDrawWater), command);
-
-    uptr offset = (uptr)renderDataPtr - (uptr)group->renderBuffer;
-
-    CommandQueueEntry entry = {};
-    entry.type = RenderCommand::DrawWater;
-    entry.rbOffset = offset;
-
-    PushCommandQueueEntry(group, entry);
 }
 
 void Push(RenderGroup* group, RenderCommandBeginChunkBatch* command) {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "flux_math.h"
+#include "Math.h"
 #include "World.h"
 
 struct Chunk;

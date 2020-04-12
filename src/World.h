@@ -1,6 +1,6 @@
 #pragma once
 
-#include "flux_hash_map.h"
+#include "HashMap.h"
 #include "Region.h"
 #include "WorldGen.h"
 

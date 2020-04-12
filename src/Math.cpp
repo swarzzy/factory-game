@@ -1,4 +1,5 @@
-#include "flux_math.h"
+#include "Math.h"
+#include "Platform.h"
 
 BBoxAligned BBoxAligned::From(Mesh* mesh) {
     v3 min = V3(F32::Max);

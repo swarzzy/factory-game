@@ -1,5 +1,5 @@
-#include "flux_platform.h"
-#include "flux_math.cpp"
+#include "Common.h"
+#include "Math.cpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_BMP
@@ -82,7 +82,7 @@ extern "C" GAME_CODE_ENTRY LoadedImage* __cdecl ResourceLoaderLoadImage(const ch
     if (data) {
         auto bitmapSize = channelSize * width * height * channels;
         auto size = sizeof(LoadedImage) + bitmapSize;
-        auto memory = allocator(size);
+        auto memory = allocator(size, 0, nullptr);
         header = (LoadedImage*)memory;
         header->base = memory;
         header->bits = (byte*)memory + sizeof(LoadedImage);

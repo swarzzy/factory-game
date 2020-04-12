@@ -1,6 +1,6 @@
-#include "flux_shaders.h"
+#include "Shaders.h"
 
-GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragmentSource)
+GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexSource, const char* fragmentSource)
 {
     GLuint resultHandle = 0;
 
@@ -46,8 +46,9 @@ GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragm
                             i32 logLength;
                             glGetProgramiv(programHandle, GL_INFO_LOG_LENGTH, &logLength);
                             // TODO: Stop using alloca
-                            char* message = (char*)PlatformAlloc(logLength);
-                            defer { PlatformFree(message); };
+                            auto frame = BeginTemporaryMemory(tempArena);
+                            defer { EndTemporaryMemory(&frame); };
+                            char* message = (char*)PushSize(tempArena, logLength);
                             glGetProgramInfoLog(programHandle, logLength, 0, message);
                             printf("[Error]: Failed to link shader program (%s) \n%s\n", name, message);
                         }
@@ -61,8 +62,9 @@ GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragm
                 {
                     GLint logLength;
                     glGetShaderiv(fragmentHandle, GL_INFO_LOG_LENGTH, &logLength);
-                    char* message = (char*)PlatformAlloc(logLength);
-                    defer { PlatformFree(message); };
+                    auto frame = BeginTemporaryMemory(tempArena);
+                    defer { EndTemporaryMemory(&frame); };
+                    char* message = (char*)PushSize(tempArena, logLength);
                     glGetShaderInfoLog(fragmentHandle, logLength, nullptr, message);
                     printf("[Error]: Failed to compile frag shader (%s)\n%s\n", name, message);
                 }
@@ -76,8 +78,9 @@ GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragm
         {
             GLint logLength;
             glGetShaderiv(vertexHandle, GL_INFO_LOG_LENGTH, &logLength);
-            char* message = (char*)PlatformAlloc(logLength);
-            defer { PlatformFree(message); };
+            auto frame = BeginTemporaryMemory(tempArena);
+            defer { EndTemporaryMemory(&frame); };
+            char* message = (char*)PushSize(tempArena, logLength);
             glGetShaderInfoLog(vertexHandle, logLength, nullptr, message);
             printf("[Error]: Failed to compile vertex shader (%s)\n%s", name, message);
         }
@@ -89,7 +92,7 @@ GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragm
     return resultHandle;
 }
 
-void RecompileShaders(Renderer* renderer)
+void RecompileShaders(MemoryArena* tempArena, Renderer* renderer)
 {
     for (u32x i = 0; i < array_count(renderer->shaderHandles); i++)
     {
@@ -98,7 +101,7 @@ void RecompileShaders(Renderer* renderer)
         {
             DeleteProgram(handle);
         }
-        renderer->shaderHandles[i] = CompileGLSL(ShaderNames[i], ShaderSources[i].vert, ShaderSources[i].frag);
+        renderer->shaderHandles[i] = CompileGLSL(tempArena, ShaderNames[i], ShaderSources[i].vert, ShaderSources[i].frag);
     }
 }
 
