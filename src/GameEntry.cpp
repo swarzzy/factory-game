@@ -221,7 +221,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         context->renderer = InitializeRenderer(gameArena, tempArena, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), 8);
 
         //context->renderer->clearColor = V4(0.8f, 0.8f, 0.8f, 1.0f);
-        context->renderGroup = RenderGroup::Make(gameArena, Megabytes(1), 8192);
+        context->renderGroup = RenderGroup::Make(gameArena, Megabytes(32), 8192 * 2 * 2);
 
         FluxInit(context);
     } break;

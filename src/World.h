@@ -11,13 +11,14 @@ struct WorldPos {
     iv3 voxel;
     v3 offset;
     inline static WorldPos Make(iv3 voxel) { return WorldPos{voxel, V3(0.0f)}; }
+    inline static WorldPos Make(i32 x, i32 y, i32 z) { return WorldPos{IV3(x, y, z), V3(0.0f)}; }
     inline static WorldPos Make(iv3 voxel, v3 offset) { return WorldPos{voxel, offset}; }
 };
 
 struct ChunkPos {
     iv3 chunk;
     uv3 voxel;
-    inline static ChunkPos Make(WorldPos p) {}
+    inline static ChunkPos Make(iv3 chunk, uv3 voxel) { return ChunkPos{chunk, voxel}; }
 };
 
 enum struct VoxelValue : u32 {
@@ -72,14 +73,20 @@ struct SpatialEntity {
     v3 velocity;
     f32 acceleration;
     f32 friction;
+    b32 grounded;
 };
 
 struct Player {
     SpatialEntity* entity;
     f32 height;
+    iv3 selectedVoxel;
+    f32 jumpAcceleration;
+    f32 runAcceleration;
 };
 
 struct GameWorld {
+    static const i32 InvalidCoord = I32::Max;
+    inline static const iv3 InvalidPos = IV3(InvalidCoord);
     SpatialEntity playerEntity;
     Player player;
     HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc> chunkHashMap;
@@ -95,14 +102,18 @@ struct GameWorld {
         this->player.entity = &this->playerEntity;
         this->playerEntity.type = SpatialEntityType::Player;
         this->playerEntity.p = WorldPos::Make(IV3(0, 15, 0));
-        this->playerEntity.acceleration = 4000.0f;
+        this->playerEntity.acceleration = 70.0f;
         this->playerEntity.friction = 10.0f;
         this->player.height = 1.8f;
+        this->player.selectedVoxel = InvalidPos;
+        this->player.jumpAcceleration = 420.0f;
+        this->player.runAcceleration = 140.0f;
     }
 };
 
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z);
 Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z);
+Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z);
 
 void DebugFillChunk(Chunk* chunk);
 
@@ -124,4 +135,4 @@ uv3 GetVoxelCoordInChunk(i32 x, i32 y, i32 z);
 ChunkPos ChunkPosFromWorldPos(iv3 tile);
 WorldPos WorldPosFromChunkPos(ChunkPos p);
 
-WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, Camera* camera, RenderGroup* renderGroup);
+WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, bool* hitGround, Camera* camera, RenderGroup* renderGroup);

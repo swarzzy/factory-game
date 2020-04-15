@@ -126,5 +126,16 @@ void DrawRegion(Region* region, RenderGroup* renderGroup, Camera* camera) {
         min -= V3(Voxel::HalfDim);
         max -= V3(Voxel::HalfDim);
         DrawAlignedBoxOutline(renderGroup, min, max, V3(0.0f, 0.0f, 1.0f), 2.0f);
+#if 0
+        for (auto& record : region->world->mesher->chunkMeshPool) {
+            if (record.chunk) {
+                v3 min = RelativePos(camera->targetWorldPosition, WorldPos::Make((record.chunk->p) * (i32)Chunk::Size));
+                v3 max = RelativePos(camera->targetWorldPosition, WorldPos::Make((record.chunk->p + 1) * (i32)Chunk::Size));
+                min -= V3(Voxel::HalfDim);
+                max -= V3(Voxel::HalfDim);
+                DrawAlignedBoxOutline(renderGroup, min, max, V3(0.0f, 0.0f, 1.0f), 2.0f);
+            }
+        }
+#endif
     }
 }

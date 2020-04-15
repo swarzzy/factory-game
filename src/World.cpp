@@ -300,10 +300,9 @@ RayAABBIntersectionSlow(v3 from, v3 ray, v3 boxMin, v3 boxMax)
     return result;
 }
 
-WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, Camera* camera, RenderGroup* renderGroup) {
-    if (Length(delta) > 0.0f) {
-        int i = 0;
-    }
+WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, bool* hitGround, Camera* camera, RenderGroup* renderGroup) {
+    *hitGround = false;
+
     v3 colliderSize = V3(Voxel::Dim * 0.95f);
     v3 colliderRadius = colliderSize * 0.5f;
 
@@ -363,6 +362,9 @@ WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, C
         //hitNormal = -hitNormal;
 
         if (hit) {
+            if (hitNormal.y == 1.0f) {
+                *hitGround = true;
+            }
             delta = Difference(target, origin);
             *velocity -= Dot(*velocity, hitNormal) * hitNormal;
             delta -= Dot(delta, hitNormal) * hitNormal;
