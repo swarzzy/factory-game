@@ -10,7 +10,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 
 // NOTE: Platforn globals
 static PlatformState* _GlobalPlatform = 0;
-#define GlobalPlatform (*((const PlatformState *const)(_GlobalPlatform)))
+#define GlobalPlatform (*((_GlobalPlatform)))
 // NOTE: Actual frame time
 #define GlobalAbsDeltaTime GlobalPlatform.absDeltaTime
 // NOTE: Frame time corrected by game speed

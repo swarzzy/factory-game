@@ -703,15 +703,15 @@ Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 ren
     renderer->fallbackPhongMaterial.phong.diffuseValue = V3(0.7f, 0.7f, 0.7f);
     renderer->fallbackPhongMaterial.phong.specularValue = V3(0.0f, 0.0f, 0.0f);
 
-    renderer->fallbackMetallicMaterial.workflow = Material::PBRMetallic;
-    renderer->fallbackMetallicMaterial.pbrMetallic.useAlbedoMap = false;
-    renderer->fallbackMetallicMaterial.pbrMetallic.useRoughnessMap = false;
-    renderer->fallbackMetallicMaterial.pbrMetallic.useMetallicMap = false;
-    renderer->fallbackMetallicMaterial.pbrMetallic.useNormalMap = false;
+    renderer->fallbackMetallicMaterial.workflow = Material::PBR;
+    renderer->fallbackMetallicMaterial.pbr.useAlbedoMap = false;
+    renderer->fallbackMetallicMaterial.pbr.useRoughnessMap = false;
+    renderer->fallbackMetallicMaterial.pbr.useMetallicMap = false;
+    renderer->fallbackMetallicMaterial.pbr.useNormalMap = false;
 
-    renderer->fallbackMetallicMaterial.pbrMetallic.albedoValue = V3(0.7f, 0.7f, 0.7f);
-    renderer->fallbackMetallicMaterial.pbrMetallic.roughnessValue = 1.0f;
-    renderer->fallbackMetallicMaterial.pbrMetallic.metallicValue = 0.0f;
+    renderer->fallbackMetallicMaterial.pbr.albedoValue = V3(0.7f, 0.7f, 0.7f);
+    renderer->fallbackMetallicMaterial.pbr.roughnessValue = 1.0f;
+    renderer->fallbackMetallicMaterial.pbr.metallicValue = 0.0f;
 
     // NOTE: null texture
     glGenTextures(1, &renderer->nullTexture2D);
@@ -1057,6 +1057,37 @@ void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
             case RenderCommand::LineBegin:
             {
             } break;
+#if 0
+            case RenderCommand::BeginChunkBatch: {
+                auto* data = (RenderCommandPushChunk*)(group->renderBuffer + command->rbOffset);
+
+                for (u32 i = 0; i < command->instanceCount; i++) {
+                    auto entry = data + i;
+                    m4x4 modelMatrix = Translate(entry->offset);
+                    m3x3 normalMatrix = MakeNormalMatrix(modelMatrix);
+
+                    auto meshBuffer = Map(renderer->meshUniformBuffer);
+                    meshBuffer->modelMatrix = modelMatrix;
+                    meshBuffer->normalMatrix = normalMatrix;
+                    Unmap(renderer->meshUniformBuffer);
+
+                    auto* mesh = entry->mesh;
+
+                    glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuHandle);
+
+                    glEnableVertexAttribArray(ShadowPassShader::PositionAttribLocation);
+
+                    glVertexAttribPointer(ShadowPassShader::PositionAttribLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer->chunkIndexBufferHandle);
+                    // TODO: Look for glDrawElementsInstancedBaseInstance
+
+                    u32 quadCount = mesh->vertexCount / 4;
+                    u32 indexCount = quadCount * 6;
+                    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+                }
+            } break;
+#endif
             case RenderCommand::DrawMesh: {
                 auto* data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
 
@@ -1139,6 +1170,8 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
 
                 glUseProgram(program);
 
+                glBindTextureUnit(ChunkShader::ShadowMapSampler, renderer->shadowMapDepthTarget);
+
                 glBindTextureUnit(ChunkShader::TerrainAtlasSampler, renderer->terrainTexArray);
 
                 for (u32 i = 0; i < command->instanceCount; i++) {
@@ -1203,6 +1236,228 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
 
                 glDrawArrays(lineType, 0, command->instanceCount);
 
+            } break;
+            case RenderCommand::DrawMesh: {
+                auto data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
+                auto mesh = data->mesh;
+                auto material = data->material;
+                if (mesh && material) {
+                    if (material->workflow == Material::Phong) {
+                        auto meshProg = renderer->shaders.Mesh;
+
+                        glUseProgram(meshProg);
+                        auto meshBuffer = Map(renderer->meshUniformBuffer);
+
+                        glBindTextureUnit(MeshShader::ShadowMap, renderer->shadowMapDepthTarget);
+
+                        if (material->phong.useDiffuseMap) {
+                            auto diffuseMap = material->phong.diffuseMap;
+                            if (diffuseMap) {
+                                meshBuffer->phongUseDiffuseMap = 1;
+                                glBindTextureUnit(MeshShader::DiffMap, diffuseMap->gpuHandle);
+                            } else {
+                                meshBuffer->phongUseDiffuseMap = 0;
+                                meshBuffer->customPhongDiffuse = renderer->fallbackPhongMaterial.phong.diffuseValue;
+                            }
+                        } else {
+                            meshBuffer->phongUseDiffuseMap = 0;
+                            meshBuffer->customPhongDiffuse = material->phong.diffuseValue;
+                        }
+
+                        if (material->phong.useSpecularMap) {
+                            auto specularMap = material->phong.specularMap;
+                            if (specularMap) {
+                                meshBuffer->phongUseSpecularMap = 1;
+                                glBindTextureUnit(MeshShader::SpecMap, specularMap->gpuHandle);
+                            } else {
+                                meshBuffer->phongUseSpecularMap = 0;
+                                meshBuffer->customPhongSpecular = renderer->fallbackPhongMaterial.phong.specularValue;
+                            }
+                        } else {
+                            meshBuffer->phongUseSpecularMap = 0;
+                            meshBuffer->customPhongSpecular = material->phong.specularValue;
+                        }
+
+                        m3x3 normalMatrix = MakeNormalMatrix(data->transform);
+
+                        meshBuffer->modelMatrix = data->transform;
+                        meshBuffer->normalMatrix = normalMatrix;
+                        Unmap(renderer->meshUniformBuffer);
+
+                        while (mesh) {
+                            glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
+
+                            glEnableVertexAttribArray(0);
+                            glEnableVertexAttribArray(1);
+                            glEnableVertexAttribArray(2);
+
+                            u64 normalsOffset = mesh->vertexCount * sizeof(v3);
+                            u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
+
+                            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+                            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
+                            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
+
+                            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+
+                            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                            mesh = mesh->next;
+                        }
+                    } else if (material->workflow == Material::PBR) {
+                        assert(group->irradanceMapHandle);
+
+                        auto meshProg = renderer->shaders.PbrMesh;
+                        glUseProgram(meshProg);
+
+                        auto meshBuffer = Map(renderer->meshUniformBuffer);
+
+                        // TODO: Are they need to be binded every shader invocation?
+                        glBindTextureUnit(MeshPBRShader::IrradanceMap, group->irradanceMapHandle);
+                        glBindTextureUnit(MeshPBRShader::EnviromentMap, group->envMapHandle);
+                        glBindTextureUnit(MeshPBRShader::ShadowMap, renderer->shadowMapDepthTarget);
+
+                        // Getting materials
+                        meshBuffer->metallicWorkflow = 1;
+
+                        // TODO: Refactor these
+                        if (material->pbr.useAlbedoMap) {
+                            auto albedoMap = material->pbr.albedoMap;
+                            if (albedoMap) {
+                                meshBuffer->pbrUseAlbedoMap = 1;
+                                glBindTextureUnit(MeshPBRShader::AlbedoMap, albedoMap->gpuHandle);
+                            } else {
+                                meshBuffer->pbrUseAlbedoMap = 0;
+                                meshBuffer->pbrAlbedoValue = renderer->fallbackMetallicMaterial.pbr.albedoValue;
+                            }
+                        } else {
+                            meshBuffer->pbrUseAlbedoMap = 0;
+                            meshBuffer->pbrAlbedoValue = material->pbr.albedoValue;
+                        }
+
+                        if (material->pbr.useRoughnessMap) {
+                            auto roughnessMap = material->pbr.roughnessMap;
+                            if (roughnessMap) {
+                                meshBuffer->pbrUseRoughnessMap = 1;
+                                glBindTextureUnit(MeshPBRShader::RoughnessMap, roughnessMap->gpuHandle);
+                            } else {
+                                meshBuffer->pbrUseRoughnessMap = 0;
+                                meshBuffer->pbrRoughnessValue = renderer->fallbackMetallicMaterial.pbr.roughnessValue;;
+                            }
+                        } else {
+                            meshBuffer->pbrUseRoughnessMap = 0;
+                            meshBuffer->pbrRoughnessValue = material->pbr.roughnessValue;
+                        }
+
+                        if (material->pbr.useMetallicMap) {
+                            auto metallicMap = material->pbr.metallicMap;
+                            if (metallicMap) {
+                                meshBuffer->pbrUseMetallicMap = 1;
+                                glBindTextureUnit(MeshPBRShader::MetallicMap, metallicMap->gpuHandle);
+                            } else {
+                                meshBuffer->pbrUseMetallicMap = 0;
+                                meshBuffer->pbrMetallicValue = renderer->fallbackMetallicMaterial.pbr.metallicValue;;
+                            }
+                        } else {
+                            meshBuffer->pbrUseMetallicMap = 0;
+                            meshBuffer->pbrMetallicValue = material->pbr.metallicValue;
+                        }
+
+                        if (material->pbr.useNormalMap) {
+                            meshBuffer->normalFormat = material->pbr.normalFormat == NormalFormat::OpenGL ? 0 : 1;
+                            auto normalMap = material->pbr.normalMap;
+                            if (normalMap) {
+                                meshBuffer->pbrUseNormalMap = 1;
+                                glBindTextureUnit(MeshPBRShader::NormalMap, normalMap->gpuHandle);
+                            } else {
+                                meshBuffer->pbrUseNormalMap = 0;
+                            }
+                        } else {
+                            meshBuffer->pbrUseNormalMap = 0;
+                        }
+
+                        if (material->pbr.useAOMap) {
+                            auto aoMap = material->pbr.AOMap;
+                            if (aoMap) {
+                                meshBuffer->pbrUseAOMap = 1;
+                                glBindTextureUnit(MeshPBRShader::AOMap, aoMap->gpuHandle);
+                            } else {
+                                meshBuffer->pbrUseAOMap = 0;
+                            }
+                        } else {
+                            meshBuffer->pbrUseAOMap = 0;
+                        }
+
+                        if (material->pbr.emitsLight) {
+                            meshBuffer->emitsLight = 1;
+                            if (material->pbr.useEmissionMap) {
+                                auto emissionMap = material->pbr.emissionMap;
+                                if (emissionMap) {
+                                    meshBuffer->pbrUseEmissionMap = 1;
+                                    glBindTextureUnit(MeshPBRShader::EmissionMap, emissionMap->gpuHandle);
+                                } else {
+                                    meshBuffer->pbrUseEmissionMap = 0;
+                                }
+                            } else {
+                                meshBuffer->pbrUseEmissionMap = 0;
+                                meshBuffer->pbrEmissionValue = material->pbr.emissionValue * material->pbr.emissionIntensity;
+                            }
+                        } else {
+                            meshBuffer->emitsLight = 0;
+                        }
+
+                        glBindTextureUnit(MeshPBRShader::BRDFLut, renderer->BRDFLutHandle);
+
+                        auto normalMatrix = MakeNormalMatrix(data->transform);
+                        meshBuffer->modelMatrix = data->transform;
+                        meshBuffer->normalMatrix = normalMatrix;
+
+                        Unmap(renderer->meshUniformBuffer);
+
+                        while (mesh) {
+                            glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
+
+                            bool hasBitangents = mesh->bitangents ? true : false;
+
+                            // TODO: This is very slow and stupid
+                            // There are probably sould be different shaders for meshes that have bitangents
+                            // and for those that do not.
+                            // Or maybe bitangents sholdn't be optional at all?
+                            auto meshBuffer = Map(renderer->meshUniformBuffer);
+                            meshBuffer->hasBitangents = hasBitangents ? 1 : 0;
+                            Unmap(renderer->meshUniformBuffer);
+
+
+                            glEnableVertexAttribArray(0);
+                            glEnableVertexAttribArray(1);
+                            glEnableVertexAttribArray(2);
+                            glEnableVertexAttribArray(3);
+                            if (hasBitangents) {
+                                glEnableVertexAttribArray(4);
+                            }
+
+                            u64 normalsOffset = mesh->vertexCount * sizeof(v3);
+                            u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
+                            u64 tangentsOffset = uvsOffset + mesh->vertexCount * sizeof(v2);
+
+                            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+                            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
+                            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
+                            glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)tangentsOffset);
+
+                            if (hasBitangents) {
+                                u64 bitangentsOffset = tangentsOffset + mesh->vertexCount * sizeof(v3);
+                                glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, (void*)bitangentsOffset);
+                            }
+
+                            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+
+                            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                            mesh = mesh->next;
+                        }
+                    } else {
+                        unreachable();
+                    }
+                }
             } break;
             }
         }

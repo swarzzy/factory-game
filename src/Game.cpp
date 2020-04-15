@@ -7,34 +7,6 @@
 
 #include <stdlib.h>
 
-#if 0
-struct Noise {
-    static const u32 BitShift = 4;
-    static const u32 BitMask = (1 << BitShift) - 1;
-    static const u32 Size = 1 << BitShift;
-    f32 values[Size];
-};
-
-Noise CreateNoise(u32 seed) {
-    Noise noise;
-    srand(seed);
-    for (u32x i = 0; i < Noise::Size; i++) {
-        noise.values[i] = rand() / (f32)RAND_MAX;
-    }
-    return noise;
-}
-
-f32 Sample(Noise* noise, float x) {
-    i32 xi = (i32)x;
-    i32 p = xi & Noise::BitMask;
-    i32 pn = (p == (Noise::Size - 1)) ? 0 : p + 1;
-    f32 t = x - xi;
-    t = SmoothStep(0.0f, 1.0f, t);
-    f32 result = Lerp(noise->values[p], noise->values[pn], t);
-    return result;
-}
-#endif
-
 void FluxInit(Context* context) {
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
@@ -58,22 +30,18 @@ void FluxInit(Context* context) {
 
     auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc);
     SetVoxelTexture(context->renderer, VoxelValue::Stone, stone->bits);
-#if 0
-    u32 size = 3 * 256 * 256;
-    auto bitmap = (byte*)PlatformAlloc(size);
-    auto noise = CreateNoise2D(2342);
-    for (u32 y = 0; y < 256; y++) {
-        for (u32 x = 0; x < 256; x++) {
-            auto ptr = bitmap + (y * 256 + x) * 3;
-            byte n = (byte)(Sample(&noise, (f32)(x / 20.0f), (f32)(y / 20.0f)) * 255.0f);
-            ptr[0] = n;
-            ptr[1] = n;
-            ptr[2] = n;
-        }
-    }
-#endif
     auto grass = ResourceLoaderLoadImage("../res/tile_grass.png", DynamicRange::LDR, true, 3, PlatformAlloc);
     SetVoxelTexture(context->renderer, VoxelValue::Grass, grass->bits);
+
+    context->playerMesh = LoadMeshFlux("../res/cube.mesh");
+    assert(context->playerMesh);
+    UploadToGPU(context->playerMesh);
+
+    context->playerMaterial.workflow = Material::Workflow::PBR;
+    context->playerMaterial.pbr.albedoValue = V3(0.8f, 0.0f, 0.0f);
+    context->playerMaterial.pbr.roughnessValue = 0.7f;
+
+    context->camera.targetWorldPosition = WorldPos::Make(IV3(0, 15, 0));
 }
 
 void FluxReload(Context* context) {
@@ -81,6 +49,10 @@ void FluxReload(Context* context) {
 
 void FluxUpdate(Context* context) {
     auto renderer = context->renderer;
+
+    context->camera.mode = CameraMode::Gameplay;
+    GlobalPlatform.inputMode = InputMode::CaptureCursor;
+
 
     i32 rendererSampleCount = GetRenderSampleCount(renderer);
     DEBUG_OVERLAY_SLIDER(rendererSampleCount, 0, GetRenderMaxSampleCount(renderer));
@@ -95,7 +67,7 @@ void FluxUpdate(Context* context) {
     }
 
 
-    Update(&context->camera, 1.0f / 60.0f);
+    Update(&context->camera, &context->gameWorld.player, 1.0f / 60.0f);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     //DrawDebugPerformanceCounters();
@@ -125,6 +97,59 @@ void FluxUpdate(Context* context) {
     DEBUG_OVERLAY_TRACE(camera->targetWorldPosition.voxel);
     DEBUG_OVERLAY_TRACE(camera->targetWorldPosition.offset);
     DrawRegion(&region, group, camera);
+
+    auto z = Normalize(V3(camera->front.x, 0.0f, camera->front.z));
+    auto x = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), z));
+    auto y = V3(0.0f, 1.0f, 0.0f);
+
+    v3 frameAcceleration = {};
+
+    if (KeyHeld(Key::W)) {
+        frameAcceleration -= z;
+    }
+    if (KeyHeld(Key::S)) {
+        frameAcceleration += z;
+    }
+    if (KeyHeld(Key::A)) {
+        frameAcceleration -= x;
+    }
+    if (KeyHeld(Key::D)) {
+        frameAcceleration += x;
+    }
+    if ((KeyHeld(Key::Space))) {
+        //frameAcceleration += y;
+    }
+    if ((KeyHeld(Key::Shift))) {
+        //frameAcceleration -= y;
+    }
+    if ((KeyPressed(Key::Space))) {
+        frameAcceleration += y * 6.0f;
+    }
+
+    auto player = &context->gameWorld.playerEntity;
+
+    frameAcceleration *= GlobalGameDeltaTime * player->acceleration;
+    // TODO: Physically correct friction
+    v3 drag = player->velocity * player->friction;
+    drag.y = 0.0f;
+    frameAcceleration -= drag;
+    frameAcceleration.y += -16.8f;
+
+    v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + player->velocity * GlobalGameDeltaTime;
+
+    player->velocity += frameAcceleration * GlobalGameDeltaTime;
+
+    auto newP = DoMovement(&context->gameWorld, player->p, movementDelta, &player->velocity, camera, group);
+
+    player->p = newP;
+
+    if (camera->mode != CameraMode::Gameplay) {
+        RenderCommandDrawMesh command {};
+        command.transform = Translate(RelativePos(camera->targetWorldPosition, player->p));
+        command.mesh = context->playerMesh;
+        command.material = &context->playerMaterial;
+        Push(group, &command);
+    }
 
     Begin(renderer, group);
     ShadowPass(renderer, group);

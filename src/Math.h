@@ -261,7 +261,7 @@ Vector<T, Size>& operator-=(Vector<T, Size>& v, T s) {
     for (u32x i = 0; i < Size; i++) {
         v.data[i] -= s;
     }
-    return l;
+    return v;
 }
 
 template <typename T, u32 Size>
@@ -274,7 +274,7 @@ Vector<T, Size> operator*(Vector<T, Size> v, T s) {
 }
 
 template <typename T, u32 Size>
-Vector<T, Size> operator*(f32 s, Vector<T, Size> v) {
+Vector<T, Size> operator*(T s, Vector<T, Size> v) {
     Vector<T, Size> result;
     for (u32x i = 0; i < Size; i++) {
         result.data[i] = v.data[i] * s;
@@ -479,10 +479,10 @@ m4x4 PerspectiveGLRH(f32 near, f32 far, f32 fov, f32 aRatio) {
     return m;
 }
 
-m4x4 LookAtGLRH(v3 eye, v3 target, v3 up) {
+m4x4 LookAtGLRH(v3 eye, v3 front, v3 up) {
     m4x4 m = {};
 
-    auto z = Normalize(eye - target);
+    auto z = Normalize(front);
     auto x = Normalize(Cross(up, z));
     auto y = Normalize(Cross(z, x));
 
@@ -815,6 +815,14 @@ union BBoxAligned {
         return result;
     }
 };
+
+v3 GetBarycentric(v3 boxMin, v3 boxMax, v3 p) {
+    v3 result;
+    result.x = SafeRatio0(p.x - boxMin.x, boxMax.x - boxMin.x);
+    result.y = SafeRatio0(p.y - boxMin.y, boxMax.y - boxMin.y);
+    result.z = SafeRatio0(p.z - boxMin.z, boxMax.z - boxMin.z);
+    return result;
+}
 
 bool IntersectFast(BBoxAligned box, v3 ro, v3 rd, f32 tMin, f32 tMax) {
     // Andrew Kensler's algorithm

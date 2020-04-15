@@ -77,17 +77,17 @@ const char* ToString(NormalFormat value) {
 }
 
 struct Material {
-    enum  Workflow : u32 { Phong = 0, PBRMetallic = 1, PBRSpecular = 2, } workflow;
+    enum  Workflow : u32 { Phong = 0, PBR = 1 } workflow;
     union {
         struct {
             b32 useDiffuseMap;
             b32 useSpecularMap;
             union {
-                u32 diffuseMap;
+                Texture* diffuseMap;
                 v3 diffuseValue;
             };
             union {
-                u32 specularMap;
+                Texture* specularMap;
                 v3 specularValue;
             };
         } phong;
@@ -101,58 +101,27 @@ struct Material {
             b32 useEmissionMap;
             NormalFormat normalFormat;
             union {
-                u32 albedoMap;
+                Texture* albedoMap;
                 v3 albedoValue;
             };
             union {
-                u32 roughnessMap;
+                Texture* roughnessMap;
                 f32 roughnessValue;
             };
             union {
-                u32 metallicMap;
+                Texture* metallicMap;
                 f32 metallicValue;
             };
             union {
-                u32 emissionMap;
+                Texture* emissionMap;
                 struct {
                     v3 emissionValue;
                     f32 emissionIntensity;
                 };
             };
-            u32 AOMap;
-            u32 normalMap;
-        } pbrMetallic;
-        struct {
-            b32 useAlbedoMap;
-            b32 useSpecularMap;
-            b32 useGlossMap;
-            b32 useNormalMap;
-            b32 useAOMap;
-            b32 emitsLight;
-            b32 useEmissionMap;
-            NormalFormat normalFormat;
-            union {
-                u32 albedoMap;
-                v3 albedoValue;
-            };
-            union {
-                u32 specularMap;
-                v3 specularValue;
-            };
-            union {
-                u32 glossMap;
-                f32 glossValue;
-            };
-            union {
-                u32 emissionMap;
-                struct {
-                    v3 emissionValue;
-                    f32 emissionIntensity;
-                };
-            };
-            u32 AOMap;
-            u32 normalMap;
-        } pbrSpecular;
+            Texture* AOMap;
+            Texture* normalMap;
+        } pbr;
     };
 };
 

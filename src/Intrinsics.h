@@ -105,6 +105,20 @@ f32 Round(f32 v) {
     return roundf(v);
 }
 
+constexpr f32 SafeRatioN(f32 num, f32 div, f32 n) {
+    f32 result = n;
+    if (div != 0.0f) {
+        result = num / div;
+    }
+    return result;
+}
+
+constexpr f32 SafeRatio0(f32 num, f32 div) {
+    f32 result = SafeRatioN(num, div, 0.0f);
+    return result;
+}
+
+
 constexpr u32 StrLength(const char* string) {
     u32 result = 0;
     while (*string) {

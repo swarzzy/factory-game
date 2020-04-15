@@ -11,6 +11,7 @@ struct WorldPos {
     iv3 voxel;
     v3 offset;
     inline static WorldPos Make(iv3 voxel) { return WorldPos{voxel, V3(0.0f)}; }
+    inline static WorldPos Make(iv3 voxel, v3 offset) { return WorldPos{voxel, offset}; }
 };
 
 struct ChunkPos {
@@ -61,7 +62,26 @@ bool ChunkHashCompFunc(void* a, void* b) {
     return result;
 }
 
+enum struct SpatialEntityType : u32 {
+    Player
+};
+
+struct SpatialEntity {
+    SpatialEntityType type;
+    WorldPos p;
+    v3 velocity;
+    f32 acceleration;
+    f32 friction;
+};
+
+struct Player {
+    SpatialEntity* entity;
+    f32 height;
+};
+
 struct GameWorld {
+    SpatialEntity playerEntity;
+    Player player;
     HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc> chunkHashMap;
     // TODO: Dynamic view distance
     static const u32 ViewDistance = 4;
@@ -72,6 +92,12 @@ struct GameWorld {
         this->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
         this->mesher = mesher;
         this->worldGen.Init(seed);
+        this->player.entity = &this->playerEntity;
+        this->playerEntity.type = SpatialEntityType::Player;
+        this->playerEntity.p = WorldPos::Make(IV3(0, 15, 0));
+        this->playerEntity.acceleration = 4000.0f;
+        this->playerEntity.friction = 10.0f;
+        this->player.height = 1.8f;
     }
 };
 
@@ -88,6 +114,7 @@ WorldPos NormalizeWorldPos(WorldPos p);
 
 WorldPos Offset(WorldPos p, v3 offset);
 
+v3 Difference(WorldPos a, WorldPos b);
 v3 RelativePos(WorldPos origin, WorldPos target);
 
 iv3 GetChunkCoord(i32 x, i32 y, i32 z);
@@ -96,3 +123,5 @@ uv3 GetVoxelCoordInChunk(i32 x, i32 y, i32 z);
 
 ChunkPos ChunkPosFromWorldPos(iv3 tile);
 WorldPos WorldPosFromChunkPos(ChunkPos p);
+
+WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, Camera* camera, RenderGroup* renderGroup);

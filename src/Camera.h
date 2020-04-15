@@ -2,6 +2,8 @@
 
 #include "World.h"
 
+struct Player;
+
 struct CameraBase {
     v3 position;
     v3 front = V3(0.0f, 0.0f, 1.0f);
@@ -17,15 +19,24 @@ struct CameraBase {
     m4x4 invProjectionMatrix;
 };
 
+enum struct CameraMode {
+    DebugFree, DebugFollowing, Gameplay
+};
+
 struct Camera : public CameraBase {
+    CameraMode mode;
     //WorldPos targetPosition;
     WorldPos targetWorldPosition;
+    f32 targetPitch;
+    f32 targetYaw;
+    f32 pitch;
+    f32 yaw;
     f32 longitude;
     f32 latitude;
     f32 distance;
     v2 targetOrbit;
     f32 targetDistance;
-    f32 rotSpeed = 1000.0f;
+    f32 rotSpeed = 165.0f;
     f32 zoomSpeed = 200.0f;
     f32 latSmooth = 30.0f;
     f32 longSmooth = 30.0f;
@@ -37,4 +48,4 @@ struct Camera : public CameraBase {
     i32 frameScrollOffset;
 };
 
-void Update(Camera* camera, f32 dt);
+void Update(Camera* camera, Player* player, f32 dt);

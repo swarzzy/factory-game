@@ -1,6 +1,7 @@
 #version 450
 
 #include Common.glh
+#include ShadowsCommon.glh
 
 layout (location = 4) in VertOut {
     flat uint voxelValue;
@@ -8,9 +9,13 @@ layout (location = 4) in VertOut {
     vec3 tangent;
     vec2 uv;
     vec3 position;
+    vec3 viewSpacePos;
+    vec4 lightSpacePos[3];
 } vertIn;
 
 layout (binding = 0) uniform sampler2DArray TerrainAtlas;
+
+layout (binding = 9) uniform sampler2DArrayShadow ShadowMap;
 
 out vec4 Color;
 
@@ -38,6 +43,8 @@ void main()
     float alpha;
     diffSample = texture(TerrainAtlas, vec3(vertIn.uv.x, vertIn.uv.y, textureIndex)).rgb;
     alpha = 1.0f;
+
+    vec3 kShadow = CalcShadow(vertIn.viewSpacePos, FrameData.shadowCascadeSplits, vertIn.lightSpacePos, ShadowMap, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries);
 
     vec3 directional = CalcDirectionalLight(FrameData.dirLight, normal, viewDir, diffSample);
 

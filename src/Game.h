@@ -10,6 +10,8 @@ struct Context {
     MemoryArena* tempArena;
     ChunkMesher chunkMesher;
     GameWorld gameWorld;
+    Mesh* playerMesh;
+    Material playerMaterial;
     Camera camera;
     Renderer* renderer;
     RenderGroup renderGroup;

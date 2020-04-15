@@ -12,6 +12,8 @@ layout (location = 4) out VertOut {
     vec3 tangent;
     vec2 uv;
     vec3 position;
+    vec3 viewSpacePos;
+    vec4 lightSpacePos[3];
 } vertOut;
 
 layout (location = 0) uniform vec3 Offset;
@@ -33,5 +35,9 @@ void main()
     vertOut.voxelValue = VoxelValue;
     vertOut.position = Position + Offset;
     vertOut.normal = Normal;
+    vertOut.viewSpacePos = (FrameData.viewMatrix * vec4(vertOut.position, 1.0f)).xyz;
+    vertOut.lightSpacePos[0] = FrameData.lightSpaceMatrices[0] * vec4(vertOut.position, 1.0f);
+    vertOut.lightSpacePos[1] = FrameData.lightSpaceMatrices[1] * vec4(vertOut.position, 1.0f);
+    vertOut.lightSpacePos[2] = FrameData.lightSpaceMatrices[2] * vec4(vertOut.position, 1.0f);
     gl_Position = FrameData.projectionMatrix * FrameData.viewMatrix * vec4(vertOut.position, 1.0f);
 }

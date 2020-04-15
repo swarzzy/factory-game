@@ -72,8 +72,6 @@ enum struct InputMode
     CaptureCursor
 };
 
-typedef void(SetInputModeFn)(InputMode);
-
 typedef void*(ReallocateFn)(void* ptr, uptr newSize);
 
 typedef MemoryArena*(AllocateArenaFn)(uptr size);
@@ -154,7 +152,6 @@ struct PlatformCalls
     DebugCloseFileFn* DebugCloseFile;
     DebugCopyFileFn* DebugCopyFile;
     DebugWriteToOpenedFileFn* DebugWriteToOpenedFile;
-    SetInputModeFn* SetInputMode;
 
     // Default allocator
     AllocateFn* Allocate;
@@ -259,6 +256,7 @@ struct PlatformState
     volatile b32 supportsAsyncGPUTransfer;
     WorkQueue* workQueue;
     ImGuiContext* imguiContext;
+    InputMode inputMode;
     InputState input;
     u64 tickCount;
     i32 fps;

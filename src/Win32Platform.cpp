@@ -613,6 +613,20 @@ void WindowSetMousePosition(Win32Context* app, u32 x, u32 y)
 
 void WindowPollEvents(Win32Context* app)
 {
+#if 0
+    POINT point;
+    GetCursorPos(&point);
+    i32 mousePositionX = point.x;
+    i32 mousePositionY = point.y;
+
+    mousePositionY = app->state.windowHeight - mousePositionY;
+
+    f32 normalizedMouseX = (f32)mousePositionX / (f32)app->state.windowWidth;
+    f32 normalizedMouseY = (f32)mousePositionY / (f32)app->state.windowHeight;
+
+    app->state.input.mouseFrameOffsetX = normalizedMouseX - app->state.input.mouseX;
+    app->state.input.mouseFrameOffsetY = normalizedMouseY - app->state.input.mouseY;
+#endif
     MSG message;
     BOOL result;
     while (GlobalRunning && (result = PeekMessage(&message, 0, 0, 0, PM_REMOVE)) != 0)
@@ -682,7 +696,7 @@ LRESULT CALLBACK Win32WindowProc(HWND windowHandle, UINT message, WPARAM wParam,
 
         app->state.input.mouseFrameOffsetY = normalizedMouseY - app->state.input.mouseY;
 
-        switch (app->inputMode)
+        switch (app->state.inputMode)
         {
         case InputMode::FreeCursor:
         {
@@ -1040,11 +1054,6 @@ void Win32Init(Win32Context* ctx)
     SetFocus(ctx->windowHandle);
 }
 
-void SetInputMode(InputMode mode)
-{
-    GlobalContext.inputMode = mode;
-}
-
 f64 GetTimeStamp()
 {
     f64 time = 0.0;
@@ -1258,7 +1267,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     app->state.functions.DebugCloseFile = DebugCloseFile;
     app->state.functions.DebugCopyFile = DebugCopyFile;
     app->state.functions.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
-    app->state.functions.SetInputMode = SetInputMode;
 
     app->state.functions.Allocate = Allocate;
     app->state.functions.Deallocate = Deallocate;
