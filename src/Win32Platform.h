@@ -82,7 +82,8 @@ struct WorkQueue {
 
 struct Win32ThreadInfo {
     u32 index;
-    WorkQueue* queue;
+    WorkQueue* lowPriorityQueue;
+    WorkQueue* highPriorityQueue;
     HGLRC glrc;
 };
 
@@ -99,7 +100,8 @@ struct Win32Context
     TRACKMOUSEEVENT Win32MouseTrackEvent;
     InputMode inputMode;
     LibraryData gameLib;
-    WorkQueue workQueue;
+    WorkQueue lowPriorityQueue;
+    WorkQueue highPriorityQueue;
     HGLRC workersGLRC[NumOfWorkerThreads];
 
     // NOTE: WGL

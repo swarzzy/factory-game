@@ -1,50 +1,21 @@
 #include "World.h"
 #include "Renderer.h"
 
-void DebugFillChunk(Chunk* chunk) {
-    if (chunk->p.y == 0) {
-        for (u32 bz = 0; bz < Chunk::Size; bz++) {
-            for (u32 by = 0; by < Chunk::Size; by++) {
-                for (u32 bx = 0; bx < Chunk::Size; bx++) {
-                    auto block = GetVoxel(chunk, bx, by, bz);
-                    if (block) {
-                        if (by == 0) {
-                            block->value = VoxelValue::Grass;
-                        }
-                    }
-                }
-            }
-        }
-    } else if (chunk->p.y < 0) {
-        for (u32 bz = 0; bz < Chunk::Size; bz++) {
-            for (u32 by = 0; by < Chunk::Size; by++) {
-                for (u32 bx = 0; bx < Chunk::Size; bx++) {
-                    auto block = GetVoxel(chunk, bx, by, bz);
-                    if (block) {
-                        block->value = VoxelValue::Stone;
-                    }
-                }
-            }
-        }
-    }
-}
-
-
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z) {
     Voxel* result = &chunk->voxels[x + Chunk::Size * y + Chunk::Size * Chunk::Size * z];
     return result;
 }
 
-Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z) {
-    Voxel* result = nullptr;
+const Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z) {
+    const Voxel* result = nullptr;
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
         result = GetVoxelRaw(chunk, x, y, z);
     }
     return result;
 }
 
-Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z) {
-    Voxel* result = nullptr;
+const Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z) {
+    const Voxel* result = nullptr;
     auto chunkP = ChunkPosFromWorldPos(IV3(x, y, z));
     Chunk* chunk = GetChunk(world, chunkP.chunk.x, chunkP.chunk.y, chunkP.chunk.z);
     if (chunk) {
@@ -52,6 +23,16 @@ Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z) {
     }
     return result;
 }
+
+Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
+    Voxel* result = nullptr;
+    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+        result = GetVoxelRaw(chunk, x, y, z);
+        chunk->dirty = true;
+    }
+    return result;
+}
+
 
 Chunk* AddChunk(GameWorld* world, iv3 coord) {
     auto chunk = (Chunk*)PlatformAlloc(sizeof(Chunk), 0, nullptr);
@@ -143,7 +124,7 @@ WorldPos WorldPosFromChunkPos(ChunkPos p) {
     return result;
 }
 
-bool IsVoxelCollider(Voxel* voxel) {
+bool IsVoxelCollider(const Voxel* voxel) {
     bool collides = true;
     if (voxel && voxel->value == VoxelValue::Empty) {
         collides = false;
@@ -151,154 +132,6 @@ bool IsVoxelCollider(Voxel* voxel) {
     return collides;
 }
 
-struct _IntersectionResult
-{
-    b32 intersects;
-    f32 tMin;
-    v3 normal;
-};
-
-// TODO: Move this to hypermath.h
-_IntersectionResult
-RayAABBIntersectionSlow(v3 from, v3 ray, v3 boxMin, v3 boxMax)
-{
-    _IntersectionResult result = {};
-
-    f32 tMin = 0.0f;
-    bool hit = false;
-    v3 normal = V3(0.0f);
-
-    if (Abs(ray.x) > F32::Eps)
-    {
-        f32 t = (boxMin.x - from.x) / ray.x;
-        if (t >= 0.0f)
-        {
-            f32 yMin = from.y + ray.y * t;
-            f32 zMin = from.z + ray.z * t;
-            if (yMin >= boxMin.y && yMin <= boxMax.y &&
-                zMin >= boxMin.z && zMin <= boxMax.z)
-            {
-                if (!hit || t < tMin)
-                {
-                    tMin = t;
-                    normal = V3(-1.0f, 0.0f, 0.0f);
-                }
-                hit = true;
-            }
-        }
-    }
-
-    if (Abs(ray.x) > F32::Eps)
-    {
-        f32 t = (boxMax.x - from.x) / ray.x;
-        if (t >= 0.0f)
-        {
-            f32 yMax = from.y + ray.y * t;
-            f32 zMax = from.z + ray.z * t;
-            if (yMax >= boxMin.y && yMax <= boxMax.y &&
-                zMax >= boxMin.z && zMax <= boxMax.z)
-            {
-                if (!hit || t < tMin)
-                {
-                    tMin = t;
-                    normal = V3(1.0f, 0.0f, 0.0f);
-                }
-
-                hit = true;
-            }
-        }
-    }
-
-    if (Abs(ray.y) > F32::Eps)
-    {
-        f32 t = (boxMin.y - from.y) / ray.y;
-        if (t >= 0.0f)
-        {
-            f32 xMin = from.x + ray.x * t;
-            f32 zMin = from.z + ray.z * t;
-            if (xMin >= boxMin.x && xMin <= boxMax.x &&
-                zMin >= boxMin.z && zMin <= boxMax.z)
-            {
-                if (!hit || t < tMin)
-                {
-                    tMin = t;
-                    normal = V3(0.0f, -1.0f, 0.0f);
-                }
-
-                hit = true;
-            }
-        }
-    }
-
-    if (Abs(ray.y) > F32::Eps)
-    {
-        f32 t = (boxMax.y - from.y) / ray.y;
-        if (t >= 0.0f)
-        {
-            f32 xMax = from.x + ray.x * t;
-            f32 zMax = from.z + ray.z * t;
-            if (xMax >= boxMin.x && xMax <= boxMax.x &&
-                zMax >= boxMin.z && zMax <= boxMax.z)
-            {
-                if (!hit || t < tMin)
-                {
-                    tMin = t;
-                    normal = V3(0.0f, 1.0f, 0.0f);
-                }
-
-                hit = true;
-            }
-        }
-    }
-
-    if (Abs(ray.z) > F32::Eps)
-    {
-        f32 t = (boxMin.z - from.z) / ray.z;
-        if (t >= 0.0f)
-        {
-            f32 xMin = from.x + ray.x * t;
-            f32 yMin = from.y + ray.y * t;
-            if (xMin >= boxMin.x && xMin <= boxMax.x &&
-                yMin >= boxMin.y && yMin <= boxMax.y)
-            {
-                if (!hit || t < tMin)
-                {
-                    tMin = t;
-                    normal = V3(0.0f, 0.0f, -1.0f);
-                }
-
-                hit = true;
-            }
-        }
-    }
-
-    if (Abs(ray.z) > F32::Eps)
-    {
-        f32 t = (boxMax.z - from.z) / ray.z;
-        if (t >= 0.0f)
-        {
-            f32 xMax = from.x + ray.x * t;
-            f32 yMax = from.y + ray.y * t;
-            if (xMax >= boxMin.x && xMax <= boxMax.x &&
-                yMax >= boxMin.y && yMax <= boxMax.y)
-            {
-                if (!hit || t < tMin)
-                {
-                    tMin = t;
-                    normal = V3(0.0f, 0.0f, 1.0f);
-                }
-
-                hit = true;
-            }
-        }
-    }
-
-    result.intersects = hit;
-    result.tMin = tMin;
-    result.normal = normal;
-
-    return result;
-}
 
 WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, bool* hitGround, Camera* camera, RenderGroup* renderGroup) {
     *hitGround = false;

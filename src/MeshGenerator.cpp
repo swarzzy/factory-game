@@ -61,6 +61,7 @@ void FreeChunkMesh(ChunkMesher* mesher, ChunkMesh* mesh) {
         FreeChunkMeshBlock(mesher, block);
         block = nextBlock;
     }
+    mesh->state = ChunkMesh::State::Empty;
     mesh->begin = nullptr;
     mesh->end = nullptr;
     mesh->vertexCount = 0;
@@ -262,7 +263,24 @@ void ChunkMesherWork(void* data, u32 threadID) {
     }
 }
 
-void ScheduleChunkMeshing(GameWorld* world, ChunkMesher* mesher, Chunk* chunk) {
+bool ScheduleChunkMeshUpdate(GameWorld* world, ChunkMesher* mesher, Chunk* chunk) {
+    bool result = true;
+    assert(chunk->mesh);
+    auto mesh = chunk->mesh;
+    FreeChunkMesh(mesher, mesh);
+    assert(mesh->state == ChunkMesh::State::Empty);
+    mesh->state = ChunkMesh::State::Queued;
+    mesh->mesher = mesher;
+    WriteFence();
+    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, chunk, ChunkMesherWork)) {
+        result = false;
+        mesh->state = ChunkMesh::State::Empty;
+    }
+    return result;
+}
+
+bool ScheduleChunkMeshing(GameWorld* world, ChunkMesher* mesher, Chunk* chunk) {
+    bool result = true;
     assert(!chunk->mesh);
     ClaimFurthestChunkMesh(world, mesher, chunk);
     auto mesh = chunk->mesh;
@@ -270,10 +288,12 @@ void ScheduleChunkMeshing(GameWorld* world, ChunkMesher* mesher, Chunk* chunk) {
     mesh->state = ChunkMesh::State::Queued;
     mesh->mesher = mesher;
     WriteFence();
-    if (!PlatformPushWork(GlobalPlaformWorkQueue, chunk, ChunkMesherWork)) {
+    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, chunk, ChunkMesherWork)) {
         mesh->state = ChunkMesh::State::Empty;
         ReturnChunkMeshToPool(mesher, chunk);
+        result = false;
     }
+    return result;
 }
 
 void ScheduleChunkMeshUpload(ChunkMesh* mesh) {
@@ -282,7 +302,7 @@ void ScheduleChunkMeshUpload(ChunkMesh* mesh) {
     assert(mesh->gpuBufferPtr);
     mesh->state = ChunkMesh::State::ScheduledUpload;
     WriteFence();
-    if (!PlatformPushWork(GlobalPlaformWorkQueue, mesh, UploadChunkMeshToGPUWork)) {
+    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, mesh, UploadChunkMeshToGPUWork)) {
         mesh->state = ChunkMesh::State::ReadyForUpload;
     }
 }

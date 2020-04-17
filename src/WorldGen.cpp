@@ -75,7 +75,7 @@ void GenChunk(WorldGen* gen, Chunk* chunk) {
                 u32 rockHeight = GetHeightFromNoise(&gen->anotherNoise, wp.voxel.x, wp.voxel.z, 8);
                 auto value = grassHeight > rockHeight ? VoxelValue::Grass : VoxelValue::Stone;
                 for (u32 by = 0; by < grassHeight; by++) {
-                    auto block = GetVoxel(chunk, bx, by, bz);
+                    auto block = GetVoxelForModification(chunk, bx, by, bz);
                     block->value = value;
                 }
             }
@@ -84,7 +84,7 @@ void GenChunk(WorldGen* gen, Chunk* chunk) {
         for (u32 bz = 0; bz < Chunk::Size; bz++) {
             for (u32 by = 0; by < Chunk::Size; by++) {
                 for (u32 bx = 0; bx < Chunk::Size; bx++) {
-                    auto block = GetVoxel(chunk, bx, by, bz);
+                    auto block = GetVoxelForModification(chunk, bx, by, bz);
                     if (block) {
                         block->value = VoxelValue::Stone;
                     }

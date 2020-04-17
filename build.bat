@@ -9,6 +9,7 @@ goto end
 
 set BuildShaderPreprocessor=true
 set BuildResourceLoader=true
+set BuildVarParser=true
 
 set ObjOutDir=build\obj\
 set BinOutDir=build\
@@ -34,6 +35,11 @@ set ConfigCompilerFlags=%DebugCompilerFlags%
 if %BuildShaderPreprocessor% equ true (
 echo Building shader preprocessor...
 cl /W3 /wd4530 /Gm- /GR- /Od /Zi /MTd /nologo /diagnostics:classic /WX /std:c++17 /Fo%ObjOutDir% /D_CRT_SECURE_NO_WARNINGS /DWIN32_LEAN_AND_MEAN  src/tools/shader_preprocessor.cpp /link /INCREMENTAL:NO /OPT:REF /MACHINE:X64 /OUT:%BinOutDir%\shader_preprocessor.exe /PDB:%BinOutDir%\shader_preprocessor.pdb
+)
+
+if %BuildVarParser% equ true (
+echo Building variables parser...
+cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/tools/VariablesParser.cpp /link /INCREMENTAL:NO /OPT:REF /MACHINE:X64 /OUT:%BinOutDir%\VarParser.exe /PDB:%BinOutDir%\VarParser.pdb
 )
 
 

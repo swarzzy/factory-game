@@ -7,7 +7,27 @@
 
 #include <stdlib.h>
 
+void LowWork(void* data, u32 threadID) {
+    printf("Low priority work\n");
+}
+
+void HighWork(void* data, u32 threadID) {
+    printf("High priority work\n");
+}
+
+
 void FluxInit(Context* context) {
+
+    PlatformPushWork(GlobalLowPriorityWorkQueue, nullptr, LowWork);
+    PlatformPushWork(GlobalLowPriorityWorkQueue, nullptr, LowWork);
+    PlatformPushWork(GlobalLowPriorityWorkQueue, nullptr, LowWork);
+    PlatformPushWork(GlobalLowPriorityWorkQueue, nullptr, LowWork);
+
+    PlatformPushWork(GlobalHighPriorityWorkQueue, nullptr, HighWork);
+    PlatformPushWork(GlobalHighPriorityWorkQueue, nullptr, HighWork);
+    PlatformPushWork(GlobalHighPriorityWorkQueue, nullptr, HighWork);
+
+
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
@@ -106,19 +126,15 @@ void FluxUpdate(Context* context) {
 
     if (KeyHeld(Key::W)) {
         frameAcceleration -= z;
-        printf("W pressed\n");
     }
     if (KeyHeld(Key::S)) {
         frameAcceleration += z;
-        printf("S pressed\n");
     }
     if (KeyHeld(Key::A)) {
         frameAcceleration -= x;
-        printf("A pressed\n");
     }
     if (KeyHeld(Key::D)) {
         frameAcceleration += x;
-        printf("D pressed\n");
     }
     if ((KeyHeld(Key::Space))) {
         //frameAcceleration += y;
@@ -182,7 +198,7 @@ void FluxUpdate(Context* context) {
         for (i32 z = min.z; z < max.z; z++) {
             for (i32 y = min.y; y < max.y; y++) {
                 for (i32 x = min.x; x < max.x; x++) {
-                    Voxel* voxel = GetVoxel(&context->gameWorld, x, y, z);
+                    const Voxel* voxel = GetVoxel(&context->gameWorld, x, y, z);
                     if (voxel->value != VoxelValue::Empty) {
                         WorldPos voxelWorldP = WorldPos::Make(x, y, z);
                         v3 voxelRelP = RelativePos(camera->targetWorldPosition, voxelWorldP);
@@ -202,53 +218,15 @@ void FluxUpdate(Context* context) {
                 }
             }
         }
-
-#if 0
-        for (i32 chunkZ = camChunk.z - 1; chunkZ <= (camChunk.z + 1); chunkZ++) {
-            for (i32 chunkY = camChunk.y - 1; chunkY <= (camChunk.y + 1); chunkY++) {
-                for (i32 chunkX = camChunk.x - 1; chunkX <= (camChunk.x + 1); chunkX++) {
-                    Chunk* chunk = GetChunk(&context->gameWorld, chunkX, chunkY, chunkZ);
-                    if (chunk) {
-                        BBoxAligned chunkAABB;
-                        chunkAABB.min = RelativePos(camera->targetWorldPosition, WorldPos::Make(chunk->p * (i32)Chunk::Size));
-                        chunkAABB.max = RelativePos(camera->targetWorldPosition, WorldPos::Make((chunk->p + 1) * (i32)Chunk::Size));
-                        chunkAABB.min -= V3(Voxel::HalfDim);
-                        chunkAABB.max -= V3(Voxel::HalfDim);
-                        DrawAlignedBoxOutline(group, chunkAABB.min, chunkAABB.max, V3(0.0f, 1.0f, 0.0f), 2.0f);
-
-                        auto chunkIntersection = Intersect(chunkAABB, ro, rd, 0.0f, 10.0f); // TODO: Raycast distance
-                        if (chunkIntersection.hit) {
-                            for (i32 z = 0; z < Chunk::Size; z++) {
-                                for (i32 y = 0; y < Chunk::Size; y++) {
-                                    for (i32 x = 0; x < Chunk::Size; x++) {
-                                        Voxel* voxel = GetVoxel(chunk, x, y, z);
-                                        if (voxel->value != VoxelValue::Empty) {
-                                            WorldPos voxelWorldP = WorldPosFromChunkPos(ChunkPos::Make(IV3(chunkX, chunkY, chunkZ), UV3(x, y, z)));
-                                            v3 voxelRelP = RelativePos(camera->targetWorldPosition, voxelWorldP);
-                                            BBoxAligned voxelAABB;
-                                            voxelAABB.min = voxelRelP - V3(Voxel::HalfDim);
-                                            voxelAABB.max = voxelRelP + V3(Voxel::HalfDim);
-
-                                            auto intersection = Intersect(voxelAABB, ro, rd, 0.0f, 10.0f); // TODO: Raycast distance
-                                            if (intersection.hit && intersection.t < tMin) {
-                                                tMin = intersection.t;
-                                                hitVoxel = voxelWorldP.voxel;
-                                                hitNormal = intersection.normal;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-#endif
         if (hitVoxel.x != GameWorld::InvalidCoord) {
             context->gameWorld.player.selectedVoxel = hitVoxel;
+            if (MouseButtonPressed(MouseButton::Left)) {
+                auto chunkPos = ChunkPosFromWorldPos(hitVoxel);
+                auto chunk = GetChunk(&context->gameWorld, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
+                auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
+                voxel->value = VoxelValue::Empty;
+            }
         }
-        //}
 
     iv3 selectedVoxelPos = context->gameWorld.player.selectedVoxel;
 

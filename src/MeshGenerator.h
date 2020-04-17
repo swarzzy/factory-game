@@ -54,6 +54,6 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk);
 
 void FreeChunkMesh(ChunkMesher* mesher, ChunkMesh* mesh);
 
-void ScheduleChunkMeshing(GameWorld* world, ChunkMesher* mesher, Chunk* chunk);
+bool ScheduleChunkMeshing(GameWorld* world, ChunkMesher* mesher, Chunk* chunk);
 void ScheduleChunkMeshUpload(ChunkMesh* mesh);
 void CompleteChunkMeshUpload(ChunkMesh* mesh);

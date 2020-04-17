@@ -254,7 +254,8 @@ struct PlatformState
     PlatformCalls functions;
     OpenGL* gl;
     volatile b32 supportsAsyncGPUTransfer;
-    WorkQueue* workQueue;
+    WorkQueue* lowPriorityQueue;
+    WorkQueue* highPriorityQueue;
     ImGuiContext* imguiContext;
     InputMode inputMode;
     InputState input;

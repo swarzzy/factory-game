@@ -16,7 +16,9 @@ static PlatformState* _GlobalPlatform = 0;
 // NOTE: Frame time corrected by game speed
 #define GlobalGameDeltaTime GlobalPlatform.gameDeltaTime
 #define GlobalInput GlobalPlatform.input
-#define GlobalPlaformWorkQueue GlobalPlatform.workQueue
+#define GlobalLowPriorityWorkQueue GlobalPlatform.lowPriorityQueue
+#define GlobalHighPriorityWorkQueue GlobalPlatform.highPriorityQueue
+
 
 bool KeyHeld(Key key) {
     return GlobalInput.keys[(u32)key].pressedNow;

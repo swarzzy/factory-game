@@ -28,8 +28,15 @@ Region BeginRegion(GameWorld* world, iv3 origin, i32 dim) {
                     assert(chunk);
                     GenChunk(&world->worldGen, chunk);
                 }
+                if (chunk->dirty && chunk->mesh && chunk->mesh->state == ChunkMesh::State::Complete) {
+                    if (ScheduleChunkMeshUpdate(world, world->mesher, chunk)) {
+                        chunk->dirty = false;
+                    }
+                }
                 if (!chunk->mesh) {
-                    ScheduleChunkMeshing(world, world->mesher, chunk);
+                    if (ScheduleChunkMeshing(world, world->mesher, chunk)) {
+                        chunk->dirty = false;
+                    }
                 }
                 if (!GlobalPlatform.supportsAsyncGPUTransfer) {
                     if (chunk->mesh) {

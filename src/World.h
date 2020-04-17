@@ -41,6 +41,7 @@ struct Chunk {
     static const u32 Size = 1 << BitShift;
 
     b32 modified;
+    b32 dirty;
     iv3 p;
     ChunkMesh* mesh;
     Voxel voxels[Size * Size * Size];
@@ -112,10 +113,9 @@ struct GameWorld {
 };
 
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z);
-Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z);
-Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z);
-
-void DebugFillChunk(Chunk* chunk);
+const Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z);
+const Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z);
+Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z);
 
 Chunk* AddChunk(GameWorld* world, iv3 coord);
 

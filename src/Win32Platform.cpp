@@ -963,20 +963,17 @@ void Win32Init(Win32Context* ctx)
 
     AdjustWindowRectEx(&actualSize, WS_OVERLAPPEDWINDOW | WS_VISIBLE,  0, 0);
 
-#define ABS_INT(n) ((n) < 0 ? -(n) : n)
-
-    i32 width = ABS_INT(actualSize.left) + ABS_INT(actualSize.right);
-    i32 height = ABS_INT(actualSize.top) + ABS_INT(actualSize.bottom);
+    i32 width = Abs(actualSize.left) + Abs(actualSize.right);
+    i32 height = Abs(actualSize.top) + Abs(actualSize.bottom);
 
     auto styleFlags = WS_THICKFRAME | WS_OVERLAPPEDWINDOW | WS_VISIBLE;
     HWND actualWindowHandle = CreateWindowEx(0, windowClass.lpszClassName,
                                              ctx->windowTitle,
                                              styleFlags,
                                              CW_USEDEFAULT, CW_USEDEFAULT,
-                                             ctx->state.windowWidth,
-                                             ctx->state.windowHeight,
+                                             width,
+                                             height,
                                              0, 0, instance, ctx);
-#undef AB_ABS_INT
 
     panic(actualWindowHandle, "[Error] Win32: failed to create window.");
 
@@ -1169,7 +1166,8 @@ void Win32CompleteAllWork(WorkQueue* queue) {
 
 DWORD WINAPI Win32ThreadProc(void* param) {
     auto threadInfo = (Win32ThreadInfo*)param;
-    auto queue = threadInfo->queue;
+    auto lowPriorityQueue = threadInfo->lowPriorityQueue;
+    auto highPriorityQueue = threadInfo->highPriorityQueue;
 
     // NOTE: This way of initializaing shared contexts appears to be working.
     // Multiple context support for working threads in OpenGL seems to be super inconsistent
@@ -1185,9 +1183,13 @@ DWORD WINAPI Win32ThreadProc(void* param) {
     }
 #endif
     while (true) {
-        auto didSomeWork = Win32DoWorkerWork(queue, threadInfo->index);
-        if (!didSomeWork) {
-            WaitForSingleObjectEx(queue->semaphore, INFINITE, FALSE);
+        auto didHighPriorityWork = Win32DoWorkerWork(highPriorityQueue, threadInfo->index);
+        if (!didHighPriorityWork) {
+            WaitForSingleObjectEx(highPriorityQueue->semaphore, 0, FALSE);
+            auto didLowPriorityWork = Win32DoWorkerWork(lowPriorityQueue, threadInfo->index);
+            if (!didLowPriorityWork) {
+                WaitForSingleObjectEx(lowPriorityQueue->semaphore, INFINITE, FALSE);
+            }
         }
     }
 }
@@ -1235,23 +1237,29 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     app->wglSwapIntervalEXT(1);
 
-    auto workQueue = &app->workQueue;
+    auto lowQueue = &app->lowPriorityQueue;
+    auto highQueue = &app->highPriorityQueue;
 
     Win32ThreadInfo threadInfo[NumOfWorkerThreads];
-    auto semHandle = CreateSemaphoreEx(0, 0, array_count(threadInfo), nullptr, 0, SEMAPHORE_ALL_ACCESS);
-    workQueue->semaphore = semHandle;
+    auto lowSemHandle = CreateSemaphoreEx(0, 0, array_count(threadInfo), nullptr, 0, SEMAPHORE_ALL_ACCESS);
+    lowQueue->semaphore = lowSemHandle;
+    auto highSemHandle = CreateSemaphoreEx(0, 0, array_count(threadInfo), nullptr, 0, SEMAPHORE_ALL_ACCESS);
+    highQueue->semaphore = highSemHandle;
+
     for (u32x i = 0; i < array_count(threadInfo); i++) {
         auto info = threadInfo + i;
         DWORD threadId;
         auto threadHandle = CreateThread(0, 0, Win32ThreadProc, (void*)info, CREATE_SUSPENDED, &threadId);
         info->index = GetThreadId(threadHandle);
-        info->queue = workQueue;
+        info->lowPriorityQueue = lowQueue;
+        info->highPriorityQueue = highQueue;
         info->glrc = app->workersGLRC[i];
         ResumeThread(threadHandle);
         CloseHandle(threadHandle);
     }
 
-    Win32CompleteAllWork(workQueue);
+    Win32CompleteAllWork(lowQueue);
+    Win32CompleteAllWork(highQueue);
 
     OpenGLLoadResult glResult = LoadOpenGL();
     panic(glResult.success, "Failed to load OpenGL functions");
@@ -1283,7 +1291,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     app->state.functions.EnumerateFilesInDirectory = EnumerateFilesInDirectory;
 
-    app->state.workQueue = workQueue;
+    app->state.lowPriorityQueue = lowQueue;
+    app->state.highPriorityQueue = highQueue;
 
     //SetupDirs(&app->gameLib);
 
