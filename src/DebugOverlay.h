@@ -1,7 +1,7 @@
 #pragma once
 #include "Platform.h"
 
-b32 GlobalDrawDebugOverlay = false;
+b32 GlobalDrawDebugOverlay = true;
 
 void DrawDebugPerformanceCounters();
 void BeginDebugOverlay();

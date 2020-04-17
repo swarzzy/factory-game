@@ -1,11 +1,12 @@
 #pragma once
 
 #include "HashMap.h"
-#include "Region.h"
 #include "WorldGen.h"
 
 struct ChunkMesh;
 struct ChunkMesher;
+struct Camera;
+struct RenderGroup;
 
 struct WorldPos {
     iv3 voxel;
@@ -35,15 +36,30 @@ struct Voxel {
     VoxelValue value = VoxelValue::Empty;
 };
 
+enum struct ChunkState : u32 {
+    Complete = 0, Filling, Filled, Meshing, MeshingFinished, WaitsForUpload, MeshUploadingFinished, UploadingMesh
+};
+
 struct Chunk {
     static const u32 BitShift = 5;
     static const u32 BitMask = (1 << BitShift) - 1;
     static const u32 Size = 1 << BitShift;
 
+    volatile ChunkState state;
+    b32 filled;
+    b32 meshValid;
+
     b32 modified;
     b32 dirty;
+    b32 active;
+    Chunk* nextActive;
+    Chunk* prevActive;
     iv3 p;
     ChunkMesh* mesh;
+    ChunkMesh* primaryMesh;
+    ChunkMesh* secondaryMesh;
+    u32 primaryMeshPoolIndex;
+    u32 secondaryMeshPoolIndex;
     Voxel voxels[Size * Size * Size];
 };
 
@@ -79,6 +95,7 @@ struct SpatialEntity {
 
 struct Player {
     SpatialEntity* entity;
+    b32 flightMode;
     f32 height;
     iv3 selectedVoxel;
     f32 jumpAcceleration;
@@ -86,6 +103,10 @@ struct Player {
 };
 
 struct GameWorld {
+    static const i32 MinHeight = -(i32)Chunk::Size * 3 - 1;
+    static const i32 MaxHeight = (i32)Chunk::Size * 3 - 1;
+    static const i32 MinHeightChunk = -3;
+    static const i32 MaxHeightChunk = 2;
     static const i32 InvalidCoord = I32::Max;
     inline static const iv3 InvalidPos = IV3(InvalidCoord);
     SpatialEntity playerEntity;
@@ -95,6 +116,7 @@ struct GameWorld {
     static const u32 ViewDistance = 4;
     WorldGen worldGen;
     ChunkMesher* mesher;
+    Chunk* firstActive;
 
     void Init(ChunkMesher* mesher, u32 seed) {
         this->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();

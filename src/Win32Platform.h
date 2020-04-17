@@ -67,7 +67,9 @@ extern "C"
 }
 
 struct WorkQueueEntry {
-    void* data;
+    void* data0;
+    void* data1;
+    void* data2;
     WorkFn* function;
 };
 

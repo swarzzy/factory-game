@@ -4,12 +4,14 @@
 #include "RenderGroup.h"
 #include "World.h"
 #include "MeshGenerator.h"
+#include "SimRegion.h"
 
 struct Context {
     MemoryArena* gameArena;
     MemoryArena* tempArena;
     ChunkMesher chunkMesher;
     GameWorld gameWorld;
+    SimRegion playerRegion;
     Mesh* playerMesh;
     Material playerMaterial;
     Camera camera;

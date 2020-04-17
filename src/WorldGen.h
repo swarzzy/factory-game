@@ -25,4 +25,5 @@ struct WorldGen {
 };
 
 void GenChunk(WorldGen* gen, Chunk* chunk);
+bool ScheduleChunkFill(WorldGen* gen, Chunk* chunk);
 void RunNoise2DTest();

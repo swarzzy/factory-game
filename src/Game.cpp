@@ -3,31 +3,9 @@
 #include "DebugOverlay.h"
 #include "Resource.h"
 
-#include "Region.h"
-
 #include <stdlib.h>
 
-void LowWork(void* data, u32 threadID) {
-    printf("Low priority work\n");
-}
-
-void HighWork(void* data, u32 threadID) {
-    printf("High priority work\n");
-}
-
-
 void FluxInit(Context* context) {
-
-    PlatformPushWork(GlobalLowPriorityWorkQueue, nullptr, LowWork);
-    PlatformPushWork(GlobalLowPriorityWorkQueue, nullptr, LowWork);
-    PlatformPushWork(GlobalLowPriorityWorkQueue, nullptr, LowWork);
-    PlatformPushWork(GlobalLowPriorityWorkQueue, nullptr, LowWork);
-
-    PlatformPushWork(GlobalHighPriorityWorkQueue, nullptr, HighWork);
-    PlatformPushWork(GlobalHighPriorityWorkQueue, nullptr, HighWork);
-    PlatformPushWork(GlobalHighPriorityWorkQueue, nullptr, HighWork);
-
-
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
@@ -62,6 +40,10 @@ void FluxInit(Context* context) {
     context->playerMaterial.pbr.roughnessValue = 0.7f;
 
     context->camera.targetWorldPosition = WorldPos::Make(IV3(0, 15, 0));
+
+    context->playerRegion.world = &context->gameWorld;
+    ResizeRegion(&context->playerRegion, GameWorld::ViewDistance, context->gameArena);
+    MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(context->camera.targetWorldPosition.voxel).chunk);
 }
 
 void FluxReload(Context* context) {
@@ -111,12 +93,14 @@ void FluxUpdate(Context* context) {
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->freeBlockCount);
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->totalBlockCount);
 
+#if 0
     auto region = BeginRegion(&context->gameWorld, camera->targetWorldPosition.voxel, GameWorld::ViewDistance);
     region.debugShowBoundaries = true;
     region.debugRender = true;
     DEBUG_OVERLAY_TRACE(camera->targetWorldPosition.voxel);
     DEBUG_OVERLAY_TRACE(camera->targetWorldPosition.offset);
     DrawRegion(&region, group, camera);
+#endif
 
     auto z = Normalize(V3(camera->front.x, 0.0f, camera->front.z));
     auto x = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), z));
@@ -136,13 +120,31 @@ void FluxUpdate(Context* context) {
     if (KeyHeld(Key::D)) {
         frameAcceleration += x;
     }
+
     if ((KeyHeld(Key::Space))) {
         //frameAcceleration += y;
     }
 
+    if (KeyPressed(Key::Y)) {
+        context->gameWorld.player.flightMode = !context->gameWorld.player.flightMode;
+    }
+
     auto player = &context->gameWorld.playerEntity;
+    auto oldPlayerP = player->p;
 
     f32 playerAcceleration;
+    v3 drag = player->velocity * player->friction;
+
+    if (context->gameWorld.player.flightMode) {
+        if (KeyHeld(Key::Space)) {
+            frameAcceleration += y;
+        }
+        if (KeyHeld(Key::Ctrl)) {
+            frameAcceleration -= y;
+        }
+    } else {
+        drag.y = 0.0f;
+    }
 
     if ((KeyHeld(Key::Shift))) {
         playerAcceleration = context->gameWorld.player.runAcceleration;
@@ -152,15 +154,15 @@ void FluxUpdate(Context* context) {
 
     frameAcceleration *= playerAcceleration;
     // TODO: Physically correct friction
-    v3 drag = player->velocity * player->friction;
-    drag.y = 0.0f;
     frameAcceleration -= drag;
 
-    if (KeyPressed(Key::Space) && player->grounded) {
-        frameAcceleration += y * context->gameWorld.player.jumpAcceleration * (1.0f / GlobalGameDeltaTime) / 60.0f;
-    }
+    if (!context->gameWorld.player.flightMode) {
+        if (KeyPressed(Key::Space) && player->grounded) {
+            frameAcceleration += y * context->gameWorld.player.jumpAcceleration * (1.0f / GlobalGameDeltaTime) / 60.0f;
+        }
 
-    frameAcceleration.y += -20.8f;
+        frameAcceleration.y += -20.8f;
+    }
 
     v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + player->velocity * GlobalGameDeltaTime;
 
@@ -177,6 +179,17 @@ void FluxUpdate(Context* context) {
 
     player->p = newP;
 
+    if (ChunkPosFromWorldPos(newP.voxel).chunk != ChunkPosFromWorldPos(oldPlayerP.voxel).chunk) {
+        MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(newP.voxel).chunk);
+    }
+
+    RegionUpdateChunkStates(&context->playerRegion);
+
+    DrawRegion(&context->playerRegion, group, camera);
+
+    DEBUG_OVERLAY_TRACE(context->playerRegion.chunkCount);
+    DEBUG_OVERLAY_TRACE(context->playerRegion.maxChunkCount);
+#if 0
     //if (MouseButtonPressed(MouseButton::Left)) {
         v3 ro = camera->position;
         v3 rd = camera->mouseRay;
@@ -238,7 +251,7 @@ void FluxUpdate(Context* context) {
 
 
     DEBUG_OVERLAY_TRACE(context->gameWorld.player.selectedVoxel);
-
+#endif
     if (camera->mode != CameraMode::Gameplay) {
         RenderCommandDrawMesh command {};
         command.transform = Translate(RelativePos(camera->targetWorldPosition, player->p));

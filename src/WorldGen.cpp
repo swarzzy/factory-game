@@ -66,6 +66,27 @@ u32 GetHeightFromNoise(Noise2D* noise, i32 x, i32 z, u32 maxHeight) {
     return blockHeight;
 }
 
+void ChunkFillWork(void* data0, void* data1, void* data2, u32 threadID) {
+    auto worldGen = (WorldGen*)data0;
+    auto chunk = (Chunk*)data1;
+    GenChunk(worldGen, chunk);
+    auto prevState = AtomicExchange((volatile u32*)&chunk->state, (u32)ChunkState::Filled);
+    assert(prevState == (u32)ChunkState::Filling);
+}
+
+bool ScheduleChunkFill(WorldGen* gen, Chunk* chunk) {
+    bool result = false;
+    chunk->state = ChunkState::Filling;
+    WriteFence();
+    if (PlatformPushWork(GlobalLowPriorityWorkQueue, ChunkFillWork, gen, chunk, nullptr)) {
+        result = true;
+    }
+    else {
+        chunk->state = ChunkState::Complete;
+    }
+    return result;
+}
+
 void GenChunk(WorldGen* gen, Chunk* chunk) {
     if (chunk->p.y == 0) {
         for (u32 bz = 0; bz < Chunk::Size; bz++) {

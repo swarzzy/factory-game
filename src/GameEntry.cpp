@@ -299,8 +299,9 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 
 #include "World.cpp"
 #include "MeshGenerator.cpp"
-#include "Region.cpp"
+//#include "Region.cpp"
 #include "WorldGen.cpp"
+#include "SimRegion.cpp"
 
 
 // NOTE: Platform specific intrinsics implementation begins here

@@ -1119,13 +1119,15 @@ void ImguiFreeWrapper(void* ptr, void*_) { Deallocate(ptr, nullptr); }
 #define glClearColor gl_function(glClearColor)
 #define glClear gl_function(glClear)
 
-b32 Win32PushWork(WorkQueue* queue, void* data, WorkFn* fn) {
+b32 Win32PushWork(WorkQueue* queue, WorkFn* fn, void* data0, void* data1, void* data2) {
     bool result = false;
     auto nextEntry = (queue->end + 1) % array_count(queue->queue);
     if (nextEntry != queue->begin) {
         auto entry = queue->queue + queue->end;
         entry->function = fn;
-        entry->data = data;
+        entry->data0 = data0;
+        entry->data1 = data1;
+        entry->data2 = data2;
         queue->pendingWorkCount++;
         WriteFence();
         // TODO: Maybe it should be atomic?
@@ -1146,7 +1148,7 @@ bool Win32DoWorkerWork(WorkQueue* queue, u32 threadIndex) {
         if (index == oldBegin) {
             auto entry = queue->queue + index;
             if (entry->function) {
-                entry->function(entry->data, threadIndex);
+                entry->function(entry->data0, entry->data1, entry->data2,  threadIndex);
             }
             InterlockedIncrement((LONG volatile*)&queue->completedWorkCount);
             result = true;

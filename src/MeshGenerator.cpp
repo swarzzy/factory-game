@@ -61,7 +61,6 @@ void FreeChunkMesh(ChunkMesher* mesher, ChunkMesh* mesh) {
         FreeChunkMeshBlock(mesher, block);
         block = nextBlock;
     }
-    mesh->state = ChunkMesh::State::Empty;
     mesh->begin = nullptr;
     mesh->end = nullptr;
     mesh->vertexCount = 0;
@@ -102,8 +101,8 @@ void PushQuad(ChunkMesher* mesher, ChunkMesh* mesh, v3 vt0, v3 vt1, v3 vt2, v3 v
 }
 
 void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
-    assert(chunk->mesh);
-    ChunkMesh* mesh = chunk->mesh;
+    assert(chunk->primaryMesh);
+    ChunkMesh* mesh = chunk->primaryMesh;
 
     for (u32 z = 0; z < Chunk::Size; z++) {
         for (u32 y = 0; y < Chunk::Size; y++) {
@@ -150,63 +149,41 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
     }
 }
 
-void ClaimFurthestChunkMesh(GameWorld* world, ChunkMesher* mesher, Chunk* chunk) {
-    // TODO: If new and old chunk are currently drawn we should not reclaim that mesh
-    // in order to avoid them ping-ponging each other
-    u32 furthestDistSq = 0;
-    u32 index;
-    for (u32x i = 0; i < array_count(mesher->chunkMeshPool); i++) {
-        auto entry = mesher->chunkMeshPool + i;
-        if (!entry->chunk) {
-            index = i;
-            break;
-        }
-        auto state = entry->mesh.state;
-        assert(state != ChunkMesh::State::Empty);
-        if (state == ChunkMesh::State::Complete) {
-            iv3 p = entry->chunk->p;
-            u32 distSq = LengthSq(chunk->p - p);
-            if (distSq > furthestDistSq) {
-                furthestDistSq = distSq;
-                index = i;
-            }
-        }
-    }
 
-    auto furthestRecord = mesher->chunkMeshPool + index;
-    furthestRecord->mesh.poolIndex = index;
-    if (furthestRecord->chunk) {
-        auto chunkToDelete = furthestRecord->chunk;
-        furthestRecord->chunk->mesh = nullptr;
-        // TODO: HACK: Temporary deleting evicted and not modified by player chunks here
-        if (chunk && !chunk->modified) {
-            Delete(&world->chunkHashMap, &chunkToDelete->p);
-            PlatformFree(chunkToDelete, nullptr);
+
+void ChunkMesherWork(void* data0, void* data1, void* data2, u32 threadID) {
+    auto chunk = (Chunk*)data0;
+    auto mesh = chunk->primaryMesh;
+    GenMesh(mesh->mesher, chunk);
+    if (GlobalPlatform.supportsAsyncGPUTransfer) {
+        if (chunk->mesh->vertexCount) {
+            auto uploaded = UploadToGPU(chunk->mesh, false);
+            assert(uploaded);
         }
-    }
-
-    FreeChunkMesh(mesher, &furthestRecord->mesh);
-    furthestRecord->chunk = chunk;
-    chunk->mesh = &furthestRecord->mesh;
-    chunk->mesh->state = ChunkMesh::State::Empty;
-}
-
-void ReturnChunkMeshToPool(ChunkMesher* mesher, Chunk* chunk) {
-    auto mesh = chunk->mesh;
-    chunk->mesh = nullptr;
-    auto poolIndex= mesh->poolIndex;
-    auto record = mesher->chunkMeshPool + poolIndex;
-    record->chunk = nullptr;
-    assert(mesh->state == ChunkMesh::State::Complete || mesh->state == ChunkMesh::State::Empty);
-    if (mesh->state == ChunkMesh::State::Complete) {
-        FreeChunkMesh(mesher, mesh);
-        mesh->state = ChunkMesh::State::Empty;
+        auto prevState = AtomicExchange((volatile u32*)&chunk->state, (u32)ChunkState::MeshingFinished);
+        assert(prevState == (u32)ChunkState::Meshing);
+    } else {
+        auto prevState = AtomicExchange((volatile u32*)&chunk->state, (u32)ChunkState::WaitsForUpload);
+        assert(prevState == (u32)ChunkState::Meshing);
     }
 }
 
-void UploadChunkMeshToGPUWork(void* data, u32 threadID) {
-    auto mesh = (ChunkMesh*)data;
-    assert(mesh->state == ChunkMesh::State::ScheduledUpload);
+bool ScheduleChunkMeshing(GameWorld* world, Chunk* chunk) {
+    assert(chunk->primaryMesh);
+    assert(chunk->state == ChunkState::Complete);
+    bool result = true;
+    chunk->state = ChunkState::Meshing;
+    WriteFence();
+    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, ChunkMesherWork, chunk, nullptr, nullptr)) {
+        chunk->state = ChunkState::Complete;
+        result = false;
+    }
+    return result;
+}
+
+void UploadChunkMeshToGPUWork(void* data0, void* data1, void* data2, u32 threadID) {
+    auto chunk = (Chunk*)data0;
+    auto mesh = chunk->primaryMesh;
     void* ptr = mesh->gpuBufferPtr;
     assert(ptr);
     uptr size = mesh->vertexCount * ChunkMesh::VertexSize;
@@ -242,75 +219,25 @@ void UploadChunkMeshToGPUWork(void* data, u32 threadID) {
 
     assert(offset == size);
     WriteFence();
-    mesh->state = ChunkMesh::State::UploadComplete;
+    auto prevState = AtomicExchange((volatile u32*)&chunk->state, (u32)ChunkState::MeshUploadingFinished);
+    assert(prevState == (u32)ChunkState::UploadingMesh);
 }
 
-void ChunkMesherWork(void* data, u32 threadID) {
-    auto chunk = (Chunk*)data;
-    auto mesh = chunk->mesh;
-    GenMesh(mesh->mesher, chunk);
-    assert(mesh->state == ChunkMesh::State::Queued);
-    if (GlobalPlatform.supportsAsyncGPUTransfer) {
-        if (chunk->mesh->vertexCount) {
-            auto uploaded = UploadToGPU(chunk->mesh, false);
-            assert(uploaded);
-        }
-        WriteFence();
-        mesh->state = ChunkMesh::State::Complete;
-    } else {
-        WriteFence();
-        mesh->state = ChunkMesh::State::ReadyForUpload;
-    }
-}
-
-bool ScheduleChunkMeshUpdate(GameWorld* world, ChunkMesher* mesher, Chunk* chunk) {
-    bool result = true;
-    assert(chunk->mesh);
-    auto mesh = chunk->mesh;
-    FreeChunkMesh(mesher, mesh);
-    assert(mesh->state == ChunkMesh::State::Empty);
-    mesh->state = ChunkMesh::State::Queued;
-    mesh->mesher = mesher;
+void ScheduleChunkMeshUpload(Chunk* chunk) {
+    assert(chunk->state == ChunkState::WaitsForUpload);
+    BeginGPUUpload(chunk->primaryMesh);
+    assert(chunk->primaryMesh->gpuBufferPtr);
+    chunk->state = ChunkState::UploadingMesh;
     WriteFence();
-    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, chunk, ChunkMesherWork)) {
-        result = false;
-        mesh->state = ChunkMesh::State::Empty;
-    }
-    return result;
-}
-
-bool ScheduleChunkMeshing(GameWorld* world, ChunkMesher* mesher, Chunk* chunk) {
-    bool result = true;
-    assert(!chunk->mesh);
-    ClaimFurthestChunkMesh(world, mesher, chunk);
-    auto mesh = chunk->mesh;
-    assert(mesh->state == ChunkMesh::State::Empty);
-    mesh->state = ChunkMesh::State::Queued;
-    mesh->mesher = mesher;
-    WriteFence();
-    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, chunk, ChunkMesherWork)) {
-        mesh->state = ChunkMesh::State::Empty;
-        ReturnChunkMeshToPool(mesher, chunk);
-        result = false;
-    }
-    return result;
-}
-
-void ScheduleChunkMeshUpload(ChunkMesh* mesh) {
-    assert(mesh->state == ChunkMesh::State::ReadyForUpload);
-    BeginGPUUpload(mesh);
-    assert(mesh->gpuBufferPtr);
-    mesh->state = ChunkMesh::State::ScheduledUpload;
-    WriteFence();
-    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, mesh, UploadChunkMeshToGPUWork)) {
-        mesh->state = ChunkMesh::State::ReadyForUpload;
+    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, UploadChunkMeshToGPUWork, chunk, nullptr, nullptr)) {
+        chunk->state = ChunkState::WaitsForUpload;
     }
 }
 
-void CompleteChunkMeshUpload(ChunkMesh* mesh) {
-    assert(mesh->state == ChunkMesh::State::UploadComplete);
-    bool completed = EndGPUpload(mesh);
+void CompleteChunkMeshUpload(Chunk* chunk) {
+    assert(chunk->state == ChunkState::MeshUploadingFinished);
+    bool completed = EndGPUpload(chunk->primaryMesh);
     if (completed) {
-        mesh->state = ChunkMesh::State::Complete;
+        chunk->state = ChunkState::MeshingFinished;
     }
 }
