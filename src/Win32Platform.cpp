@@ -613,20 +613,6 @@ void WindowSetMousePosition(Win32Context* app, u32 x, u32 y)
 
 void WindowPollEvents(Win32Context* app)
 {
-#if 0
-    POINT point;
-    GetCursorPos(&point);
-    i32 mousePositionX = point.x;
-    i32 mousePositionY = point.y;
-
-    mousePositionY = app->state.windowHeight - mousePositionY;
-
-    f32 normalizedMouseX = (f32)mousePositionX / (f32)app->state.windowWidth;
-    f32 normalizedMouseY = (f32)mousePositionY / (f32)app->state.windowHeight;
-
-    app->state.input.mouseFrameOffsetX = normalizedMouseX - app->state.input.mouseX;
-    app->state.input.mouseFrameOffsetY = normalizedMouseY - app->state.input.mouseY;
-#endif
     MSG message;
     BOOL result;
     while (GlobalRunning && (result = PeekMessage(&message, 0, 0, 0, PM_REMOVE)) != 0)
@@ -637,8 +623,52 @@ void WindowPollEvents(Win32Context* app)
         }
         else
         {
+#if 0
+            if (message.message == WM_INPUT) {
+                RAWINPUT input;
+                UINT inputSize = sizeof(RAWINPUT);
+                GetRawInputData((HRAWINPUT)message.lParam, RID_INPUT, &input, &inputSize, sizeof(RAWINPUTHEADER));
+                if (input.header.dwType == RIM_TYPEMOUSE) {
+                    printf("Raw input: mouse position: %d, %d\n", input.data.mouse.lLastX, input.data.mouse.lLastY);
+                }
+            }
+#endif
             TranslateMessage(&message);
             DispatchMessage(&message);
+        }
+    }
+
+    if (app->state.input.activeApp) {
+        POINT point;
+        GetCursorPos(&point);
+        i32 mousePositionX = point.x;
+        i32 mousePositionY = point.y;
+
+        if ((mousePositionX != app->mousePosX) || (mousePositionY != app->mousePosY)) {
+            i32 offsetX = mousePositionX - app->mousePosX;
+            i32 offsetY = -(mousePositionY - app->mousePosY);
+
+            app->state.input.mouseFrameOffsetX = offsetX / (f32)app->state.windowWidth;
+            app->state.input.mouseFrameOffsetY = offsetY / (f32)app->state.windowHeight;
+
+            if (app->state.inputMode == InputMode::CaptureCursor) {
+                u32 x = app->state.windowWidth / 2;
+                u32 y = app->state.windowHeight / 2;
+                WindowSetMousePosition(app, x, y);
+
+                POINT p;
+                GetCursorPos(&p);
+                app->mousePosX = p.x;
+                app->mousePosY = p.y;
+
+                app->state.input.mouseX = x / (f32)app->state.windowWidth;
+                app->state.input.mouseY = y / (f32)app->state.windowHeight;
+            } else {
+                app->mousePosX = mousePositionX;
+                app->mousePosY = mousePositionY;
+                app->state.input.mouseX = app->mousePosX / (f32)app->state.windowWidth;
+                app->state.input.mouseY = (app->state.windowHeight - mousePositionY) / (f32)app->state.windowHeight;
+            }
         }
     }
 }
@@ -675,43 +705,12 @@ LRESULT CALLBACK Win32WindowProc(HWND windowHandle, UINT message, WPARAM wParam,
         ShowWindow(app->windowHandle, SW_HIDE);
     } break;
 
-    // NOTE: MOUSE INPUT
-
     case WM_MOUSEMOVE:
     {
         if (!app->state.input.mouseInWindow)
         {
             app->state.input.mouseInWindow = true;
             TrackMouseEvent(&app->Win32MouseTrackEvent);
-        }
-        i32 mousePositionX = GET_X_LPARAM(lParam);
-        i32 mousePositionY = GET_Y_LPARAM(lParam);
-
-        mousePositionY = app->state.windowHeight - mousePositionY;
-
-        f32 normalizedMouseX = (f32)mousePositionX / (f32)app->state.windowWidth;
-        f32 normalizedMouseY = (f32)mousePositionY / (f32)app->state.windowHeight;
-
-        app->state.input.mouseFrameOffsetX = normalizedMouseX - app->state.input.mouseX;
-
-        app->state.input.mouseFrameOffsetY = normalizedMouseY - app->state.input.mouseY;
-
-        switch (app->state.inputMode)
-        {
-        case InputMode::FreeCursor:
-        {
-            app->state.input.mouseX = normalizedMouseX;
-            app->state.input.mouseY = normalizedMouseY;
-        } break;
-        case InputMode::CaptureCursor:
-        {
-            u32 x = app->state.windowWidth / 2;
-            u32 y = app->state.windowHeight / 2;
-            app->state.input.mouseX = x / (f32)app->state.windowWidth;
-            app->state.input.mouseY = y / (f32)app->state.windowHeight;
-            WindowSetMousePosition(app, x, y);
-        } break;
-        invalid_default();
         }
     } break;
 
@@ -1045,7 +1044,17 @@ void Win32Init(Win32Context* ctx)
     ctx->Win32MouseTrackEvent.dwHoverTime = HOVER_DEFAULT;
     ctx->Win32MouseTrackEvent.hwndTrack = ctx->windowHandle;
     TrackMouseEvent(&ctx->Win32MouseTrackEvent);
+#if 0
+    // Raw input
+    RAWINPUTDEVICE mouseDevice = {};
+    mouseDevice.usUsagePage = 0x01; // Generic Desktop Controls
+    mouseDevice.usUsage = 0x02; // Mouse
+    mouseDevice.dwFlags = 0;
+    mouseDevice.hwndTarget = 0;
 
+    auto regResult = RegisterRawInputDevices(&mouseDevice, 1, sizeof(mouseDevice));
+    assert(regResult != FALSE);
+#endif
     Win32InitKeyTable(ctx->keyTable);
 
     SetFocus(ctx->windowHandle);

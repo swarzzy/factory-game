@@ -131,7 +131,7 @@ struct GameWorld {
         this->worldGen.Init(seed);
         this->player.entity = &this->playerEntity;
         this->playerEntity.type = SpatialEntityType::Player;
-        this->playerEntity.p = WorldPos::Make(IV3(0, 15, 0));
+        this->playerEntity.p = WorldPos::Make(IV3(0, 30, 0));
         this->playerEntity.acceleration = 70.0f;
         this->playerEntity.friction = 10.0f;
         this->player.height = 1.8f;

@@ -105,6 +105,8 @@ struct Win32Context
     WorkQueue highPriorityQueue;
     HGLRC workersGLRC[NumOfWorkerThreads];
     HANDLE workQueueSemaphore;
+    i32 mousePosX;
+    i32 mousePosY;
 
     // NOTE: WGL
     wglGetExtensionsStringARBFn* wglGetExtensionsStringARB;

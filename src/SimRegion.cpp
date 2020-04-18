@@ -160,7 +160,7 @@ void RegionUpdateChunkStates(SimRegion* region) {
             } else {
                 // TODO BeginMeshTask (invalidate mesh) and EndMeshTask
                 if (chunk->shouldBeRemeshedAfterEdit) {
-                    printf("[Sim region] Begining remesing edited chunk\n");
+                    //printf("[Sim region] Begining remesing edited chunk\n");
                     assert(chunk->priority == ChunkPriority::Low);
                     if (region->chunkCount == region->maxChunkCount) {
                         EvictFurthestChunkFromRegion(region);
@@ -212,7 +212,7 @@ void RegionUpdateChunkStates(SimRegion* region) {
         } break;
         case ChunkState::MeshingFinished: {
             if (chunk->remeshingAfterEdit) {
-                printf("[Sim region] End remesing edited chunk\n");
+                //printf("[Sim region] End remesing edited chunk\n");
                 assert(chunk->priority == ChunkPriority::High);
                 chunk->priority = ChunkPriority::Low;
                 chunk->remeshingAfterEdit = false;
