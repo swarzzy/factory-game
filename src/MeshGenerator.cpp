@@ -110,11 +110,6 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
                 auto voxel = GetVoxelRaw(chunk, x, y, z);
                 if (voxel->value != VoxelValue::Empty) {
                     auto value = voxel->value;
-                    if (chunk->p.x == 1 && chunk->p.y == -1 && chunk->p.z == 1 && x == 0 && y == 0 && z == (Chunk::Size - 1))
-                    {
-                        int r = 5;
-
-                    }
 
                     bool up = IsVoxelOccluder(chunk, (i32)x, ((i32)y) + 1, (i32)z);
                     bool down = IsVoxelOccluder(chunk, (i32)x, ((i32)y) - 1, (i32)z);
@@ -156,8 +151,8 @@ void ChunkMesherWork(void* data0, void* data1, void* data2, u32 threadID) {
     auto mesh = chunk->primaryMesh;
     GenMesh(mesh->mesher, chunk);
     if (GlobalPlatform.supportsAsyncGPUTransfer) {
-        if (chunk->mesh->vertexCount) {
-            auto uploaded = UploadToGPU(chunk->mesh, false);
+        if (chunk->primaryMesh->vertexCount) {
+            auto uploaded = UploadToGPU(chunk->primaryMesh, false);
             assert(uploaded);
         }
         auto prevState = AtomicExchange((volatile u32*)&chunk->state, (u32)ChunkState::MeshingFinished);
@@ -172,9 +167,10 @@ bool ScheduleChunkMeshing(GameWorld* world, Chunk* chunk) {
     assert(chunk->primaryMesh);
     assert(chunk->state == ChunkState::Complete);
     bool result = true;
+    auto queue = chunk->priority == ChunkPriority::High ? GlobalHighPriorityWorkQueue : GlobalLowPriorityWorkQueue;
     chunk->state = ChunkState::Meshing;
     WriteFence();
-    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, ChunkMesherWork, chunk, nullptr, nullptr)) {
+    if (!PlatformPushWork(queue, ChunkMesherWork, chunk, nullptr, nullptr)) {
         chunk->state = ChunkState::Complete;
         result = false;
     }
@@ -227,9 +223,10 @@ void ScheduleChunkMeshUpload(Chunk* chunk) {
     assert(chunk->state == ChunkState::WaitsForUpload);
     BeginGPUUpload(chunk->primaryMesh);
     assert(chunk->primaryMesh->gpuBufferPtr);
+    auto queue = chunk->priority == ChunkPriority::High ? GlobalHighPriorityWorkQueue : GlobalLowPriorityWorkQueue;
     chunk->state = ChunkState::UploadingMesh;
     WriteFence();
-    if (!PlatformPushWork(GlobalLowPriorityWorkQueue, UploadChunkMeshToGPUWork, chunk, nullptr, nullptr)) {
+    if (!PlatformPushWork(queue, UploadChunkMeshToGPUWork, chunk, nullptr, nullptr)) {
         chunk->state = ChunkState::WaitsForUpload;
     }
 }

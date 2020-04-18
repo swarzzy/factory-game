@@ -93,15 +93,6 @@ void FluxUpdate(Context* context) {
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->freeBlockCount);
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->totalBlockCount);
 
-#if 0
-    auto region = BeginRegion(&context->gameWorld, camera->targetWorldPosition.voxel, GameWorld::ViewDistance);
-    region.debugShowBoundaries = true;
-    region.debugRender = true;
-    DEBUG_OVERLAY_TRACE(camera->targetWorldPosition.voxel);
-    DEBUG_OVERLAY_TRACE(camera->targetWorldPosition.offset);
-    DrawRegion(&region, group, camera);
-#endif
-
     auto z = Normalize(V3(camera->front.x, 0.0f, camera->front.z));
     auto x = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), z));
     auto y = V3(0.0f, 1.0f, 0.0f);
@@ -189,69 +180,75 @@ void FluxUpdate(Context* context) {
 
     DEBUG_OVERLAY_TRACE(context->playerRegion.chunkCount);
     DEBUG_OVERLAY_TRACE(context->playerRegion.maxChunkCount);
-#if 0
-    //if (MouseButtonPressed(MouseButton::Left)) {
-        v3 ro = camera->position;
-        v3 rd = camera->mouseRay;
-        f32 dist = 10.0f;
 
-        iv3 roWorld = Offset(camera->targetWorldPosition, ro).voxel;
-        iv3 rdWorld = Offset(camera->targetWorldPosition, rd * dist).voxel;
+    v3 ro = camera->position;
+    v3 rd = camera->mouseRay;
+    f32 dist = 10.0f;
 
-        iv3 min = IV3(Min(roWorld.x, rdWorld.x), Min(roWorld.y, rdWorld.y), Min(roWorld.z, rdWorld.z)) - IV3(1);
-        iv3 max = IV3(Max(roWorld.x, rdWorld.x), Max(roWorld.y, rdWorld.y), Max(roWorld.z, rdWorld.z)) + IV3(1);
+    iv3 roWorld = Offset(camera->targetWorldPosition, ro).voxel;
+    iv3 rdWorld = Offset(camera->targetWorldPosition, ro + rd * dist).voxel;
 
-        DEBUG_OVERLAY_TRACE(min);
-        DEBUG_OVERLAY_TRACE(max);
+    iv3 min = IV3(Min(roWorld.x, rdWorld.x), Min(roWorld.y, rdWorld.y), Min(roWorld.z, rdWorld.z)) - IV3(1);
+    iv3 max = IV3(Max(roWorld.x, rdWorld.x), Max(roWorld.y, rdWorld.y), Max(roWorld.z, rdWorld.z)) + IV3(1);
 
-        f32 tMin = F32::Max;
-        iv3 hitVoxel = GameWorld::InvalidPos;
-        v3 hitNormal;
+    f32 tMin = F32::Max;
+    iv3 hitVoxel = GameWorld::InvalidPos;
+    v3 hitNormal;
+    iv3 hitNormalInt;
 
-        for (i32 z = min.z; z < max.z; z++) {
-            for (i32 y = min.y; y < max.y; y++) {
-                for (i32 x = min.x; x < max.x; x++) {
-                    const Voxel* voxel = GetVoxel(&context->gameWorld, x, y, z);
-                    if (voxel->value != VoxelValue::Empty) {
-                        WorldPos voxelWorldP = WorldPos::Make(x, y, z);
-                        v3 voxelRelP = RelativePos(camera->targetWorldPosition, voxelWorldP);
-                        BBoxAligned voxelAABB;
-                        voxelAABB.min = voxelRelP - V3(Voxel::HalfDim);
-                        voxelAABB.max = voxelRelP + V3(Voxel::HalfDim);
+    for (i32 z = min.z; z < max.z; z++) {
+        for (i32 y = min.y; y < max.y; y++) {
+            for (i32 x = min.x; x < max.x; x++) {
+                const Voxel* voxel = GetVoxel(&context->gameWorld, x, y, z);
+                if (voxel && voxel->value != VoxelValue::Empty) {
+                    WorldPos voxelWorldP = WorldPos::Make(x, y, z);
+                    v3 voxelRelP = RelativePos(camera->targetWorldPosition, voxelWorldP);
+                    BBoxAligned voxelAABB;
+                    voxelAABB.min = voxelRelP - V3(Voxel::HalfDim);
+                    voxelAABB.max = voxelRelP + V3(Voxel::HalfDim);
 
-                        //DrawAlignedBoxOutline(group, voxelAABB.min, voxelAABB.max, V3(0.0f, 1.0f, 0.0f), 2.0f);
+                    //DrawAlignedBoxOutline(group, voxelAABB.min, voxelAABB.max, V3(0.0f, 1.0f, 0.0f), 2.0f);
 
-                        auto intersection = Intersect(voxelAABB, ro, rd, 0.0f, dist); // TODO: Raycast distance
-                        if (intersection.hit && intersection.t < tMin) {
-                            tMin = intersection.t;
-                            hitVoxel = voxelWorldP.voxel;
-                            hitNormal = intersection.normal;
-                        }
+                    auto intersection = Intersect(voxelAABB, ro, rd, 0.0f, dist); // TODO: Raycast distance
+                    if (intersection.hit && intersection.t < tMin) {
+                        tMin = intersection.t;
+                        hitVoxel = voxelWorldP.voxel;
+                        hitNormal = intersection.normal;
+                        hitNormalInt = intersection.iNormal;
                     }
                 }
             }
         }
-        if (hitVoxel.x != GameWorld::InvalidCoord) {
-            context->gameWorld.player.selectedVoxel = hitVoxel;
-            if (MouseButtonPressed(MouseButton::Left)) {
-                auto chunkPos = ChunkPosFromWorldPos(hitVoxel);
-                auto chunk = GetChunk(&context->gameWorld, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
-                auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
-                voxel->value = VoxelValue::Empty;
-            }
+    }
+    context->gameWorld.player.selectedVoxel = hitVoxel;
+
+    if (hitVoxel.x != GameWorld::InvalidCoord) {
+        if (MouseButtonPressed(MouseButton::Left)) {
+            auto chunkPos = ChunkPosFromWorldPos(hitVoxel);
+            auto chunk = GetChunk(&context->gameWorld, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
+            auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
+            voxel->value = VoxelValue::Empty;
+        }
+        if (MouseButtonPressed(MouseButton::Right)) {
+            auto chunkPos = ChunkPosFromWorldPos(hitVoxel + hitNormalInt);
+            auto chunk = GetChunk(&context->gameWorld, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
+            auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
+            voxel->value = VoxelValue::Stone;
         }
 
-    iv3 selectedVoxelPos = context->gameWorld.player.selectedVoxel;
+        iv3 selectedVoxelPos = context->gameWorld.player.selectedVoxel;
 
-    v3 minP = RelativePos(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
-    v3 maxP = RelativePos(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
-    minP -= V3(Voxel::HalfDim);
-    maxP += V3(Voxel::HalfDim);
-    DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);
+        v3 minP = RelativePos(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
+        v3 maxP = RelativePos(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
+        minP -= V3(Voxel::HalfDim);
+        maxP += V3(Voxel::HalfDim);
+        DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);
+    }
+
 
 
     DEBUG_OVERLAY_TRACE(context->gameWorld.player.selectedVoxel);
-#endif
+
     if (camera->mode != CameraMode::Gameplay) {
         RenderCommandDrawMesh command {};
         command.transform = Translate(RelativePos(camera->targetWorldPosition, player->p));

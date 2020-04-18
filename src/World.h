@@ -40,22 +40,29 @@ enum struct ChunkState : u32 {
     Complete = 0, Filling, Filled, Meshing, MeshingFinished, WaitsForUpload, MeshUploadingFinished, UploadingMesh
 };
 
+enum struct ChunkPriority : u32 {
+    Low = 0, High
+};
+
 struct Chunk {
     static const u32 BitShift = 5;
     static const u32 BitMask = (1 << BitShift) - 1;
     static const u32 Size = 1 << BitShift;
 
     volatile ChunkState state;
+    b32 locked;
     b32 filled;
-    b32 meshValid;
+    b32 primaryMeshValid;
+    b32 secondaryMeshValid;
+    b32 remeshingAfterEdit;
+    ChunkPriority priority;
+    b32 shouldBeRemeshedAfterEdit;
 
     b32 modified;
-    b32 dirty;
     b32 active;
     Chunk* nextActive;
     Chunk* prevActive;
     iv3 p;
-    ChunkMesh* mesh;
     ChunkMesh* primaryMesh;
     ChunkMesh* secondaryMesh;
     u32 primaryMeshPoolIndex;
@@ -103,7 +110,7 @@ struct Player {
 };
 
 struct GameWorld {
-    static const i32 MinHeight = -(i32)Chunk::Size * 3 - 1;
+    static const i32 MinHeight = -(i32)Chunk::Size * 3;
     static const i32 MaxHeight = (i32)Chunk::Size * 3 - 1;
     static const i32 MinHeightChunk = -3;
     static const i32 MaxHeightChunk = 2;

@@ -1132,7 +1132,7 @@ b32 Win32PushWork(WorkQueue* queue, WorkFn* fn, void* data0, void* data1, void* 
         WriteFence();
         // TODO: Maybe it should be atomic?
         queue->end = nextEntry;
-        ReleaseSemaphore(queue->semaphore, 1, nullptr);
+        ReleaseSemaphore(GlobalContext.workQueueSemaphore, 1, nullptr);
         result = true;
     }
     return result;
@@ -1187,10 +1187,10 @@ DWORD WINAPI Win32ThreadProc(void* param) {
     while (true) {
         auto didHighPriorityWork = Win32DoWorkerWork(highPriorityQueue, threadInfo->index);
         if (!didHighPriorityWork) {
-            WaitForSingleObjectEx(highPriorityQueue->semaphore, 0, FALSE);
+            //WaitForSingleObjectEx(highPriorityQueue->semaphore, 0, FALSE);
             auto didLowPriorityWork = Win32DoWorkerWork(lowPriorityQueue, threadInfo->index);
             if (!didLowPriorityWork) {
-                WaitForSingleObjectEx(lowPriorityQueue->semaphore, INFINITE, FALSE);
+                WaitForSingleObjectEx(GlobalContext.workQueueSemaphore, INFINITE, FALSE);
             }
         }
     }
@@ -1243,10 +1243,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     auto highQueue = &app->highPriorityQueue;
 
     Win32ThreadInfo threadInfo[NumOfWorkerThreads];
-    auto lowSemHandle = CreateSemaphoreEx(0, 0, array_count(threadInfo), nullptr, 0, SEMAPHORE_ALL_ACCESS);
-    lowQueue->semaphore = lowSemHandle;
-    auto highSemHandle = CreateSemaphoreEx(0, 0, array_count(threadInfo), nullptr, 0, SEMAPHORE_ALL_ACCESS);
-    highQueue->semaphore = highSemHandle;
+    auto semaphore = CreateSemaphoreEx(0, 0, array_count(threadInfo), nullptr, 0, SEMAPHORE_ALL_ACCESS);
+
+    app->workQueueSemaphore = semaphore;
 
     for (u32x i = 0; i < array_count(threadInfo); i++) {
         auto info = threadInfo + i;

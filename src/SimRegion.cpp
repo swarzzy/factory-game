@@ -10,6 +10,14 @@ bool IsInside(iv3 min, iv3 max, iv3 x) {
     return result;
 }
 
+void ReturnChunkMeshToPool(SimRegion* region, u32 index) {
+    assert(region->chunkMeshPoolFree < region->maxChunkCount);
+    region->chunkMeshPoolFree++;
+    region->chunkMeshPoolUsage[index] = false;
+    auto mesh = region->chunkMeshPool + index;
+    FreeChunkMesh(region->world->mesher, mesh);
+}
+
 void RemoveChunkFromRegion(SimRegion* region, Chunk* chunk) {
     assert(chunk->active);
     assert(chunk->primaryMesh);
@@ -20,10 +28,9 @@ void RemoveChunkFromRegion(SimRegion* region, Chunk* chunk) {
     chunk->nextActive = nullptr;
     chunk->active = false;
 
-    region->chunkMeshPoolUsage[chunk->primaryMeshPoolIndex] = false;
-    auto mesh = region->chunkMeshPool + chunk->primaryMeshPoolIndex;
-    FreeChunkMesh(region->world->mesher, mesh);
+    ReturnChunkMeshToPool(region, chunk->primaryMeshPoolIndex);
     chunk->primaryMesh = nullptr;
+    chunk->primaryMeshValid = false;
 
     assert(region->chunkCount);
     region->chunkCount--;
@@ -48,8 +55,7 @@ void EvictFurthestChunkFromRegion(SimRegion* region) {
     i32 furthestDist = 0;
     Chunk* chunk = region->firstChunk;
     while (chunk) {
-        auto state = chunk->state;
-        if (state == ChunkState::Complete) {
+        if (!chunk->locked) {
             i32 dist = LengthSq(region->origin - chunk->p);
             if (!IsInside(region->min, region->max, chunk->p)) {
                 if (dist > furthestDistOutside) {
@@ -90,15 +96,28 @@ GetChunkMeshFromPoolResult GetChunkMeshFromPool(SimRegion* region) {
     }
 
     if (index != -1) {
+        assert(region->chunkMeshPoolFree);
+        region->chunkMeshPoolFree--;
         result = { region->chunkMeshPool + index, (u32)index };
     }
     return result;
+}
+
+void ValidateChunkMeshPool(SimRegion* region) {
+    u32 count = 0;
+    for (u32x i = 0; i < region->maxChunkCount; i++) {
+        if (!region->chunkMeshPoolUsage[i]) {
+            count++;
+        }
+    }
+    assert(count == region->chunkMeshPoolFree);
 }
 
 void AddChunkToRegion(SimRegion* region, Chunk* chunk) {
     assert(!chunk->active);
     assert(!chunk->prevActive);
     assert(!chunk->nextActive);
+    assert(!chunk->primaryMeshValid);
     chunk->active = true;
     chunk->nextActive = region->firstChunk;
     if (chunk->nextActive) {
@@ -114,36 +133,116 @@ void AddChunkToRegion(SimRegion* region, Chunk* chunk) {
     chunk->primaryMeshPoolIndex = mesh.index;
 }
 
+void SwapChunkMeshes(Chunk* chunk) {
+    auto tmpMesh = chunk->secondaryMesh;
+    chunk->secondaryMesh = chunk->primaryMesh;
+    chunk->primaryMesh = tmpMesh;
+
+    auto tmpValid = chunk->secondaryMeshValid;
+    chunk->secondaryMeshValid = chunk->primaryMeshValid;
+    chunk->primaryMeshValid = tmpValid;
+
+    auto tmpPoolIndex = chunk->secondaryMeshPoolIndex;
+    chunk->secondaryMeshPoolIndex = chunk->primaryMeshPoolIndex;
+    chunk->primaryMeshPoolIndex = tmpPoolIndex;
+}
+
 void RegionUpdateChunkStates(SimRegion* region) {
     Chunk* chunk = region->firstChunk;
     while (chunk) {
-        if (chunk->state == ChunkState::Filled) {
+        switch (chunk->state) {
+        case ChunkState::Complete: {
+            if (!chunk->filled) {
+                chunk->locked = true;
+                if (!ScheduleChunkFill(&region->world->worldGen, chunk)) {
+                    chunk->locked = false;
+                }
+            } else {
+                // TODO BeginMeshTask (invalidate mesh) and EndMeshTask
+                if (chunk->shouldBeRemeshedAfterEdit) {
+                    printf("[Sim region] Begining remesing edited chunk\n");
+                    assert(chunk->priority == ChunkPriority::Low);
+                    if (region->chunkCount == region->maxChunkCount) {
+                        EvictFurthestChunkFromRegion(region);
+                    }
+                    auto mesh = GetChunkMeshFromPool(region);
+                    if (mesh.mesh) {
+                        chunk->secondaryMesh = mesh.mesh;
+                        chunk->secondaryMeshPoolIndex = mesh.index;
+                        chunk->secondaryMeshValid = false;
+
+                        assert(!chunk->remeshingAfterEdit);
+                        chunk->remeshingAfterEdit = true;
+
+                        SwapChunkMeshes(chunk);
+                        chunk->priority = ChunkPriority::High;
+
+                        chunk->shouldBeRemeshedAfterEdit = false;
+
+                        chunk->locked = true;
+
+                        if (!ScheduleChunkMeshing(region->world, chunk)) {
+                            SwapChunkMeshes(chunk);
+                            chunk->priority = ChunkPriority::Low;
+                            chunk->remeshingAfterEdit = false;
+
+                            chunk->shouldBeRemeshedAfterEdit = true;
+
+                            chunk->locked = false;
+
+                            chunk->secondaryMesh = nullptr;
+                            chunk->secondaryMeshPoolIndex = 0;
+                            chunk->secondaryMeshValid = false;
+                            ReturnChunkMeshToPool(region, mesh.index);
+                        }
+                    }
+                } else if (!chunk->primaryMeshValid) {
+                    chunk->locked = true;
+                    if (!ScheduleChunkMeshing(region->world, chunk)) {
+                        chunk->locked = false;
+                    }
+                }
+            }
+        } break;
+        case ChunkState::Filled: {
             chunk->filled = true;
+            chunk->shouldBeRemeshedAfterEdit = false;
             chunk->state = ChunkState::Complete;
-        } else if (chunk->state == ChunkState::MeshingFinished) {
-            chunk->meshValid = true;
+            chunk->locked = false;
+        } break;
+        case ChunkState::MeshingFinished: {
+            if (chunk->remeshingAfterEdit) {
+                printf("[Sim region] End remesing edited chunk\n");
+                assert(chunk->priority == ChunkPriority::High);
+                chunk->priority = ChunkPriority::Low;
+                chunk->remeshingAfterEdit = false;
+
+                //SwapChunkMeshes(chunk);
+                ReturnChunkMeshToPool(region, chunk->secondaryMeshPoolIndex);
+                chunk->secondaryMesh = nullptr;
+                chunk->secondaryMeshPoolIndex = 0;
+                chunk->secondaryMeshValid = false;
+            }
+            chunk->primaryMeshValid = true;
             chunk->state = ChunkState::Complete;
-        } else if (chunk->state == ChunkState::WaitsForUpload)
-        {
+            chunk->locked = false;
+            ValidateChunkMeshPool(region);
+        } break;
+        case ChunkState::WaitsForUpload: {
             if (chunk->primaryMesh->vertexCount) {
                 ScheduleChunkMeshUpload(chunk);
             } else {
-                chunk->state = ChunkState::Complete;
-                chunk->meshValid = true;
+                chunk->state = ChunkState::MeshingFinished;
             }
-        } else if (chunk->state == ChunkState::MeshUploadingFinished) {
+        } break;
+        case ChunkState::MeshUploadingFinished: {
             CompleteChunkMeshUpload(chunk);
-        } else if (chunk->state == ChunkState::Complete) {
-            if (!chunk->filled) {
-                ScheduleChunkFill(&region->world->worldGen, chunk);
-            } else {
-                if (!chunk->meshValid) {
-                    ScheduleChunkMeshing(region->world, chunk);
-                }
-            }
+        } break;
+        case ChunkState::Filling: {} break;
+        case ChunkState::Meshing: {} break;
+        case ChunkState::UploadingMesh: {} break;
+        invalid_default();
         }
-
-
         chunk = chunk->nextActive;
     }
 }
@@ -156,6 +255,7 @@ void ResizeRegion(SimRegion* region, u32 newSpan, MemoryArena* arena) {
     region->maxChunkCount = regionSide * regionSide * regionHeight + 16; // TODO: Formalize the number of extra chunks
     region->chunkMeshPool = (ChunkMesh*)PushSize(arena, sizeof(ChunkMesh) * region->maxChunkCount);
     region->chunkMeshPoolUsage = (byte*)PushSize(arena, sizeof(byte) * region->maxChunkCount);
+    region->chunkMeshPoolFree = region->maxChunkCount;
     for (u32x i = 0; i < region->maxChunkCount; i++) {
         region->chunkMeshPool[i].mesher = region->world->mesher;
     }
@@ -183,8 +283,9 @@ void MoveRegion(SimRegion* region, iv3 newP) {
                 // region in thr world, so just checking for chunk to be not active. In the future we probably
                 // want to have region id's and check is chunk already in this region by this id
                 if (!chunk->active) {
+                    ValidateChunkMeshPool(region);
                     assert(region->chunkCount <= region->maxChunkCount);
-                    if (region->chunkCount == region->maxChunkCount) {
+                    if ((region->chunkCount == region->maxChunkCount) || (!region->chunkMeshPoolFree)) {
                         EvictFurthestChunkFromRegion(region);
                     }
                     assert(region->chunkCount < region->maxChunkCount);
@@ -200,11 +301,18 @@ void DrawRegion(SimRegion* region, RenderGroup* renderGroup, Camera* camera) {
     Push(renderGroup, &RenderCommandBeginChunkBatch{});
     while (chunk) {
         auto state = chunk->state;
-        if (state == ChunkState::Complete) {
-            if (chunk->primaryMesh->vertexCount) {
+        ChunkMesh* mesh = nullptr;
+        if (chunk->primaryMeshValid) {
+            mesh = chunk->primaryMesh;
+        } else if (chunk->secondaryMeshValid) {
+            mesh = chunk->secondaryMesh;
+        }
+
+        if (mesh) {
+            if (mesh->vertexCount) {
                 assert(chunk->primaryMesh);
                 RenderCommandPushChunk chunkCommand = {};
-                chunkCommand.mesh = chunk->primaryMesh;
+                chunkCommand.mesh = mesh;
                 chunkCommand.offset = RelativePos(camera->targetWorldPosition, WorldPos::Make(chunk->p * (i32)Chunk::Size));
                 Push(renderGroup, &chunkCommand);
             }

@@ -28,7 +28,7 @@ Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
     Voxel* result = nullptr;
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
         result = GetVoxelRaw(chunk, x, y, z);
-        chunk->dirty = true;
+        chunk->shouldBeRemeshedAfterEdit = true;
     }
     return result;
 }
@@ -38,6 +38,7 @@ Chunk* AddChunk(GameWorld* world, iv3 coord) {
     auto chunk = (Chunk*)PlatformAlloc(sizeof(Chunk), 0, nullptr);
     memset(chunk, 0 , sizeof(Chunk));
     chunk->p = coord;
+    chunk->priority = ChunkPriority::Low;
     auto entry = Add(&world->chunkHashMap, &chunk->p);
     assert(entry);
     *entry = chunk;
@@ -162,28 +163,30 @@ WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, b
         for (i32 z = minB.z; z <= maxB.z; z++) {
             for (i32 y = minB.y; y <= maxB.y; y++) {
                 for (i32 x = minB.x; x <= maxB.x; x++) {
-                    // TODO: Cache chunk pointer
-                    auto testVoxel = GetVoxel(world, x, y, z);
-                    bool collides = IsVoxelCollider(testVoxel);
-                    if (collides) {
-                        v3 relOrigin = RelativePos(WorldPos::Make(IV3(x, y, z)), origin);
-                        v3 minCorner = V3(-Voxel::HalfDim);
-                        v3 maxCorner = V3(Voxel::HalfDim);
-                        // NOTE: Minkowski sum
-                        minCorner += colliderSize * -0.5f;
-                        maxCorner += colliderSize * 0.5f;
-                        BBoxAligned testBox;
-                        testBox.min = minCorner;
-                        testBox.max = maxCorner;
+                    if (y >= GameWorld::MinHeight && y <= GameWorld::MaxHeight) {
+                        // TODO: Cache chunk pointer
+                        auto testVoxel = GetVoxel(world, x, y, z);
+                        bool collides = IsVoxelCollider(testVoxel);
+                        if (collides) {
+                            v3 relOrigin = RelativePos(WorldPos::Make(IV3(x, y, z)), origin);
+                            v3 minCorner = V3(-Voxel::HalfDim);
+                            v3 maxCorner = V3(Voxel::HalfDim);
+                            // NOTE: Minkowski sum
+                            minCorner += colliderSize * -0.5f;
+                            maxCorner += colliderSize * 0.5f;
+                            BBoxAligned testBox;
+                            testBox.min = minCorner;
+                            testBox.max = maxCorner;
 
-                        auto intersection = Intersect(testBox, relOrigin, delta, 0.0f, F32::Max);
-                        if (intersection.hit) {
-                            //printf("hit something at frame %llu\n", GlobalPlatform.tickCount);
-                            f32 tHit =  Max(0.0f, intersection.t - 0.001f);
-                            if (tHit < tMin) {
-                                tMin = tHit;
-                                hitNormal = intersection.normal;
-                                hit = true;
+                            auto intersection = Intersect(testBox, relOrigin, delta, 0.0f, F32::Max);
+                            if (intersection.hit) {
+                                //printf("hit something at frame %llu\n", GlobalPlatform.tickCount);
+                                f32 tHit =  Max(0.0f, intersection.t - 0.001f);
+                                if (tHit < tMin) {
+                                    tMin = tHit;
+                                    hitNormal = intersection.normal;
+                                    hit = true;
+                                }
                             }
                         }
                     }
@@ -218,49 +221,51 @@ WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, b
                 DrawAlignedBoxOutline(renderGroup, min, max, V3(1.0f, 0.0f, 0.0f), 3.0f);
 #endif
 
-                auto testVoxel = GetVoxel(world, x, y, z);
-                bool collides = IsVoxelCollider(testVoxel);
-                if (collides) {
-                    v3 relOrigin = RelativePos(WorldPos::Make(IV3(x, y, z)), origin);
-                    v3 minCorner = V3(-Voxel::HalfDim);
-                    v3 maxCorner = V3(Voxel::HalfDim);
-                    // NOTE: Minkowski sum
-                    minCorner += colliderSize * -0.5f;
-                    maxCorner += colliderSize * 0.5f;
-                    v3 bary = GetBarycentric(minCorner, maxCorner, relOrigin);
-                    if ((bary.x > 0.0f && bary.x <= 1.0f) &&
-                        (bary.y > 0.0f && bary.y <= 1.0f) &&
-                        (bary.z > 0.0f && bary.z <= 1.0f)) {
-                        printf("PENETRATION DETECTED!!! at frame %llu\n", GlobalPlatform.tickCount);
+                if (y >= GameWorld::MinHeight && y <= GameWorld::MaxHeight) {
+                    auto testVoxel = GetVoxel(world, x, y, z);
+                    bool collides = IsVoxelCollider(testVoxel);
+                    if (collides) {
+                        v3 relOrigin = RelativePos(WorldPos::Make(IV3(x, y, z)), origin);
+                        v3 minCorner = V3(-Voxel::HalfDim);
+                        v3 maxCorner = V3(Voxel::HalfDim);
+                        // NOTE: Minkowski sum
+                        minCorner += colliderSize * -0.5f;
+                        maxCorner += colliderSize * 0.5f;
+                        v3 bary = GetBarycentric(minCorner, maxCorner, relOrigin);
+                        if ((bary.x > 0.0f && bary.x <= 1.0f) &&
+                            (bary.y > 0.0f && bary.y <= 1.0f) &&
+                            (bary.z > 0.0f && bary.z <= 1.0f)) {
+                            printf("PENETRATION DETECTED!!! at frame %llu\n", GlobalPlatform.tickCount);
 
-                        iv3 penetratedVoxel = IV3(x, y, z);
-                        bool hasFreeNeighbor = false;
-                        f32 closestNeighborDist = F32::Max;
-                        iv3 closestNeighborVoxel = IV3(0);
-                        v3 closestNeighborRelOrigin = {};
-                        for (i32 pz = penetratedVoxel.z - 1; pz <= penetratedVoxel.z + 1; pz++) {
-                            for (i32 py = penetratedVoxel.y - 1; py <= penetratedVoxel.y + 1; py++) {
-                                for (i32 px = penetratedVoxel.x - 1; px <= penetratedVoxel.x + 1; px++) {
-                                    auto neighborVoxel = GetVoxel(world, px, py, pz);
-                                    if (!IsVoxelCollider(neighborVoxel)) {
-                                        hasFreeNeighbor = true;
-                                        v3 neighborRelOrigin = RelativePos(WorldPos::Make(IV3(x, y, z)), WorldPos::Make(IV3(px, py, pz)));
-                                        f32 dist = LengthSq(neighborRelOrigin - relOrigin);
-                                        if (dist < closestNeighborDist) {
-                                            closestNeighborDist = dist;
-                                            closestNeighborVoxel = IV3(px, py, pz);
-                                            closestNeighborRelOrigin = neighborRelOrigin;
+                            iv3 penetratedVoxel = IV3(x, y, z);
+                            bool hasFreeNeighbor = false;
+                            f32 closestNeighborDist = F32::Max;
+                            iv3 closestNeighborVoxel = IV3(0);
+                            v3 closestNeighborRelOrigin = {};
+                            for (i32 pz = penetratedVoxel.z - 1; pz <= penetratedVoxel.z + 1; pz++) {
+                                for (i32 py = penetratedVoxel.y - 1; py <= penetratedVoxel.y + 1; py++) {
+                                    for (i32 px = penetratedVoxel.x - 1; px <= penetratedVoxel.x + 1; px++) {
+                                        auto neighborVoxel = GetVoxel(world, px, py, pz);
+                                        if (!IsVoxelCollider(neighborVoxel)) {
+                                            hasFreeNeighbor = true;
+                                            v3 neighborRelOrigin = RelativePos(WorldPos::Make(IV3(x, y, z)), WorldPos::Make(IV3(px, py, pz)));
+                                            f32 dist = LengthSq(neighborRelOrigin - relOrigin);
+                                            if (dist < closestNeighborDist) {
+                                                closestNeighborDist = dist;
+                                                closestNeighborVoxel = IV3(px, py, pz);
+                                                closestNeighborRelOrigin = neighborRelOrigin;
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
 
-                        if (hasFreeNeighbor) {
-                            // TODO: this is temporary hack
-                            // Wee need an actual way to compute this coordinate
-                            v3 relNewOrigin = Normalize(closestNeighborRelOrigin + relOrigin) * Voxel::Dim + F32::Eps;
-                            origin = Offset(WorldPos::Make(IV3(x, y, z)), relNewOrigin);
+                            if (hasFreeNeighbor) {
+                                // TODO: this is temporary hack
+                                // Wee need an actual way to compute this coordinate
+                                v3 relNewOrigin = Normalize(closestNeighborRelOrigin + relOrigin) * Voxel::Dim + F32::Eps;
+                                origin = Offset(WorldPos::Make(IV3(x, y, z)), relNewOrigin);
+                            }
                         }
                     }
                 }

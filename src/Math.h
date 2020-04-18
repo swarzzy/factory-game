@@ -868,6 +868,7 @@ struct IntersectionResult {
     b32 hit;
     f32 t;
     v3 normal;
+    iv3 iNormal;
 };
 
 f32 TestAABBSideVsRay(BBoxAligned box, v3 ro, v3 rd, f32 tMinBound, f32 tMaxBound, int xi, int yi, int zi, bool boxi) {
@@ -889,40 +890,47 @@ f32 TestAABBSideVsRay(BBoxAligned box, v3 ro, v3 rd, f32 tMinBound, f32 tMaxBoun
 IntersectionResult Intersect(BBoxAligned box, v3 ro, v3 rd, f32 tMinBound, f32 tMaxBound) {
     f32 tMin = F32::Max;
     v3 n = {};
+    iv3 in = {};
 
     f32 t = F32::Max;
     t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 0, 1, 2, false);
     if (t < tMin) {
         tMin = t;
         n = V3(-1.0f, 0.0f, 0.0f);
+        in = IV3(-1, 0, 0);
     }
     t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 1, 0, 2, false);
     if (t < tMin) {
         tMin = t;
         n = V3(0.0f, -1.0f, 0.0f);
+        in = IV3(0, -1, 0);
     }
     t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 2, 0, 1, false);
     if (t < tMin) {
         tMin = t;
         n = V3(0.0f, 0.0f, -1.0f);
+        in = IV3(0, 0, -1);
     }
     t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 0, 1, 2, true);
     if (t < tMin) {
         tMin = t;
         n = V3(1.0f, 0.0f, 0.0f);
+        in = IV3(1, 0, 0);
     }
     t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 1, 0, 2, true);
     if (t < tMin) {
         tMin = t;
         n = V3(0.0f, 1.0f, 0.0f);
+        in = IV3(0, 1, 0);
     }
     t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 2, 0, 1, true);
     if (t < tMin) {
         tMin = t;
         n = V3(0.0f, 0.0f, 1.0f);
+        in = IV3(0, 0, 1);
     }
 
-    return { tMin < F32::Max, tMin, n };
+    return { tMin < F32::Max, tMin, n, in };
 }
 
 struct TriangleIntersectionResult {

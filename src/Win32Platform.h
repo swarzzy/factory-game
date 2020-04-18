@@ -78,7 +78,6 @@ struct WorkQueue {
     u32 volatile completedWorkCount;
     u32 volatile begin;
     u32 volatile end;
-    HANDLE semaphore;
     WorkQueueEntry queue[128];
 };
 
@@ -105,6 +104,7 @@ struct Win32Context
     WorkQueue lowPriorityQueue;
     WorkQueue highPriorityQueue;
     HGLRC workersGLRC[NumOfWorkerThreads];
+    HANDLE workQueueSemaphore;
 
     // NOTE: WGL
     wglGetExtensionsStringARBFn* wglGetExtensionsStringARB;

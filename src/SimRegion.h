@@ -12,8 +12,10 @@ struct SimRegion {
     u32 maxChunkCount;
     u32 chunkCount;
     Chunk* firstChunk;
+    u32 chunkMeshPoolFree;
     byte* chunkMeshPoolUsage;
     ChunkMesh* chunkMeshPool;
+    b32 hasPendingRemeshesAfterEdit;
 };
 
 void DrawRegion(SimRegion* region, RenderGroup* renderGroup, Camera* camera);
