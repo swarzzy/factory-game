@@ -10,6 +10,13 @@
 
 #include "utils.cpp"
 
+void Logger(void* data, const char* fmt, va_list* args) {
+    vprintf(fmt, *args);
+}
+
+LoggerFn* GlobalLogger = Logger;
+void* GlobalLoggerData = nullptr;
+
 #define INVALID_DEFAULT_CASE() assert(false)
 
 #undef ERROR

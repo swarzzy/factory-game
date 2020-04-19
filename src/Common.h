@@ -26,10 +26,6 @@
 #define WriteFence() (_WriteBarrier(), _mm_sfence())
 #define ReadFence() (_ReadBarrier(), _mm_lfence())
 
-#define assert(expr, ...) do { if (!(expr)) {LogAssert(__FILE__, __func__, __LINE__, #expr, __VA_ARGS__); debug_break();}} while(false)
-// NOTE: Defined always
-#define panic(expr, ...) do { if (!(expr)) {LogAssert(__FILE__, __func__, __LINE__, #expr, __VA_ARGS__); debug_break();}} while(false)
-
 #define array_count(arr) ((uint)(sizeof(arr) / sizeof(arr[0])))
 #define typedecl(type, member) (((type*)0)->member)
 #define invalid_default() default: { debug_break(); } break
@@ -109,33 +105,32 @@ namespace U32 {
 typedef void*(AllocateFn)(uptr size, uptr alignment, void* allocatorData);
 typedef void(DeallocateFn)(void* ptr, void* allocatorData);
 
-inline void LogAssertV(const char* file, const char* func, u32 line, const char* assertStr, const char* fmt = nullptr, va_list* args = nullptr)
-{
-    printf("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
-    if (fmt && args)
-    {
-        printf("Message: ");
-        vprintf(fmt, *args);
-    }
+// NOTE: Logger API
+typedef void(LoggerFn)(void* loggerData, const char* fmt, va_list* args);
+
+extern LoggerFn* GlobalLogger;
+extern void* GlobalLoggerData;
+
+#define log_print(fmt, ...) _GlobalLoggerWithArgs(GlobalLoggerData, fmt, __VA_ARGS__)
+#define assert(expr, ...) do { if (!(expr)) {LogAssert(__FILE__, __func__, __LINE__, #expr, __VA_ARGS__); debug_break();}} while(false)
+// NOTE: Defined always
+#define panic(expr, ...) do { if (!(expr)) {LogAssert(__FILE__, __func__, __LINE__, #expr, __VA_ARGS__); debug_break();}} while(false)
+
+inline void _GlobalLoggerWithArgs(void* data, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    GlobalLogger(data, fmt,  &args);
+    va_end(args);
 }
 
-inline void LogAssert(const char* file, const char* func, u32 line, const char* assertStr)
-{
-    LogAssertV(file, func, line, assertStr, nullptr, nullptr);
+inline void LogAssert(const char* file, const char* func, u32 line, const char* assertStr) {
+    log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
 }
 
-
-inline void LogAssert(const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, ...)
-{
-    if (fmt)
-    {
-        va_list args;
-        va_start(args, fmt);
-        LogAssertV(file, func, line, assertStr, fmt, &args);
-        va_end(args);
-    }
-    else
-    {
-        LogAssertV(file, func, line, assertStr, nullptr, nullptr);
-    }
+inline void LogAssert(const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, ...) {
+    log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
+    va_list args;
+    va_start(args, fmt);
+    GlobalLogger(GlobalLoggerData, fmt, &args);
+    va_end(args);
 }

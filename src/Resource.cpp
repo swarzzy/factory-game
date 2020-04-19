@@ -40,7 +40,7 @@ Texture LoadTextureFromFile(const char* filename, TextureFormat format, TextureW
         desiredBpp = STBDesiredBPPFromTextureFormat(format);
     }
 
-    auto image = ResourceLoaderLoadImage(filename, range, true, desiredBpp, PlatformAlloc);
+    auto image = ResourceLoaderLoadImage(filename, range, true, desiredBpp, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     assert(image);
 
     if (format == TextureFormat::Unknown) {
@@ -79,17 +79,17 @@ CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* 
 
     // TODO: Use memory arena
     // TODO: Free memory
-    auto back = ResourceLoaderLoadImage(backPath, range, false, 0, PlatformAlloc);
+    auto back = ResourceLoaderLoadImage(backPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(back->base); };
-    auto down = ResourceLoaderLoadImage(downPath, range, false, 0, PlatformAlloc);
+    auto down = ResourceLoaderLoadImage(downPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(down->base); };
-    auto front = ResourceLoaderLoadImage(frontPath, range, false, 0, PlatformAlloc);
+    auto front = ResourceLoaderLoadImage(frontPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(front->base); };
-    auto left = ResourceLoaderLoadImage(leftPath, range, false, 0, PlatformAlloc);
+    auto left = ResourceLoaderLoadImage(leftPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(left->base); };
-    auto right = ResourceLoaderLoadImage(rightPath, range, false, 0, PlatformAlloc);
+    auto right = ResourceLoaderLoadImage(rightPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(right->base); };
-    auto up = ResourceLoaderLoadImage(upPath, range, false, 0, PlatformAlloc);
+    auto up = ResourceLoaderLoadImage(upPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(up->base); };
 
     assert(back->width == down->width);

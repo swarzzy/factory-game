@@ -180,7 +180,7 @@ WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, b
 
                             auto intersection = Intersect(testBox, relOrigin, delta, 0.0f, F32::Max);
                             if (intersection.hit) {
-                                //printf("hit something at frame %llu\n", GlobalPlatform.tickCount);
+                                //log_print("hit something at frame %llu\n", GlobalPlatform.tickCount);
                                 f32 tHit =  Max(0.0f, intersection.t - 0.001f);
                                 if (tHit < tMin) {
                                     tMin = tHit;
@@ -235,7 +235,7 @@ WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, b
                         if ((bary.x > 0.0f && bary.x <= 1.0f) &&
                             (bary.y > 0.0f && bary.y <= 1.0f) &&
                             (bary.z > 0.0f && bary.z <= 1.0f)) {
-                            printf("PENETRATION DETECTED!!! at frame %llu\n", GlobalPlatform.tickCount);
+                            log_print("PENETRATION DETECTED!!! at frame %llu\n", GlobalPlatform.tickCount);
 
                             iv3 penetratedVoxel = IV3(x, y, z);
                             bool hasFreeNeighbor = false;

@@ -28,6 +28,14 @@ static bool GlobalRunning = true;
 static LARGE_INTEGER GlobalPerformanceFrequency = {};
 static void* GlobalGameData = 0;
 
+// TODO: Logger
+void Logger(void* data, const char* fmt, va_list* args) {
+    vprintf(fmt, *args);
+}
+
+LoggerFn* GlobalLogger = Logger;
+void* GlobalLoggerData = nullptr;
+
 struct OpenGLLoadResult
 {
     OpenGL* context;
@@ -54,9 +62,9 @@ OpenGLLoadResult LoadOpenGL()
     OpenGL* context = (OpenGL*)VirtualAlloc(0, sizeof(OpenGL), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     panic(context);
 
-    printf("[Info] Loading OpenGL functions...\n");
-    printf("[Info] Functions defined: %d\n", (int)OpenGL::FunctionCount);
-    printf("[Info] Loading functions...");
+    log_print("[Info] Loading OpenGL functions...\n");
+    log_print("[Info] Functions defined: %d\n", (int)OpenGL::FunctionCount);
+    log_print("[Info] Loading functions...");
 
     b32 success = true;
     HMODULE glLibHandle = {};
@@ -76,20 +84,20 @@ OpenGLLoadResult LoadOpenGL()
             else
             {
                 context->functions.raw[i] = 0;
-                printf("\n[Error]: Failed to load OpenGL procedure: %s", OpenGL::FunctionNames[i]);
+                log_print("\n[Error]: Failed to load OpenGL procedure: %s", OpenGL::FunctionNames[i]);
                 success = false;
             }
         }
     }
 
     if (success) {
-        printf("   Done\n");
+        log_print("   Done\n");
     } else {
         panic("Failed to load OpenGL functions");
     }
 
     // NOTE: Querying extensions
-    printf("[Info] Loading OpenGL extensions...");
+    log_print("[Info] Loading OpenGL extensions...");
     GLint numExtensions;
     context->functions.fn.glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
     for (i32x i = 0; i < numExtensions; i++)
@@ -124,22 +132,22 @@ OpenGLLoadResult LoadOpenGL()
 
     if (!context->extensions.ARB_texture_filter_anisotropic && !context->extensions.EXT_texture_filter_anisotropic)
     {
-        printf("[Info] GL_texture_filter_anisotropic is not supported\n");
+        log_print("[Info] GL_texture_filter_anisotropic is not supported\n");
     }
     if (!context->extensions.ARB_gl_spirv.supported)
     {
-        printf("[Info] ARB_gl_spirv is not supported\n");
+        log_print("[Info] ARB_gl_spirv is not supported\n");
     }
     if (!context->extensions.ARB_spirv_extensions)
     {
-        printf("[Info] ARB_spirv_extensions is not supported\n");
+        log_print("[Info] ARB_spirv_extensions is not supported\n");
     }
     if (!context->extensions.ARB_framebuffer_sRGB)
     {
-        printf("[Info] ARB_framebuffer_sRGB is not supported\n");
+        log_print("[Info] ARB_framebuffer_sRGB is not supported\n");
     }
 
-    printf("   Done.\n");
+    log_print("   Done.\n");
 
     if (success)
     {
@@ -205,7 +213,7 @@ u32 DebugReadFileToBuffer(void* buffer, u32 bufferSize, const wchar_t* filename)
                 BOOL result = ReadFile(fileHandle, buffer, readSize, &read, 0);
                 if (!result && !(read == readSize))
                 {
-                    printf("[Warn] Failed to open file");
+                    log_print("[Warn] Failed to open file");
                 }
                 else
                 {
@@ -230,7 +238,7 @@ u32 DebugReadTextFileToBuffer(void* buffer, u32 bufferSize, const wchar_t* filen
         {
             if (fileSize.QuadPart + 1 > bufferSize)
             {
-                printf("[Warn] Failed to open file");
+                log_print("[Warn] Failed to open file");
                 CloseHandle(fileHandle);
                 return 0;
             }
@@ -241,7 +249,7 @@ u32 DebugReadTextFileToBuffer(void* buffer, u32 bufferSize, const wchar_t* filen
                                        (DWORD)fileSize.QuadPart, &read, 0);
                 if (!result && !(read == (DWORD)fileSize.QuadPart))
                 {
-                    printf("[Warn] Failed to open file");
+                    log_print("[Warn] Failed to open file");
                     return 0;
                 }
                 else
@@ -629,7 +637,7 @@ void WindowPollEvents(Win32Context* app)
                 UINT inputSize = sizeof(RAWINPUT);
                 GetRawInputData((HRAWINPUT)message.lParam, RID_INPUT, &input, &inputSize, sizeof(RAWINPUTHEADER));
                 if (input.header.dwType == RIM_TYPEMOUSE) {
-                    printf("Raw input: mouse position: %d, %d\n", input.data.mouse.lLastX, input.data.mouse.lLastY);
+                    log_print("Raw input: mouse position: %d, %d\n", input.data.mouse.lLastX, input.data.mouse.lLastY);
                 }
             }
 #endif
@@ -1018,7 +1026,7 @@ void Win32Init(Win32Context* ctx)
     for (u32 i = 0; i < NumOfWorkerThreads; i++) {
         HGLRC glrc = ctx->wglCreateContextAttribsARB(actualWindowDC, actualGLRC, OpenGLContextAttribs);
         if (!glrc) {
-            printf("[win32] Failed to initialize OpenGL context for worker thread. Error %lu\n", HRESULT_CODE(GetLastError()));
+            log_print("[win32] Failed to initialize OpenGL context for worker thread. Error %lu\n", HRESULT_CODE(GetLastError()));
             supportsAsyncGPUTransfer = false;
             break;
         }
@@ -1083,13 +1091,13 @@ void* Allocate(uptr size, uptr alignment, void* data)
 {
     auto memory = malloc(size);
     assert(memory);
-    //printf("[Platform] Allocate %llu bytes at address %llu\n", size, (u64)memory);
+    //log_print("[Platform] Allocate %llu bytes at address %llu\n", size, (u64)memory);
     return memory;
 }
 
 void Deallocate(void* ptr, void* data)
 {
-    //printf("[Platform] Deallocating memory at address %llu\n", (u64)ptr);
+    //log_print("[Platform] Deallocating memory at address %llu\n", (u64)ptr);
     free(ptr);
 }
 
@@ -1189,7 +1197,7 @@ DWORD WINAPI Win32ThreadProc(void* param) {
     auto windowDC = GetDC(GlobalContext.windowHandle);
     auto result = wglMakeCurrent(windowDC, threadInfo->glrc);
     if (!result) {
-        printf("[win32] Failed to make OpenGL context current for worker thread. Error %lu", HRESULT_CODE(GetLastError()));
+        log_print("[win32] Failed to make OpenGL context current for worker thread. Error %lu", HRESULT_CODE(GetLastError()));
         _InterlockedExchange((long volatile*)&GlobalContext.state.supportsAsyncGPUTransfer, 0);
     }
 #endif

@@ -131,7 +131,7 @@ struct LoadedImage {
 
 static_assert(sizeof(LoadedImage) % 4 == 0);
 
-typedef LoadedImage*(__cdecl ResourceLoaderLoadImageFn)(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator);
+typedef LoadedImage*(__cdecl ResourceLoaderLoadImageFn)(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator, LoggerFn* logger, void* loggerData);
 
 struct ImageInfo {
     b32 valid;
@@ -140,7 +140,7 @@ struct ImageInfo {
     u32 channelCount;
 };
 
-typedef ImageInfo(__cdecl ResourceLoaderValidateImageFileFn)(const char* filename);
+typedef ImageInfo(__cdecl ResourceLoaderValidateImageFileFn)(const char* filename, LoggerFn* logger, void* loggerData);
 
 struct PlatformCalls
 {

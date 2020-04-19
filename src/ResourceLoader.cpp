@@ -16,6 +16,9 @@
 #include <windows.h>
 static LARGE_INTEGER GlobalPerformanceFrequency = {};
 
+LoggerFn* GlobalLogger = nullptr;
+void* GlobalLoggerData = nullptr;
+
 f64 GetTimeStamp() {
     if (GlobalPerformanceFrequency.QuadPart == 0) {
         QueryPerformanceFrequency(&GlobalPerformanceFrequency);
@@ -32,7 +35,10 @@ f64 GetTimeStamp() {
 f64 GetTimeStamp() { return 0; }
 #endif
 
-extern "C" GAME_CODE_ENTRY ImageInfo __cdecl ResourceLoaderValidateImageFile(const char* filename) {
+extern "C" GAME_CODE_ENTRY ImageInfo __cdecl ResourceLoaderValidateImageFile(const char* filename, LoggerFn* logger, void* loggerData) {
+    GlobalLogger = logger;
+    GlobalLoggerData = loggerData;
+
     ImageInfo info = {};
     auto startTime = GetTimeStamp();
     int x, y, comp;
@@ -44,11 +50,14 @@ extern "C" GAME_CODE_ENTRY ImageInfo __cdecl ResourceLoaderValidateImageFile(con
         info.channelCount = comp;
     }
     auto endTime = GetTimeStamp();
-    printf("[Resource loader] Validating image file %s... %s. Time: %f ms\n", filename, info.valid ? "success" : "failture", (endTime - startTime) * 1000.0f);
+    log_print("[Resource loader] Validating image file %s... %s. Time: %f ms\n", filename, info.valid ? "success" : "failture", (endTime - startTime) * 1000.0f);
     return info;
 }
 
-extern "C" GAME_CODE_ENTRY LoadedImage* __cdecl ResourceLoaderLoadImage(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator) {
+extern "C" GAME_CODE_ENTRY LoadedImage* __cdecl ResourceLoaderLoadImage(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator, LoggerFn* logger, void* loggerData) {
+    GlobalLogger = logger;
+    GlobalLoggerData = loggerData;
+
     auto startTime = GetTimeStamp();
 
     void* data = nullptr;
@@ -103,7 +112,7 @@ extern "C" GAME_CODE_ENTRY LoadedImage* __cdecl ResourceLoaderLoadImage(const ch
     }
 
     auto endTime = GetTimeStamp();
-    printf("[Resource loader] Loaded image %s. Time: %f ms\n", filename, (endTime - startTime) * 1000.0f);
+    log_print("[Resource loader] Loaded image %s. Time: %f ms\n", filename, (endTime - startTime) * 1000.0f);
 
     return header;
 }

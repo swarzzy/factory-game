@@ -19,6 +19,8 @@ static PlatformState* _GlobalPlatform = 0;
 #define GlobalLowPriorityWorkQueue GlobalPlatform.lowPriorityQueue
 #define GlobalHighPriorityWorkQueue GlobalPlatform.highPriorityQueue
 
+LoggerFn* GlobalLogger = LogMessageAPI;
+void* GlobalLoggerData;
 
 bool KeyHeld(Key key) {
     return GlobalInput.keys[(u32)key].pressedNow;
@@ -199,8 +201,6 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 
         //platform->supportsAsyncGPUTransfer = false;
 
-        printf("[Info] Asynchronous GPU memory transfer supported: %s\n", platform->supportsAsyncGPUTransfer ? "true" : "false");
-
         platform->gameSpeed = 1.0f;
 
 #if defined(DEBUG_OPENGL)
@@ -220,6 +220,12 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         context->gameArena = gameArena;
         context->tempArena = tempArena;
 
+        InitLogger(&context->logger, gameArena);
+        GlobalLoggerData = &context->logger;
+        InitConsole(&context->console, &context->logger, context->gameArena, context);
+
+        log_print("[Info] Asynchronous GPU memory transfer supported: %s\n", platform->supportsAsyncGPUTransfer ? "true" : "false");
+
         context->renderer = InitializeRenderer(gameArena, tempArena, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), 8);
 
         //context->renderer->clearColor = V4(0.8f, 0.8f, 0.8f, 1.0f);
@@ -229,6 +235,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
     } break;
     case GameInvoke::Reload: {
         auto context = (Context*)(*data);
+        GlobalLoggerData = &context->logger;
         IMGUI_CHECKVERSION();
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
@@ -238,10 +245,12 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         glDebugMessageCallback(OpenglDebugCallback, 0);
 #endif
         RecompileShaders(context->tempArena, context->renderer);
-        printf("[Info] Game was hot-reloaded\n");
+        log_print("[Info] Game was hot-reloaded\n");
         FluxReload(context);
     } break;
     case GameInvoke::Update: {
+        //bool show = true;
+        //ImGui::ShowDemoWindow(&show);
         FluxUpdate((Context*)(*data));
     } break;
     case GameInvoke::Render: {
@@ -283,7 +292,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
     case GL_DEBUG_SEVERITY_NOTIFICATION: { severityStr = "notification"; } break;
     default: { severityStr = "unknown"; } break;
     }
-    printf("[OpenGL] Debug message (source: %s, type: %s, severity: %s): %s\n", sourceStr, typeStr, severityStr, message);
+    log_print("[OpenGL] Debug message (source: %s, type: %s, severity: %s): %s\n", sourceStr, typeStr, severityStr, message);
 }
 
 #include "Game.cpp"
@@ -302,6 +311,8 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 //#include "Region.cpp"
 #include "WorldGen.cpp"
 #include "SimRegion.cpp"
+#include "Console.cpp"
+#include "ConsoleCommands.cpp"
 
 
 // NOTE: Platform specific intrinsics implementation begins here

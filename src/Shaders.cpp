@@ -50,7 +50,7 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexS
                             defer { EndTemporaryMemory(&frame); };
                             char* message = (char*)PushSize(tempArena, logLength);
                             glGetProgramInfoLog(programHandle, logLength, 0, message);
-                            printf("[Error]: Failed to link shader program (%s) \n%s\n", name, message);
+                            log_print("[Error]: Failed to link shader program (%s) \n%s\n", name, message);
                         }
                     }
                     else
@@ -66,7 +66,7 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexS
                     defer { EndTemporaryMemory(&frame); };
                     char* message = (char*)PushSize(tempArena, logLength);
                     glGetShaderInfoLog(fragmentHandle, logLength, nullptr, message);
-                    printf("[Error]: Failed to compile frag shader (%s)\n%s\n", name, message);
+                    log_print("[Error]: Failed to compile frag shader (%s)\n%s\n", name, message);
                 }
             }
             else
@@ -82,7 +82,7 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexS
             defer { EndTemporaryMemory(&frame); };
             char* message = (char*)PushSize(tempArena, logLength);
             glGetShaderInfoLog(vertexHandle, logLength, nullptr, message);
-            printf("[Error]: Failed to compile vertex shader (%s)\n%s", name, message);
+            log_print("[Error]: Failed to compile vertex shader (%s)\n%s", name, message);
         }
     }
     else
@@ -94,6 +94,7 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexS
 
 void RecompileShaders(MemoryArena* tempArena, Renderer* renderer)
 {
+    log_print("[Renderer] Recompiling %lu shaders\n", array_count(renderer->shaderHandles));
     for (u32x i = 0; i < array_count(renderer->shaderHandles); i++)
     {
         auto handle = renderer->shaderHandles[i];

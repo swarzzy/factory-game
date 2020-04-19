@@ -32,7 +32,7 @@ hash_bucket_teamplate* FindEntry(hash_map_template* map, Key* key, bool searchFo
 hash_map_template_decl
 void Grow(hash_map_template* map) {
     u32 newSize = map->size * hash_map_template::GrowKoef;
-    printf("[Hash map] Growing: old size %lu, old load %.3f, new size %lu new load %.3f\n", map->size, (f32)map->entryCount / (f32)map->size, newSize, (f32)map->entryCount / (f32)newSize);
+    log_print("[Hash map] Growing: old size %lu, old load %.3f, new size %lu new load %.3f\n", map->size, (f32)map->entryCount / (f32)map->size, newSize, (f32)map->entryCount / (f32)newSize);
     auto newMap = hash_map_template::Make(newSize);
     for (u32 i = 0; i < map->size; i++) {
         auto oldBucket = map->table + i;

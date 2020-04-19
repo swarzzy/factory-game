@@ -5,6 +5,7 @@
 #include "World.h"
 #include "MeshGenerator.h"
 #include "SimRegion.h"
+#include "Console.h"
 
 struct Context {
     MemoryArena* gameArena;
@@ -21,6 +22,9 @@ struct Context {
     CubeTexture hdrMap;
     CubeTexture irradanceMap;
     CubeTexture enviromentMap;
+    b32 consoleEnabled;
+    Logger logger;
+    Console console;
 };
 
 void FluxInit(Context* context);

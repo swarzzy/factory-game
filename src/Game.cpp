@@ -6,6 +6,9 @@
 #include <stdlib.h>
 
 void FluxInit(Context* context) {
+    LogMessage(&context->logger, "Logger test %s", "message\n");
+    LogMessage(&context->logger, "Logger prints string");
+
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
@@ -26,9 +29,9 @@ void FluxInit(Context* context) {
     auto gameWorld = &context->gameWorld;
     gameWorld->Init(&context->chunkMesher, 234234);
 
-    auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc);
+    auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     SetVoxelTexture(context->renderer, VoxelValue::Stone, stone->bits);
-    auto grass = ResourceLoaderLoadImage("../res/tile_grass.png", DynamicRange::LDR, true, 3, PlatformAlloc);
+    auto grass = ResourceLoaderLoadImage("../res/tile_grass.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     SetVoxelTexture(context->renderer, VoxelValue::Grass, grass->bits);
 
     context->playerMesh = LoadMeshFlux("../res/cube.mesh");
@@ -52,8 +55,20 @@ void FluxReload(Context* context) {
 void FluxUpdate(Context* context) {
     auto renderer = context->renderer;
 
-    context->camera.mode = CameraMode::Gameplay;
-    GlobalPlatform.inputMode = InputMode::CaptureCursor;
+    if(KeyPressed(Key::Tilde)) {
+        context->consoleEnabled = !context->consoleEnabled;
+        if (context->consoleEnabled) {
+            context->console.justOpened = true;
+        }
+    }
+
+    if (context->consoleEnabled) {
+        DrawConsole(&context->console);
+    }
+
+
+    context->camera.mode = CameraMode::DebugFollowing;
+    GlobalPlatform.inputMode = InputMode::FreeCursor;
 
 
     i32 rendererSampleCount = GetRenderSampleCount(renderer);
