@@ -31,23 +31,32 @@ void LogMessageAPI(void* loggerData, const char* fmt, va_list* args);
 
 
 struct ConsoleCommandArgs {
-    const char* args;
+    char* args;
 };
 
-typedef void(ConsoleCommandFn)(Context* gameContext, ConsoleCommandArgs* args);
+const char* PullCommandArg(ConsoleCommandArgs* args);
+
+typedef void(ConsoleCommandFn)(Console* console, Context* gameContext, ConsoleCommandArgs* args);
 
 struct ConsoleCommand {
     const char* name;
     ConsoleCommandFn* command;
+    const char* description;
 };
 
 static const ConsoleCommand GlobalConsoleCommands[] = {
-    { "clear",             ConsoleClearCommand },
-    { "help",              ConsoleHelpCommand },
-    { "history",           ConsoleHistoryCommand },
-    { "echo",              ConsoleEchoCommand },
-    { "reset_player_p",    ResetPlayerPositionCommand },
-    { "recompile_shaders", RecompileShadersCommand },
+    { "clear",              ConsoleClearCommand },
+    { "help",               ConsoleHelpCommand },
+    { "history",            ConsoleHistoryCommand },
+    { "echo",               ConsoleEchoCommand },
+    { "set",                ConsoleSetCommand },
+
+    { "reset_player_p",     ResetPlayerPositionCommand },
+    { "recompile_shaders",  RecompileShadersCommand },
+    { "camera",             CameraCommand , "Available modes: free, follow, game" },
+    { "add_entity",         AddEntityCommand },
+    { "print_entities",     PrintEntitiesCommand },
+    { "toggle_dbg_overlay", ToggleDebugOverlayCommand }
 };
 
 struct ConsoleCommandRecord {

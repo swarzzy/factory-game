@@ -33,20 +33,35 @@ void FluxInit(Context* context) {
     SetVoxelTexture(context->renderer, VoxelValue::Stone, stone->bits);
     auto grass = ResourceLoaderLoadImage("../res/tile_grass.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     SetVoxelTexture(context->renderer, VoxelValue::Grass, grass->bits);
+    auto coalOre = ResourceLoaderLoadImage("../res/tile_coal_ore.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
+    SetVoxelTexture(context->renderer, VoxelValue::CoalOre, coalOre->bits);
 
     context->playerMesh = LoadMeshFlux("../res/cube.mesh");
     assert(context->playerMesh);
     UploadToGPU(context->playerMesh);
 
+    context->coalOreMesh = LoadMeshFlux("../res/coal_ore.mesh");
+    assert(context->coalOreMesh);
+    UploadToGPU(context->coalOreMesh);
+
     context->playerMaterial.workflow = Material::Workflow::PBR;
     context->playerMaterial.pbr.albedoValue = V3(0.8f, 0.0f, 0.0f);
     context->playerMaterial.pbr.roughnessValue = 0.7f;
 
-    context->camera.targetWorldPosition = WorldPos::Make(IV3(0, 15, 0));
+    context->coalOreMaterial.workflow = Material::Workflow::PBR;
+    context->coalOreMaterial.pbr.albedoValue = V3(0.0f, 0.0f, 0.0f);
+    context->coalOreMaterial.pbr.roughnessValue = 0.95f;
+
+    context->camera.targetWorldPosition = MakeWorldPos(IV3(0, 15, 0));
 
     context->playerRegion.world = &context->gameWorld;
+
+    InitRegion(&context->playerRegion);
     ResizeRegion(&context->playerRegion, GameWorld::ViewDistance, context->gameArena);
     MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(context->camera.targetWorldPosition.voxel).chunk);
+
+    context->camera.mode = CameraMode::DebugFollowing;
+    GlobalPlatform.inputMode = InputMode::FreeCursor;
 }
 
 void FluxReload(Context* context) {
@@ -65,11 +80,6 @@ void FluxUpdate(Context* context) {
     if (context->consoleEnabled) {
         DrawConsole(&context->console);
     }
-
-
-    context->camera.mode = CameraMode::DebugFollowing;
-    GlobalPlatform.inputMode = InputMode::FreeCursor;
-
 
     i32 rendererSampleCount = GetRenderSampleCount(renderer);
     DEBUG_OVERLAY_SLIDER(rendererSampleCount, 0, GetRenderMaxSampleCount(renderer));
@@ -175,19 +185,16 @@ void FluxUpdate(Context* context) {
     player->velocity += frameAcceleration * GlobalGameDeltaTime;
     DEBUG_OVERLAY_TRACE(player->velocity);
     bool hitGround = false;
-    auto newP = DoMovement(&context->gameWorld, player->p, movementDelta, &player->velocity, &hitGround,  camera, group);
-    if (hitGround) {
-        player->grounded = true;
-        player->velocity.y = 0.0f;
-    } else {
-        player->grounded = false;
+    MoveSpatialEntity(&context->gameWorld, &context->gameWorld.playerEntity, movementDelta, camera, group);
+
+    if (ChunkPosFromWorldPos(player->p.voxel).chunk != ChunkPosFromWorldPos(oldPlayerP.voxel).chunk) {
+        MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(player->p.voxel).chunk);
     }
 
-    player->p = newP;
+    UpdateEntities(&context->playerRegion, group, camera, context);
 
-    if (ChunkPosFromWorldPos(newP.voxel).chunk != ChunkPosFromWorldPos(oldPlayerP.voxel).chunk) {
-        MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(newP.voxel).chunk);
-    }
+    auto playerChunk = ChunkPosFromWorldPos(player->p.voxel).chunk;
+    DEBUG_OVERLAY_TRACE(playerChunk);
 
     RegionUpdateChunkStates(&context->playerRegion);
 
@@ -216,7 +223,7 @@ void FluxUpdate(Context* context) {
             for (i32 x = min.x; x < max.x; x++) {
                 const Voxel* voxel = GetVoxel(&context->gameWorld, x, y, z);
                 if (voxel && voxel->value != VoxelValue::Empty) {
-                    WorldPos voxelWorldP = WorldPos::Make(x, y, z);
+                    WorldPos voxelWorldP = MakeWorldPos(x, y, z);
                     v3 voxelRelP = RelativePos(camera->targetWorldPosition, voxelWorldP);
                     BBoxAligned voxelAABB;
                     voxelAABB.min = voxelRelP - V3(Voxel::HalfDim);
@@ -242,6 +249,18 @@ void FluxUpdate(Context* context) {
             auto chunkPos = ChunkPosFromWorldPos(hitVoxel);
             auto chunk = GetChunk(&context->gameWorld, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
             auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
+            if (voxel->value == VoxelValue::CoalOre) {
+                RandomSeries series = {};
+                for (u32 i = 0; i < 4; i++) {
+                    auto entity = AddSpatialEntity(chunk, context->gameArena);
+                    if (entity) {
+                        v3 randomOffset = V3(RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f);
+                        entity->p = MakeWorldPos(context->gameWorld.player.selectedVoxel, randomOffset);
+                        entity->scale = 0.2f;
+                        entity->type = SpatialEntityType::CoalOre;
+                    }
+                }
+            }
             voxel->value = VoxelValue::Empty;
         }
         if (MouseButtonPressed(MouseButton::Right)) {
@@ -253,8 +272,8 @@ void FluxUpdate(Context* context) {
 
         iv3 selectedVoxelPos = context->gameWorld.player.selectedVoxel;
 
-        v3 minP = RelativePos(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
-        v3 maxP = RelativePos(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
+        v3 minP = RelativePos(camera->targetWorldPosition, MakeWorldPos(selectedVoxelPos));
+        v3 maxP = RelativePos(camera->targetWorldPosition, MakeWorldPos(selectedVoxelPos));
         minP -= V3(Voxel::HalfDim);
         maxP += V3(Voxel::HalfDim);
         DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);

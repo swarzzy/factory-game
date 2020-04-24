@@ -1,13 +1,18 @@
 #pragma once
 
 struct Context;
+struct Console;
 struct ConsoleCommandArgs;
 
-void ConsoleClearCommand(Context* context, ConsoleCommandArgs* args);
-void ConsoleHelpCommand(Context* context, ConsoleCommandArgs* args);
-void ConsoleHistoryCommand(Context* context, ConsoleCommandArgs* args);
-void ConsoleEchoCommand(Context* context, ConsoleCommandArgs* args);
+void ConsoleClearCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void ConsoleHelpCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void ConsoleHistoryCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void ConsoleEchoCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void ConsoleSetCommand(Console* console, Context* context, ConsoleCommandArgs* args);
 
-
-void RecompileShadersCommand(Context* context, ConsoleCommandArgs* args);
-void ResetPlayerPositionCommand(Context* context, ConsoleCommandArgs* args);
+void RecompileShadersCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void ResetPlayerPositionCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void CameraCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void AddEntityCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleCommandArgs* args);

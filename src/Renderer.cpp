@@ -781,6 +781,7 @@ u16 VoxelValueToTerrainIndex(VoxelValue value) {
     switch(value) {
     case VoxelValue::Stone: { index = 0; } break;
     case VoxelValue::Grass: { index = 1; } break;
+    case VoxelValue::CoalOre: { index = 2; } break;
     invalid_default();
     }
     return index;

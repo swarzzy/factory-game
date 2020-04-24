@@ -33,12 +33,12 @@ Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
     return result;
 }
 
-
 Chunk* AddChunk(GameWorld* world, iv3 coord) {
     auto chunk = (Chunk*)PlatformAlloc(sizeof(Chunk), 0, nullptr);
     memset(chunk, 0 , sizeof(Chunk));
     chunk->p = coord;
     chunk->priority = ChunkPriority::Low;
+    chunk->world = world;
     auto entry = Add(&world->chunkHashMap, &chunk->p);
     assert(entry);
     *entry = chunk;
@@ -54,6 +54,37 @@ Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z) {
     }
     return result;
 }
+
+EntityID GenEntityID(GameWorld* world) {
+    EntityID result = { ++world->entitySerialCount };
+    return result;
+}
+
+SpatialEntity* AddSpatialEntity(Chunk* chunk, MemoryArena* arena) {
+    SpatialEntity* result = nullptr;
+    if (!chunk->firstEntityBlock) {
+        chunk->firstEntityBlock = (SpatialEntityBlock*)PushSize(arena, sizeof(SpatialEntityBlock));
+    } else if (chunk->firstEntityBlock->at == array_count(chunk->firstEntityBlock->entities)) {
+        auto newBlock = (SpatialEntityBlock*)PushSize(arena, sizeof(SpatialEntityBlock));
+        if (newBlock) {
+            newBlock->next = chunk->firstEntityBlock;
+            chunk->firstEntityBlock = newBlock;
+        }
+    }
+
+    if (chunk->firstEntityBlock && chunk->firstEntityBlock->at < array_count(chunk->firstEntityBlock->entities)) {
+        result = chunk->firstEntityBlock->entities + chunk->firstEntityBlock->at;
+        chunk->firstEntityBlock->at++;
+        result->id = GenEntityID(chunk->world);
+    }
+
+    if (chunk->region) {
+        RegisterSpatialEntity(chunk->region, result);
+    }
+
+    return result;
+}
+
 
 WorldPos NormalizeWorldPos(WorldPos p) {
     WorldPos result;
@@ -133,81 +164,19 @@ bool IsVoxelCollider(const Voxel* voxel) {
     return collides;
 }
 
+struct OverlapResolveResult {
+    bool wasOverlapped;
+    bool resolved;
+};
 
-WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, bool* hitGround, Camera* camera, RenderGroup* renderGroup) {
-    *hitGround = false;
+OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity) {
+    WorldPos origin = entity->p;
 
-    v3 colliderSize = V3(Voxel::Dim * 0.95f);
+    bool overlaps = false;
+    bool resolved = true;
+
+    v3 colliderSize = V3(entity->scale);
     v3 colliderRadius = colliderSize * 0.5f;
-
-    for (u32 pass = 0; pass < 4; pass++) {
-        bool hit = false;
-        f32 tMin = 1.0f;
-        v3 hitNormal = {};
-
-        auto target = Offset(origin, delta);
-        iv3 originBoxMin = Offset(origin, -colliderRadius).voxel - IV3(1);
-        iv3 originBoxMax = Offset(origin, colliderRadius).voxel + IV3(1);
-        iv3 targetBoxMin = Offset(target, -colliderRadius).voxel - IV3(1);
-        iv3 targetBoxMax = Offset(target, colliderRadius).voxel + IV3(1);
-
-        iv3 minB = IV3(Min(originBoxMin.x, targetBoxMin.x) , Min(originBoxMin.y, targetBoxMin.y), Min(originBoxMin.z, targetBoxMin.z));
-        iv3 maxB = IV3(Max(originBoxMax.x, targetBoxMax.x), Max(originBoxMax.y, targetBoxMax.y), Max(originBoxMax.z, targetBoxMax.z));
-#if 0
-        v3 min = RelativePos(camera->targetWorldPosition, WorldPos::Make(minB));
-        v3 max = RelativePos(camera->targetWorldPosition, WorldPos::Make(maxB));
-        // min -= V3(Voxel::HalfDim);
-        //max -= V3(Voxel::HalfDim);
-        DrawAlignedBoxOutline(renderGroup, min, max, V3(0.0f, 0.0f, 1.0f), 2.0f);
-#endif
-        for (i32 z = minB.z; z <= maxB.z; z++) {
-            for (i32 y = minB.y; y <= maxB.y; y++) {
-                for (i32 x = minB.x; x <= maxB.x; x++) {
-                    if (y >= GameWorld::MinHeight && y <= GameWorld::MaxHeight) {
-                        // TODO: Cache chunk pointer
-                        auto testVoxel = GetVoxel(world, x, y, z);
-                        bool collides = IsVoxelCollider(testVoxel);
-                        if (collides) {
-                            v3 relOrigin = RelativePos(WorldPos::Make(IV3(x, y, z)), origin);
-                            v3 minCorner = V3(-Voxel::HalfDim);
-                            v3 maxCorner = V3(Voxel::HalfDim);
-                            // NOTE: Minkowski sum
-                            minCorner += colliderSize * -0.5f;
-                            maxCorner += colliderSize * 0.5f;
-                            BBoxAligned testBox;
-                            testBox.min = minCorner;
-                            testBox.max = maxCorner;
-
-                            auto intersection = Intersect(testBox, relOrigin, delta, 0.0f, F32::Max);
-                            if (intersection.hit) {
-                                //log_print("hit something at frame %llu\n", GlobalPlatform.tickCount);
-                                f32 tHit =  Max(0.0f, intersection.t - 0.001f);
-                                if (tHit < tMin) {
-                                    tMin = tHit;
-                                    hitNormal = intersection.normal;
-                                    hit = true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        origin = Offset(origin, delta * tMin);
-        //hitNormal = -hitNormal;
-
-        if (hit) {
-            if (hitNormal.y == 1.0f) {
-                *hitGround = true;
-            }
-            delta = Difference(target, origin);
-            *velocity -= Dot(*velocity, hitNormal) * hitNormal;
-            delta -= Dot(delta, hitNormal) * hitNormal;
-        } else {
-            break;
-        }
-    }
 
     iv3 bboxMin = Offset(origin, -colliderRadius).voxel - IV3(1);
     iv3 bboxMax = Offset(origin, colliderRadius).voxel + IV3(1);
@@ -221,11 +190,12 @@ WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, b
                 DrawAlignedBoxOutline(renderGroup, min, max, V3(1.0f, 0.0f, 0.0f), 3.0f);
 #endif
 
+                // TODO: Handle case when entity is outside of world bounds
                 if (y >= GameWorld::MinHeight && y <= GameWorld::MaxHeight) {
                     auto testVoxel = GetVoxel(world, x, y, z);
                     bool collides = IsVoxelCollider(testVoxel);
                     if (collides) {
-                        v3 relOrigin = RelativePos(WorldPos::Make(IV3(x, y, z)), origin);
+                        v3 relOrigin = RelativePos(MakeWorldPos(IV3(x, y, z)), origin);
                         v3 minCorner = V3(-Voxel::HalfDim);
                         v3 maxCorner = V3(Voxel::HalfDim);
                         // NOTE: Minkowski sum
@@ -235,7 +205,9 @@ WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, b
                         if ((bary.x > 0.0f && bary.x <= 1.0f) &&
                             (bary.y > 0.0f && bary.y <= 1.0f) &&
                             (bary.z > 0.0f && bary.z <= 1.0f)) {
-                            log_print("PENETRATION DETECTED!!! at frame %llu\n", GlobalPlatform.tickCount);
+
+                            overlaps = true;
+                            //log_print("PENETRATION DETECTED!!! at frame %llu\n", GlobalPlatform.tickCount);
 
                             iv3 penetratedVoxel = IV3(x, y, z);
                             bool hasFreeNeighbor = false;
@@ -248,7 +220,7 @@ WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, b
                                         auto neighborVoxel = GetVoxel(world, px, py, pz);
                                         if (!IsVoxelCollider(neighborVoxel)) {
                                             hasFreeNeighbor = true;
-                                            v3 neighborRelOrigin = RelativePos(WorldPos::Make(IV3(x, y, z)), WorldPos::Make(IV3(px, py, pz)));
+                                            v3 neighborRelOrigin = RelativePos(MakeWorldPos(IV3(x, y, z)), MakeWorldPos(IV3(px, py, pz)));
                                             f32 dist = LengthSq(neighborRelOrigin - relOrigin);
                                             if (dist < closestNeighborDist) {
                                                 closestNeighborDist = dist;
@@ -264,14 +236,116 @@ WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, b
                                 // TODO: this is temporary hack
                                 // Wee need an actual way to compute this coordinate
                                 v3 relNewOrigin = Normalize(closestNeighborRelOrigin + relOrigin) * Voxel::Dim + F32::Eps;
-                                origin = Offset(WorldPos::Make(IV3(x, y, z)), relNewOrigin);
+                                origin = Offset(MakeWorldPos(IV3(x, y, z)), relNewOrigin);
+                            } else {
+                                resolved = false;
                             }
                         }
                     }
+                } else { // Above max world height or below min world height
                 }
             }
         }
     }
 
-    return origin;
+    if (overlaps && resolved) {
+        entity->p = origin;
+    }
+
+    OverlapResolveResult result = { overlaps, resolved };
+
+    return result;
+}
+
+
+void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup) {
+
+    auto overlapResolveResult = TryResolveOverlaps(world, entity);
+
+    if (overlapResolveResult.wasOverlapped) {
+        log_print("Entity was overlapping at frame %d. %s\n", GlobalPlatform.tickCount, overlapResolveResult.resolved ? "Resolved" : "Stuck");
+    }
+
+    if (overlapResolveResult.resolved) {
+        // TODO: Better ground hit detection
+        entity->grounded = false;
+
+        v3 colliderSize = V3(entity->scale);
+        v3 colliderRadius = colliderSize * 0.5f;
+
+        WorldPos origin = entity->p;
+        v3 velocity = entity->velocity;
+
+        for (u32 pass = 0; pass < 4; pass++) {
+            bool hit = false;
+            f32 tMin = 1.0f;
+            v3 hitNormal = {};
+
+            auto target = Offset(origin, delta);
+            iv3 originBoxMin = Offset(origin, -colliderRadius).voxel - IV3(1);
+            iv3 originBoxMax = Offset(origin, colliderRadius).voxel + IV3(1);
+            iv3 targetBoxMin = Offset(target, -colliderRadius).voxel - IV3(1);
+            iv3 targetBoxMax = Offset(target, colliderRadius).voxel + IV3(1);
+
+            iv3 minB = IV3(Min(originBoxMin.x, targetBoxMin.x) , Min(originBoxMin.y, targetBoxMin.y), Min(originBoxMin.z, targetBoxMin.z));
+            iv3 maxB = IV3(Max(originBoxMax.x, targetBoxMax.x), Max(originBoxMax.y, targetBoxMax.y), Max(originBoxMax.z, targetBoxMax.z));
+#if 0
+            v3 min = RelativePos(camera->targetWorldPosition, WorldPos::Make(minB));
+            v3 max = RelativePos(camera->targetWorldPosition, WorldPos::Make(maxB));
+            // min -= V3(Voxel::HalfDim);
+            //max -= V3(Voxel::HalfDim);
+            DrawAlignedBoxOutline(renderGroup, min, max, V3(0.0f, 0.0f, 1.0f), 2.0f);
+#endif
+            for (i32 z = minB.z; z <= maxB.z; z++) {
+                for (i32 y = minB.y; y <= maxB.y; y++) {
+                    for (i32 x = minB.x; x <= maxB.x; x++) {
+                        if (y >= GameWorld::MinHeight && y <= GameWorld::MaxHeight) {
+                            // TODO: Cache chunk pointer
+                            auto testVoxel = GetVoxel(world, x, y, z);
+                            bool collides = IsVoxelCollider(testVoxel);
+                            if (collides) {
+                                v3 relOrigin = RelativePos(MakeWorldPos(IV3(x, y, z)), origin);
+                                v3 minCorner = V3(-Voxel::HalfDim);
+                                v3 maxCorner = V3(Voxel::HalfDim);
+                                // NOTE: Minkowski sum
+                                minCorner += colliderSize * -0.5f;
+                                maxCorner += colliderSize * 0.5f;
+                                BBoxAligned testBox;
+                                testBox.min = minCorner;
+                                testBox.max = maxCorner;
+
+                                auto intersection = Intersect(testBox, relOrigin, delta, 0.0f, F32::Max);
+                                if (intersection.hit) {
+                                    //log_print("hit something at frame %llu\n", GlobalPlatform.tickCount);
+                                    f32 tHit =  Max(0.0f, intersection.t - 0.001f);
+                                    if (tHit < tMin) {
+                                        tMin = tHit;
+                                        hitNormal = intersection.normal;
+                                        hit = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            origin = Offset(origin, delta * tMin);
+            //hitNormal = -hitNormal;
+
+            if (hit) {
+                if (hitNormal.y == 1.0f) {
+                    entity->grounded = true;
+                }
+                delta = Difference(target, origin);
+                velocity -= Dot(velocity, hitNormal) * hitNormal;
+                delta -= Dot(delta, hitNormal) * hitNormal;
+
+            } else {
+                break;
+            }
+        }
+        entity->p = origin;
+        entity->velocity = velocity;
+    }
 }

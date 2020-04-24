@@ -106,12 +106,32 @@ void InitConsole(Console* console, Logger* logger, MemoryArena* arena, Context* 
     console->gameContext = gameContext;
 }
 
+const char* PullCommandArg(ConsoleCommandArgs* args) {
+    const char* result = nullptr;
+    if (args->args) {
+        if (*(args->args)) {
+            const char* begin = args->args;
+            auto at = args->args;
+            // Lookin' for space or null
+            while (*(args->args) && !IsSpace(*(args->args))) args->args++;
+            if (*(args->args)) {
+                *(args->args) = 0;
+                args->args++;
+            }
+            // SkipSpaces
+            while (*(args->args) && IsSpace(*(args->args))) args->args++;
+            result = begin;
+        }
+    }
+    return result;
+}
+
 bool MatchAndExecuteCommand(Console* console) {
     bool executed = false;
     for (u32x i = 0; i < array_count(GlobalConsoleCommands); i++) {
         auto command = GlobalConsoleCommands + i;
         if (MatchStrings(command->name, console->inputBuffer)) {
-            const char* args = console->inputBuffer;
+            char* args = console->inputBuffer;
             u32 p = 0;
             // Skip untill space
             while (*args && (p < array_count(console->inputBuffer)) && !IsSpace(*args)) {
@@ -129,7 +149,7 @@ bool MatchAndExecuteCommand(Console* console) {
 
             ConsoleCommandArgs commandArgs = {};
             commandArgs.args = args;
-            command->command(console->gameContext, &commandArgs);
+            command->command(console, console->gameContext, &commandArgs);
             executed = true;
             break;
         }
@@ -267,7 +287,7 @@ void DrawConsole(Console* console) {
             if (!console->inputBuffer[0]) {
                 LogMessage(console->logger, "\n");
             } else {
-                //LogMessage(console->logger, "%s\n", console->inputBuffer);
+                LogMessage(console->logger, "%s\n", console->inputBuffer);
                 PushConsoleCommandToHistory(console);
                 if (!MatchAndExecuteCommand(console)) {
                     LogMessage(console->logger, "Command not found: %s\n", console->inputBuffer);

@@ -15,6 +15,8 @@ struct Context {
     SimRegion playerRegion;
     Mesh* playerMesh;
     Material playerMaterial;
+    Mesh* coalOreMesh;
+    Material coalOreMaterial;
     Camera camera;
     Renderer* renderer;
     RenderGroup renderGroup;

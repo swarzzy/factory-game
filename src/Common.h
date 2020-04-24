@@ -107,14 +107,18 @@ typedef void(DeallocateFn)(void* ptr, void* allocatorData);
 
 // NOTE: Logger API
 typedef void(LoggerFn)(void* loggerData, const char* fmt, va_list* args);
+typedef void(AssertHandlerFn)(void* userData, const char* file, const char* func, u32 line, const char* exprString, const char* fmt, va_list* args);
 
 extern LoggerFn* GlobalLogger;
 extern void* GlobalLoggerData;
 
+extern AssertHandlerFn* GlobalAssertHandler;
+extern void* GlobalAssertHandlerData;
+
 #define log_print(fmt, ...) _GlobalLoggerWithArgs(GlobalLoggerData, fmt, __VA_ARGS__)
-#define assert(expr, ...) do { if (!(expr)) {LogAssert(__FILE__, __func__, __LINE__, #expr, __VA_ARGS__); debug_break();}} while(false)
+#define assert(expr, ...) do { if (!(expr)) {_GlobalAssertHandler(GlobalAssertHandlerData, __FILE__, __func__, __LINE__, #expr, __VA_ARGS__);}} while(false)
 // NOTE: Defined always
-#define panic(expr, ...) do { if (!(expr)) {LogAssert(__FILE__, __func__, __LINE__, #expr, __VA_ARGS__); debug_break();}} while(false)
+#define panic(expr, ...) do { if (!(expr)) {_GlobalAssertHandler(GlobalAssertHandlerData, __FILE__, __func__, __LINE__, #expr, __VA_ARGS__);}} while(false)
 
 inline void _GlobalLoggerWithArgs(void* data, const char* fmt, ...) {
     va_list args;
@@ -123,14 +127,13 @@ inline void _GlobalLoggerWithArgs(void* data, const char* fmt, ...) {
     va_end(args);
 }
 
-inline void LogAssert(const char* file, const char* func, u32 line, const char* assertStr) {
-    log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
+inline void _GlobalAssertHandler(void* userData, const char* file, const char* func, u32 line, const char* exprString) {
+    GlobalAssertHandler(userData, file, func, line, exprString, nullptr, nullptr);
 }
 
-inline void LogAssert(const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, ...) {
-    log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
+inline void _GlobalAssertHandler(void* userData, const char* file, const char* func, u32 line, const char* exprString, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    GlobalLogger(GlobalLoggerData, fmt, &args);
+    GlobalAssertHandler(userData, file, func, line, exprString, fmt, &args);
     va_end(args);
 }

@@ -8,6 +8,14 @@
 
 void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
 
+inline void AssertHandler(void* data, const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, va_list* args) {
+    log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
+    if (args) {
+        GlobalLogger(GlobalLoggerData, fmt, args);
+    }
+    debug_break();
+}
+
 // NOTE: Platforn globals
 static PlatformState* _GlobalPlatform = 0;
 #define GlobalPlatform (*((_GlobalPlatform)))
@@ -21,6 +29,9 @@ static PlatformState* _GlobalPlatform = 0;
 
 LoggerFn* GlobalLogger = LogMessageAPI;
 void* GlobalLoggerData;
+
+AssertHandlerFn* GlobalAssertHandler = AssertHandler;
+void* GlobalAssertHandlerData = nullptr;
 
 bool KeyHeld(Key key) {
     return GlobalInput.keys[(u32)key].pressedNow;

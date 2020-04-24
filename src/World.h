@@ -11,21 +11,24 @@ struct RenderGroup;
 struct WorldPos {
     iv3 voxel;
     v3 offset;
-    inline static WorldPos Make(iv3 voxel) { return WorldPos{voxel, V3(0.0f)}; }
-    inline static WorldPos Make(i32 x, i32 y, i32 z) { return WorldPos{IV3(x, y, z), V3(0.0f)}; }
-    inline static WorldPos Make(iv3 voxel, v3 offset) { return WorldPos{voxel, offset}; }
 };
+
+inline WorldPos MakeWorldPos(iv3 voxel) { return WorldPos{voxel, V3(0.0f)}; }
+inline WorldPos MakeWorldPos(i32 x, i32 y, i32 z) { return WorldPos{IV3(x, y, z), V3(0.0f)}; }
+inline WorldPos MakeWorldPos(iv3 voxel, v3 offset) { return WorldPos{voxel, offset}; }
 
 struct ChunkPos {
     iv3 chunk;
     uv3 voxel;
-    inline static ChunkPos Make(iv3 chunk, uv3 voxel) { return ChunkPos{chunk, voxel}; }
 };
+
+inline ChunkPos MakeChunkPos(iv3 chunk, uv3 voxel) { return ChunkPos{chunk, voxel}; }
 
 enum struct VoxelValue : u32 {
     Empty = 0,
     Stone,
-    Grass
+    Grass,
+    CoalOre
 };
 
 const f32 MeterScale = 1.0f;
@@ -44,6 +47,35 @@ enum struct ChunkPriority : u32 {
     Low = 0, High
 };
 
+struct EntityID {
+    u64 id;
+};
+
+enum struct SpatialEntityType : u32 {
+    Player, CoalOre
+};
+
+struct SpatialEntity {
+    EntityID id;
+    SpatialEntityType type;
+    WorldPos p;
+    // TODO: Propperly support entity size
+    f32 scale;
+    v3 velocity;
+    f32 acceleration;
+    f32 friction;
+    b32 grounded;
+};
+
+struct SpatialEntityBlock {
+    SpatialEntityBlock* next;
+    u32 at;
+    SpatialEntity entities[16];
+};
+
+struct GameWorld;
+struct SimRegion;
+
 struct Chunk {
     static const u32 BitShift = 5;
     static const u32 BitMask = (1 << BitShift) - 1;
@@ -58,6 +90,7 @@ struct Chunk {
     ChunkPriority priority;
     b32 shouldBeRemeshedAfterEdit;
 
+    SimRegion* region;
     b32 modified;
     b32 active;
     Chunk* nextActive;
@@ -67,6 +100,10 @@ struct Chunk {
     ChunkMesh* secondaryMesh;
     u32 primaryMeshPoolIndex;
     u32 secondaryMeshPoolIndex;
+
+    SpatialEntityBlock* firstEntityBlock;
+
+    GameWorld* world;
     Voxel voxels[Size * Size * Size];
 };
 
@@ -86,19 +123,6 @@ bool ChunkHashCompFunc(void* a, void* b) {
     bool result = (p1->x == p2->x) && (p1->y == p2->y) && (p1->z == p2->z);
     return result;
 }
-
-enum struct SpatialEntityType : u32 {
-    Player
-};
-
-struct SpatialEntity {
-    SpatialEntityType type;
-    WorldPos p;
-    v3 velocity;
-    f32 acceleration;
-    f32 friction;
-    b32 grounded;
-};
 
 struct Player {
     SpatialEntity* entity;
@@ -125,13 +149,16 @@ struct GameWorld {
     ChunkMesher* mesher;
     Chunk* firstActive;
 
+    u64 entitySerialCount;
+
     void Init(ChunkMesher* mesher, u32 seed) {
         this->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
         this->mesher = mesher;
         this->worldGen.Init(seed);
         this->player.entity = &this->playerEntity;
         this->playerEntity.type = SpatialEntityType::Player;
-        this->playerEntity.p = WorldPos::Make(IV3(0, 30, 0));
+        this->playerEntity.p = MakeWorldPos(IV3(0, 30, 0));
+        this->playerEntity.scale = 0.95f;
         this->playerEntity.acceleration = 70.0f;
         this->playerEntity.friction = 10.0f;
         this->player.height = 1.8f;
@@ -147,8 +174,9 @@ const Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z);
 Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z);
 
 Chunk* AddChunk(GameWorld* world, iv3 coord);
-
 Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z);
+
+SpatialEntity* AddSpatialEntity(Chunk* chunk, MemoryArena* arena);
 
 WorldPos NormalizeWorldPos(WorldPos p);
 
@@ -164,4 +192,4 @@ uv3 GetVoxelCoordInChunk(i32 x, i32 y, i32 z);
 ChunkPos ChunkPosFromWorldPos(iv3 tile);
 WorldPos WorldPosFromChunkPos(ChunkPos p);
 
-WorldPos DoMovement(GameWorld* world, WorldPos origin, v3 delta, v3* velocity, bool* hitGround, Camera* camera, RenderGroup* renderGroup);
+void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup);

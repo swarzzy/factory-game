@@ -45,6 +45,17 @@ void RemoveChunkFromRegion(SimRegion* region, Chunk* chunk) {
             next->prevActive = prev;
         }
     }
+
+    auto entityBlock = chunk->firstEntityBlock;
+    while (entityBlock) {
+        for (u32x i = 0; i < array_count(entityBlock->entities); i++) {
+            auto entity = entityBlock->entities + i;
+            UnregisterSpatialEntity(region, entity->id);
+        }
+        entityBlock = entityBlock->next;
+    }
+
+    chunk->region = nullptr;
 }
 
 void EvictFurthestChunkFromRegion(SimRegion* region) {
@@ -131,6 +142,17 @@ void AddChunkToRegion(SimRegion* region, Chunk* chunk) {
     assert(!chunk->primaryMesh);
     chunk->primaryMesh = mesh.mesh;
     chunk->primaryMeshPoolIndex = mesh.index;
+
+    auto entityBlock = chunk->firstEntityBlock;
+    while (entityBlock) {
+        for (u32x i = 0; i < array_count(entityBlock->entities); i++) {
+            auto entity = entityBlock->entities + i;
+            RegisterSpatialEntity(region, entity);
+        }
+        entityBlock = entityBlock->next;
+    }
+
+    chunk->region = region;
 }
 
 void SwapChunkMeshes(Chunk* chunk) {
@@ -247,7 +269,12 @@ void RegionUpdateChunkStates(SimRegion* region) {
     }
 }
 
+void InitRegion(SimRegion* region) {
+    region->spatialEntityTable = HashMap<EntityID, SpatialEntity*, SimRegionHashFunc, SimRegionHashCompFunc>::Make();
+}
+
 // TODO: Make this an actual function
+// TODO: Entity gather
 void ResizeRegion(SimRegion* region, u32 newSpan, MemoryArena* arena) {
     region->span = newSpan;
     u32 regionSide = newSpan * 2 + 1;
@@ -313,11 +340,51 @@ void DrawRegion(SimRegion* region, RenderGroup* renderGroup, Camera* camera) {
                 assert(chunk->primaryMesh);
                 RenderCommandPushChunk chunkCommand = {};
                 chunkCommand.mesh = mesh;
-                chunkCommand.offset = RelativePos(camera->targetWorldPosition, WorldPos::Make(chunk->p * (i32)Chunk::Size));
+                chunkCommand.offset = RelativePos(camera->targetWorldPosition, MakeWorldPos(chunk->p * (i32)Chunk::Size));
                 Push(renderGroup, &chunkCommand);
             }
         }
         chunk = chunk->nextActive;
     }
     Push(renderGroup, &RenderCommandEndChunkBatch{});
+}
+
+void RegisterSpatialEntity(SimRegion* region, SpatialEntity* entity) {
+    auto entry = Add(&region->spatialEntityTable, &entity->id);
+    assert(entry);
+    *entry = entity;
+}
+
+bool UnregisterSpatialEntity(SimRegion* region, EntityID id) {
+    bool result = Delete(&region->spatialEntityTable, &id);
+    return result;
+}
+
+void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera, Context* context) {
+    auto chunk = region->firstChunk;
+    while (chunk) {
+        auto entityBlock = chunk->firstEntityBlock;
+        while (entityBlock) {
+            for (u32x i = 0; i < array_count(entityBlock->entities); i++) {
+                // Doing gravity here for now
+                auto entity = entityBlock->entities + i;
+                if (entity->id.id) {
+                    v3 frameAcceleration = V3(0.0f, -20.8f, 0.0f);
+                    v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + entity->velocity * GlobalGameDeltaTime;
+                    entity->velocity += frameAcceleration * GlobalGameDeltaTime;
+                    MoveSpatialEntity(region->world, entity, movementDelta, nullptr, nullptr);
+
+                    if (entity->type == SpatialEntityType::CoalOre) {
+                        RenderCommandDrawMesh command {};
+                        command.transform = Translate(RelativePos(camera->targetWorldPosition, entity->p));
+                        command.mesh = context->coalOreMesh;
+                        command.material = &context->coalOreMaterial;
+                        Push(renderGroup, &command);
+                    }
+                }
+            }
+            entityBlock = entityBlock->next;
+        }
+        chunk = chunk->nextActive;
+    }
 }
