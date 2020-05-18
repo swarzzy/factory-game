@@ -44,6 +44,7 @@ struct ConsoleCommand {
     const char* description;
 };
 
+// TODO: Match for full word
 static const ConsoleCommand GlobalConsoleCommands[] = {
     { "clear",              ConsoleClearCommand },
     { "help",               ConsoleHelpCommand },
@@ -56,7 +57,8 @@ static const ConsoleCommand GlobalConsoleCommands[] = {
     { "camera",             CameraCommand , "Available modes: free, follow, game" },
     { "add_entity",         AddEntityCommand },
     { "print_entities",     PrintEntitiesCommand },
-    { "toggle_dbg_overlay", ToggleDebugOverlayCommand }
+    { "toggle_dbg_overlay", ToggleDebugOverlayCommand },
+    { "pos",                SetEntityPosCommand }
 };
 
 struct ConsoleCommandRecord {

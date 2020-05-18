@@ -141,9 +141,8 @@ void CameraCommand(Console* console, Context* context, ConsoleCommandArgs* args)
 void AddEntityCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
     auto chunk = GetChunk(&context->gameWorld, 0, 0, 0);
     if (chunk) {
-        auto entity = AddSpatialEntity(chunk, context->gameArena);
+        auto entity = AddSpatialEntity(&context->gameWorld, IV3(0, 30, 0));
         if (entity) {
-            entity->p = MakeWorldPos(IV3(0, 30, 0));
             entity->scale = 0.4f;
             entity->type = SpatialEntityType::CoalOre;
             LogMessage(console->logger, "Entity with id %llu added\n", entity->id.id);
@@ -152,6 +151,33 @@ void AddEntityCommand(Console* console, Context* context, ConsoleCommandArgs* ar
         }
     } else {
         LogMessage(console->logger, "Failed to add entity. Chunk is not exist\n");
+    }
+}
+
+void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
+    auto arg1 = PullCommandArg(args);
+    auto arg2 = PullCommandArg(args);
+    auto arg3 = PullCommandArg(args);
+    auto arg4 = PullCommandArg(args);
+
+    if (arg1 && arg2 && arg3 && arg4) {
+        auto arg1Value = StringToInt(arg1);
+        auto arg2Value = StringToInt(arg2);
+        auto arg3Value = StringToInt(arg3);
+        auto arg4Value = StringToInt(arg4);
+        if (arg1Value.succeed && arg2Value.succeed && arg3Value.succeed && arg4Value.succeed) {
+            auto id = arg1Value.value;
+            auto entity = GetSpatialEntity(&context->playerRegion, EntityID {(u64)id});
+            if (entity) {
+                entity->p = MakeWorldPos(IV3(arg2Value.value, arg3Value.value, arg4Value.value));
+            } else {
+                LogMessage(console->logger, "Entity with id %lu not found\n", id);
+            }
+        } else {
+            LogMessage(console->logger, "Invalid args\n");
+        }
+    } else {
+        LogMessage(console->logger, "Invalid args\n");
     }
 }
 

@@ -1,7 +1,9 @@
 #pragma once
 
 #include "HashMap.h"
+#include "BucketArray.h"
 #include "WorldGen.h"
+#include "Memory.h"
 
 struct ChunkMesh;
 struct ChunkMesher;
@@ -65,16 +67,80 @@ struct SpatialEntity {
     f32 acceleration;
     f32 friction;
     b32 grounded;
-};
+    Chunk* residenceChunk;
 
-struct SpatialEntityBlock {
-    SpatialEntityBlock* next;
-    u32 at;
-    SpatialEntity entities[16];
+    SpatialEntity* nextInStorage;
+    SpatialEntity* prevInStorage;
 };
 
 struct GameWorld;
 struct SimRegion;
+
+// NOTE: Store entities as linked list for now
+struct SpatialEntityStorage {
+    Allocator allocator;
+    SpatialEntity* first;
+    usize count;
+
+    void Init(Allocator allocator) {
+        assert(!this->first);
+        this->allocator = allocator;
+    }
+
+    void Insert(SpatialEntity* entity) {
+        entity->nextInStorage = this->first;
+        if (this->first) this->first->prevInStorage = entity;
+        this->first = entity;
+        this->count++;
+    }
+
+    SpatialEntity* Add() {
+        SpatialEntity* result = nullptr;
+        auto entity = (SpatialEntity*)this->allocator.Alloc(sizeof(SpatialEntity), 0);
+        if (entity) {
+            ClearMemory(entity);
+            entity->nextInStorage = this->first;
+            if (this->first) this->first->prevInStorage = entity;
+            this->first = entity;
+            this->count++;
+            result = entity;
+        }
+        return result;
+    }
+
+
+    void Unlink(SpatialEntity* entity) {
+        auto prev = entity->prevInStorage;
+        auto next = entity->nextInStorage;
+        if (prev) {
+            prev->nextInStorage = next;
+        } else {
+            this->first = next;
+        }
+        if (next) {
+            next->prevInStorage = prev;
+        }
+        assert(this->count);
+        this->count--;
+        entity->prevInStorage = nullptr;
+        entity->nextInStorage = nullptr;
+    }
+
+    void Remove(SpatialEntity* entity) {
+        Unlink(entity);
+        this->allocator.Dealloc(entity);
+    }
+
+    struct Iterator {
+        SpatialEntity* current;
+        SpatialEntity* Begin() {return current; }
+        SpatialEntity* Get() { return current; }
+        void Advance() { current = current->nextInStorage; }
+        bool End() { return current == nullptr; }
+    };
+
+    inline Iterator GetIterator() { return Iterator { this->first }; }
+};
 
 struct Chunk {
     static const u32 BitShift = 5;
@@ -101,7 +167,7 @@ struct Chunk {
     u32 primaryMeshPoolIndex;
     u32 secondaryMeshPoolIndex;
 
-    SpatialEntityBlock* firstEntityBlock;
+    SpatialEntityStorage spatialEntityStorage;
 
     GameWorld* world;
     Voxel voxels[Size * Size * Size];
@@ -176,7 +242,7 @@ Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z);
 Chunk* AddChunk(GameWorld* world, iv3 coord);
 Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z);
 
-SpatialEntity* AddSpatialEntity(Chunk* chunk, MemoryArena* arena);
+SpatialEntity* AddSpatialEntity(GameWorld* world, iv3 p);
 
 WorldPos NormalizeWorldPos(WorldPos p);
 
@@ -193,3 +259,7 @@ ChunkPos ChunkPosFromWorldPos(iv3 tile);
 WorldPos WorldPosFromChunkPos(ChunkPos p);
 
 void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup);
+
+bool UpdateEntityResidence(SpatialEntity* entity);
+
+void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP);

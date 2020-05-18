@@ -28,6 +28,7 @@
 
 #define array_count(arr) ((uint)(sizeof(arr) / sizeof(arr[0])))
 #define typedecl(type, member) (((type*)0)->member)
+#define offset_of(type, member) ((uptr)(&(((type*)0)->member)))
 #define invalid_default() default: { debug_break(); } break
 #define unreachable() debug_break()
 
@@ -55,6 +56,8 @@ class ExitScopeHelp
 
 #define defer const auto& concat(defer__, __LINE__) = ExitScopeHelp() + [&]()
 
+#define foreach(collection) auto concat(iterator__, __LINE__) =  collection.GetIterator(); for (auto it = concat(iterator__, __LINE__) .Begin(); ! concat(iterator__, __LINE__) .End(); concat(iterator__, __LINE__) .Advance(), it = concat(iterator__, __LINE__). Get())
+
 typedef uint8_t byte;
 typedef unsigned char uchar;
 
@@ -80,6 +83,8 @@ typedef u32 u32x;
 typedef i32 i32x;
 typedef u32 uint;
 
+typedef u32 usize;
+
 namespace Uptr {
     constexpr uptr Max = UINTPTR_MAX;
 }
@@ -104,6 +109,23 @@ namespace U32 {
 // NOTE: Allocator API
 typedef void*(AllocateFn)(uptr size, uptr alignment, void* allocatorData);
 typedef void(DeallocateFn)(void* ptr, void* allocatorData);
+
+struct Allocator {
+    AllocateFn* allocate;
+    DeallocateFn* deallocate;
+    void* data;
+
+    inline void* Alloc(uptr size, uptr alignment) { return allocate(size, alignment, data); }
+    inline void Dealloc(void* ptr) { deallocate(ptr, data); }
+};
+
+inline Allocator MakeAllocator(AllocateFn* allocate, DeallocateFn* deallocate, void* data) {
+    Allocator allocator;
+    allocator.allocate = allocate;
+    allocator.deallocate = deallocate;
+    allocator.data = data;
+    return allocator;
+}
 
 // NOTE: Logger API
 typedef void(LoggerFn)(void* loggerData, const char* fmt, va_list* args);

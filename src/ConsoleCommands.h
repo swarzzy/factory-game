@@ -16,3 +16,4 @@ void CameraCommand(Console* console, Context* context, ConsoleCommandArgs* args)
 void AddEntityCommand(Console* console, Context* context, ConsoleCommandArgs* args);
 void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs* args);
 void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs* args);

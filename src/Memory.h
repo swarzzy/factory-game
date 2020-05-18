@@ -7,6 +7,8 @@ inline T Kilobytes(T kb) { return kb * static_cast<T>(1024); }
 template <typename T>
 inline T Megabytes(T mb) { return mb * static_cast<T>(1024) * static_cast<T>(1024); }
 
+#define ClearMemory(x) memset((x), 0, sizeof((*(x))))
+
 constexpr u64 DefaultAligment = 16;
 
 struct alignas(DefaultAligment) MemoryArena

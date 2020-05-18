@@ -46,13 +46,8 @@ void RemoveChunkFromRegion(SimRegion* region, Chunk* chunk) {
         }
     }
 
-    auto entityBlock = chunk->firstEntityBlock;
-    while (entityBlock) {
-        for (u32x i = 0; i < array_count(entityBlock->entities); i++) {
-            auto entity = entityBlock->entities + i;
-            UnregisterSpatialEntity(region, entity->id);
-        }
-        entityBlock = entityBlock->next;
+    foreach (chunk->spatialEntityStorage) {
+        UnregisterSpatialEntity(region, it->id);
     }
 
     chunk->region = nullptr;
@@ -143,13 +138,8 @@ void AddChunkToRegion(SimRegion* region, Chunk* chunk) {
     chunk->primaryMesh = mesh.mesh;
     chunk->primaryMeshPoolIndex = mesh.index;
 
-    auto entityBlock = chunk->firstEntityBlock;
-    while (entityBlock) {
-        for (u32x i = 0; i < array_count(entityBlock->entities); i++) {
-            auto entity = entityBlock->entities + i;
-            RegisterSpatialEntity(region, entity);
-        }
-        entityBlock = entityBlock->next;
+    foreach (chunk->spatialEntityStorage) {
+        RegisterSpatialEntity(region, it);
     }
 
     chunk->region = region;
@@ -363,28 +353,40 @@ bool UnregisterSpatialEntity(SimRegion* region, EntityID id) {
 void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera, Context* context) {
     auto chunk = region->firstChunk;
     while (chunk) {
-        auto entityBlock = chunk->firstEntityBlock;
-        while (entityBlock) {
-            for (u32x i = 0; i < array_count(entityBlock->entities); i++) {
-                // Doing gravity here for now
-                auto entity = entityBlock->entities + i;
-                if (entity->id.id) {
-                    v3 frameAcceleration = V3(0.0f, -20.8f, 0.0f);
-                    v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + entity->velocity * GlobalGameDeltaTime;
-                    entity->velocity += frameAcceleration * GlobalGameDeltaTime;
-                    MoveSpatialEntity(region->world, entity, movementDelta, nullptr, nullptr);
+        foreach (chunk->spatialEntityStorage) {
+            auto entity = it;
+            if (entity->id.id) {
+                v3 frameAcceleration = V3(0.0f, -20.8f, 0.0f);
+                v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + entity->velocity * GlobalGameDeltaTime;
+                entity->velocity += frameAcceleration * GlobalGameDeltaTime;
+                MoveSpatialEntity(region->world, entity, movementDelta, nullptr, nullptr);
 
-                    if (entity->type == SpatialEntityType::CoalOre) {
-                        RenderCommandDrawMesh command {};
-                        command.transform = Translate(RelativePos(camera->targetWorldPosition, entity->p));
-                        command.mesh = context->coalOreMesh;
-                        command.material = &context->coalOreMaterial;
-                        Push(renderGroup, &command);
-                    }
+                if(UpdateEntityResidence(entity)) {
+                    // HACK: Just aborting loop for now
+                    // If entity changed it's residence then iterator bocomes invalid
+                    // We need a way to continue this loop
+                    // Maybe ensure that iterator is still valid if onlu current element changes or smth
+                    break;
+                }
+
+                if (entity->type == SpatialEntityType::CoalOre) {
+                    RenderCommandDrawMesh command {};
+                    command.transform = Translate(RelativePos(camera->targetWorldPosition, entity->p));
+                    command.mesh = context->coalOreMesh;
+                    command.material = &context->coalOreMaterial;
+                    Push(renderGroup, &command);
                 }
             }
-            entityBlock = entityBlock->next;
         }
         chunk = chunk->nextActive;
     }
+}
+
+SpatialEntity* GetSpatialEntity(SimRegion* region, EntityID id) {
+    SpatialEntity* result = nullptr;
+    auto ptr = Get(&region->spatialEntityTable, &id);
+    if (ptr) {
+        result = *ptr;
+    }
+    return result;
 }

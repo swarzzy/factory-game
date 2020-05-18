@@ -35,7 +35,8 @@ Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
 
 Chunk* AddChunk(GameWorld* world, iv3 coord) {
     auto chunk = (Chunk*)PlatformAlloc(sizeof(Chunk), 0, nullptr);
-    memset(chunk, 0 , sizeof(Chunk));
+    ClearMemory(chunk);
+    chunk->spatialEntityStorage.Init(MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
     chunk->p = coord;
     chunk->priority = ChunkPriority::Low;
     chunk->world = world;
@@ -60,29 +61,54 @@ EntityID GenEntityID(GameWorld* world) {
     return result;
 }
 
-SpatialEntity* AddSpatialEntity(Chunk* chunk, MemoryArena* arena) {
-    SpatialEntity* result = nullptr;
-    if (!chunk->firstEntityBlock) {
-        chunk->firstEntityBlock = (SpatialEntityBlock*)PushSize(arena, sizeof(SpatialEntityBlock));
-    } else if (chunk->firstEntityBlock->at == array_count(chunk->firstEntityBlock->entities)) {
-        auto newBlock = (SpatialEntityBlock*)PushSize(arena, sizeof(SpatialEntityBlock));
-        if (newBlock) {
-            newBlock->next = chunk->firstEntityBlock;
-            chunk->firstEntityBlock = newBlock;
+SpatialEntity* AddSpatialEntity(GameWorld* world, iv3 p) {
+    SpatialEntity* entity = nullptr;
+    auto chunkP = ChunkPosFromWorldPos(p).chunk;
+    auto chunk = GetChunk(world, chunkP.x, chunkP.y, chunkP.z);
+    if (chunk) {
+        entity = chunk->spatialEntityStorage.Add();
+        if (entity) {
+            entity->id = GenEntityID(chunk->world);
+            entity->p = MakeWorldPos(p);
+            entity->residenceChunk = chunk;
+            if (chunk->region) {
+                RegisterSpatialEntity(chunk->region, entity);
+            }
         }
     }
+    return entity;
+}
 
-    if (chunk->firstEntityBlock && chunk->firstEntityBlock->at < array_count(chunk->firstEntityBlock->entities)) {
-        result = chunk->firstEntityBlock->entities + chunk->firstEntityBlock->at;
-        chunk->firstEntityBlock->at++;
-        result->id = GenEntityID(chunk->world);
+bool UpdateEntityResidence(SpatialEntity* entity) {
+    bool changedResidence = false;
+    // TODO: Maybe it's not so fast to go through chunk pointer for every entity
+    // Maybe we could just have a position from frame start and a position at frame end
+    // and compare them?
+    auto residenceChunkP = entity->residenceChunk->p;
+    auto currentP = ChunkPosFromWorldPos(entity->p.voxel).chunk;
+    if (residenceChunkP != currentP) {
+        // TODO: Just pass these pointers as agrs?
+        auto oldChunk = entity->residenceChunk;
+        auto region = oldChunk->region;
+        auto world = region->world;
+        auto newChunk = GetChunk(world, currentP.x, currentP.y, currentP.z);
+        // TODO: Just asserting for now. Should do something smart here.
+        // Entity may move to the chunk which is generated yet (i.e. outside of a region).
+        // So we need handle this situation somehow. Just scheduling chunk gen will not solve this problem
+        // because we will need to wait somehow them. Maybe just discard whole frame movement for entity
+        // is actually ok since spatial entities won't have complicated behavior and movements. Of the will?
+        assert(newChunk);
+
+        // Don't need to update hash map entry since pointer isn't changed
+        //UnregisterSpatialEntity(region, entity->id);
+        oldChunk->spatialEntityStorage.Unlink(entity);
+        newChunk->spatialEntityStorage.Insert(entity);
+        //RegisterSpatialEntity(region, newEntity);
+        entity->residenceChunk = newChunk;
+        changedResidence = true;
+        log_print("[World] Entity %lu changed it's residence (%ld, %ld, %ld) -> (%ld, %ld, %ld)\n", entity->id, oldChunk->p.x, oldChunk->p.y, oldChunk->p.z, newChunk->p.x, newChunk->p.y, newChunk->p.z);
     }
-
-    if (chunk->region) {
-        RegisterSpatialEntity(chunk->region, result);
-    }
-
-    return result;
+    return changedResidence;
 }
 
 
@@ -348,4 +374,24 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
         entity->p = origin;
         entity->velocity = velocity;
     }
+}
+
+void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP) {
+    auto chunkPos = ChunkPosFromWorldPos(voxelP);
+    auto chunk = GetChunk(world, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
+    auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
+    if (voxel->value == VoxelValue::CoalOre) {
+        RandomSeries series = {};
+        for (u32 i = 0; i < 4; i++) {
+            auto entity = AddSpatialEntity(world, voxelP);
+            if (entity) {
+                v3 randomOffset = V3(RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f);
+                entity->p = MakeWorldPos(voxelP, randomOffset);
+                // TODO: SetEntityPos
+                entity->scale = 0.2f;
+                entity->type = SpatialEntityType::CoalOre;
+            }
+        }
+    }
+    voxel->value = VoxelValue::Empty;
 }

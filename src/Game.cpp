@@ -246,22 +246,7 @@ void FluxUpdate(Context* context) {
 
     if (hitVoxel.x != GameWorld::InvalidCoord) {
         if (MouseButtonPressed(MouseButton::Left)) {
-            auto chunkPos = ChunkPosFromWorldPos(hitVoxel);
-            auto chunk = GetChunk(&context->gameWorld, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
-            auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
-            if (voxel->value == VoxelValue::CoalOre) {
-                RandomSeries series = {};
-                for (u32 i = 0; i < 4; i++) {
-                    auto entity = AddSpatialEntity(chunk, context->gameArena);
-                    if (entity) {
-                        v3 randomOffset = V3(RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f);
-                        entity->p = MakeWorldPos(context->gameWorld.player.selectedVoxel, randomOffset);
-                        entity->scale = 0.2f;
-                        entity->type = SpatialEntityType::CoalOre;
-                    }
-                }
-            }
-            voxel->value = VoxelValue::Empty;
+            ConvertVoxelToPickup(&context->gameWorld, hitVoxel);
         }
         if (MouseButtonPressed(MouseButton::Right)) {
             auto chunkPos = ChunkPosFromWorldPos(hitVoxel + hitNormalInt);

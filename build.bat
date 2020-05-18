@@ -9,7 +9,7 @@ goto end
 
 set BuildShaderPreprocessor=true
 set BuildResourceLoader=true
-set BuildVarParser=true
+set BuildVarParser=false
 
 set ObjOutDir=build\obj\
 set BinOutDir=build\
@@ -39,7 +39,7 @@ cl /W3 /wd4530 /Gm- /GR- /Od /Zi /MTd /nologo /diagnostics:classic /WX /std:c++1
 
 if %BuildVarParser% equ true (
 echo Building variables parser...
-cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/tools/VariablesParser.cpp /link /INCREMENTAL:NO /OPT:REF /MACHINE:X64 /OUT:%BinOutDir%\VarParser.exe /PDB:%BinOutDir%\VarParser.pdb
+cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/tools/Vars.cpp /link /INCREMENTAL:NO /OPT:REF /MACHINE:X64 /OUT:%BinOutDir%\VarParser.exe /PDB:%BinOutDir%\VarParser.pdb
 )
 
 

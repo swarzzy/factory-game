@@ -44,3 +44,5 @@ bool UnregisterSpatialEntity(SimRegion* region, EntityID id);
 
 struct Context;
 void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera, Context* context);
+
+SpatialEntity* GetSpatialEntity(SimRegion* region, EntityID id);
