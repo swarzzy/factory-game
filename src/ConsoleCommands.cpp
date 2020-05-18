@@ -51,7 +51,7 @@ void ConsoleSetCommand(Console* console, Context* context, ConsoleCommandArgs* a
         bool variableRecognized = false;
         // NOTE: Register variables here
         REGISTER_SET_FLOAT("playerRunSpeed", context->gameWorld.player.runAcceleration);
-        REGISTER_SET_IV3("playerP", context->gameWorld.playerEntity.p.voxel);
+        //REGISTER_SET_IV3("playerP", context->gameWorld.playerEntity.p.voxel);
 
         if (!variableRecognized) {
             LogMessage(console->logger, "Unknown variable name %s\n", varName);
@@ -117,7 +117,8 @@ void ResetPlayerPositionCommand(Console* console, Context* context, ConsoleComma
     LogMessage(console->logger, "Reset player position to (0, 30, 0)\n");
     context->camera.targetWorldPosition = MakeWorldPos(IV3(0, 15, 0));
     MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(context->camera.targetWorldPosition.voxel).chunk);
-    context->gameWorld.playerEntity.p = MakeWorldPos(IV3(0, 30, 0));
+    // TODO: Make this work
+    //context->gameWorld.playerEntity.p = MakeWorldPos(IV3(0, 30, 0));
 }
 
 void CameraCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
@@ -144,7 +145,8 @@ void AddEntityCommand(Console* console, Context* context, ConsoleCommandArgs* ar
         auto entity = AddSpatialEntity(&context->gameWorld, IV3(0, 30, 0));
         if (entity) {
             entity->scale = 0.4f;
-            entity->type = SpatialEntityType::CoalOre;
+            entity->type = SpatialEntityType::Pickup;
+            entity->pickupItem = Item::CoalOre;
             LogMessage(console->logger, "Entity with id %llu added\n", entity->id.id);
         } else {
             LogMessage(console->logger, "Failed to add entity. AddSpatialEntity() failed\n", entity->id.id);
@@ -185,10 +187,29 @@ void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs
     auto region = &context->playerRegion;
     LogMessage(console->logger, "Entities in region:\n");
     for (auto entity : region->spatialEntityTable) {
-        LogMessage(console->logger, "id %llu at position (%d, %d, %d)\n", entity->id.id, entity->p.voxel.x, entity->p.voxel.y, entity->p.voxel.z);
+        if (entity->type == SpatialEntityType::Pickup) {
+            LogMessage(console->logger, "%llu: %s:%s at position (%d, %d, %d)\n", entity->id.id, ToString(entity->type), ToString(entity->pickupItem), entity->p.voxel.x, entity->p.voxel.y, entity->p.voxel.z);
+        } else {
+            LogMessage(console->logger, "%llu: %s at position (%d, %d, %d)\n", entity->id.id, ToString(entity->type), entity->p.voxel.x, entity->p.voxel.y, entity->p.voxel.z);
+        }
     }
 }
 
 void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
     GlobalDrawDebugOverlay = !GlobalDrawDebugOverlay;
+}
+
+void PrintPlayerInventoryCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
+    auto region = &context->playerRegion;
+    auto player = GetSpatialEntity(region, context->gameWorld.player.entityID);
+    assert(player);
+    assert(player->inventory);
+    auto inventory = player->inventory;
+    LogMessage(console->logger, "Player inventory:\n");
+    for (usize i = 0; i < inventory->slotCount; i++) {
+        auto slot = inventory->slots + i;
+        if (slot->item != Item::None) {
+            LogMessage(console->logger, "%s: %lu\n", ToString(slot->item), slot->count);
+        }
+    }
 }

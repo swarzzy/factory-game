@@ -49,6 +49,7 @@ void GatherInput(Camera* camera) {
 
 void Update(Camera* camera, Player* player, f32 dt) {
     GatherInput(camera);
+    auto playerEntity = GetSpatialEntity(player->region, player->entityID);
 
     if (camera->mode == CameraMode::DebugFree || camera->mode == CameraMode::DebugFollowing){
         if (camera->mode == CameraMode::DebugFree) {
@@ -59,7 +60,7 @@ void Update(Camera* camera, Player* player, f32 dt) {
             camera->targetWorldPosition = Offset(camera->targetWorldPosition, movementDelta);
             camera->velocity += acceleration * dt;
         } else {
-            camera->targetWorldPosition = player->entity->p;
+            camera->targetWorldPosition = playerEntity->p;
         }
 
         camera->targetDistance -= camera->frameScrollOffset * camera->zoomSpeed * dt;
@@ -84,7 +85,7 @@ void Update(Camera* camera, Player* player, f32 dt) {
         camera->front = Normalize(V3(x, y, z));
 
     } else {
-        camera->targetWorldPosition = player->entity->p;
+        camera->targetWorldPosition = playerEntity->p;
 
         camera->targetPitch = Clamp(camera->targetPitch, -89.0f, 89.0f);
         if (camera->targetYaw > 360.0f) {

@@ -8,6 +8,8 @@ template <typename T>
 inline T Megabytes(T mb) { return mb * static_cast<T>(1024) * static_cast<T>(1024); }
 
 #define ClearMemory(x) memset((x), 0, sizeof((*(x))))
+#define ClearArray(x, count) memset((x), 0, sizeof((*(x))) * (count))
+
 
 constexpr u64 DefaultAligment = 16;
 

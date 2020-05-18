@@ -356,10 +356,15 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
         foreach (chunk->spatialEntityStorage) {
             auto entity = it;
             if (entity->id.id) {
-                v3 frameAcceleration = V3(0.0f, -20.8f, 0.0f);
-                v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + entity->velocity * GlobalGameDeltaTime;
-                entity->velocity += frameAcceleration * GlobalGameDeltaTime;
-                MoveSpatialEntity(region->world, entity, movementDelta, nullptr, nullptr);
+                if (entity->type != SpatialEntityType::Player) {
+                    v3 frameAcceleration = V3(0.0f, -20.8f, 0.0f);
+                    v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + entity->velocity * GlobalGameDeltaTime;
+                    entity->velocity += frameAcceleration * GlobalGameDeltaTime;
+                    MoveSpatialEntity(region->world, entity, movementDelta, nullptr, nullptr);
+                } else {
+                    // Player
+                    FindOverlapsFor(region->world, it);
+                }
 
                 if(UpdateEntityResidence(entity)) {
                     // HACK: Just aborting loop for now
@@ -369,10 +374,13 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
                     break;
                 }
 
-                if (entity->type == SpatialEntityType::CoalOre) {
+                if (entity->type == SpatialEntityType::Pickup) {
                     RenderCommandDrawMesh command {};
                     command.transform = Translate(RelativePos(camera->targetWorldPosition, entity->p));
-                    command.mesh = context->coalOreMesh;
+                    switch (entity->pickupItem) {
+                    case Item::CoalOre: { command.mesh = context->coalOreMesh; } break;
+                        invalid_default();
+                    }
                     command.material = &context->coalOreMaterial;
                     Push(renderGroup, &command);
                 }

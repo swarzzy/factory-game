@@ -56,6 +56,13 @@ Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z) {
     return result;
 }
 
+void InitWorld(GameWorld* world, ChunkMesher* mesher, u32 seed) {
+    world->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
+    world->mesher = mesher;
+    world->worldGen.Init(seed);
+    BucketArrayInit(&world->spatialEntitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+}
+
 EntityID GenEntityID(GameWorld* world) {
     EntityID result = { ++world->entitySerialCount };
     return result;
@@ -77,6 +84,22 @@ SpatialEntity* AddSpatialEntity(GameWorld* world, iv3 p) {
         }
     }
     return entity;
+}
+
+void DeleteSpatialEntity(GameWorld* world, SpatialEntity* entity) {
+    auto chunk = entity->residenceChunk;
+    UnregisterSpatialEntity(chunk->region, entity->id);
+    if (entity->inventory) {
+        DeleteEntityInventory(entity->inventory);
+    }
+    chunk->spatialEntityStorage.Remove(entity);
+}
+
+void DeleteSpatialEntityAfterThisFrame(GameWorld* world, SpatialEntity* entity) {
+    auto entry = BucketArrayPush(&world->spatialEntitiesToDelete);
+    assert(entry);
+    *entry = entity;
+    entity->deleted = true;
 }
 
 bool UpdateEntityResidence(SpatialEntity* entity) {
@@ -188,6 +211,66 @@ bool IsVoxelCollider(const Voxel* voxel) {
         collides = false;
     }
     return collides;
+}
+
+void ProcessSpatialEntityOverlap(GameWorld* world, SpatialEntity* entity, SpatialEntity* overlapped) {
+    switch (entity->type) {
+    case SpatialEntityType::Player: {
+        if (overlapped->type == SpatialEntityType::Pickup) {
+            assert(entity->inventory);
+            auto itemRemainder = EntityInventoryPushItem(entity->inventory, overlapped->pickupItem, overlapped->itemCount);
+            if (itemRemainder == 0) {
+                DeleteSpatialEntityAfterThisFrame(world, overlapped);
+            } else {
+                overlapped->itemCount = itemRemainder;
+            }
+            //log_print("Player is overlapping with: %llu %s (%ld, %ld, %ld)\n", overlapped->id, ToString(overlapped->type), overlapped->p.voxel.x, overlapped->p.voxel.y, overlapped->p.voxel.z);
+        }
+    } break;
+    invalid_default();
+    }
+}
+
+void FindOverlapsFor(GameWorld* world, SpatialEntity* entity) {
+    WorldPos origin = entity->p;
+
+    bool overlaps = false;
+    bool resolved = true;
+
+    v3 colliderSize = V3(entity->scale);
+    v3 colliderRadius = colliderSize * 0.5f;
+
+    iv3 bboxMin = Offset(origin, -colliderRadius).voxel - IV3(1);
+    iv3 bboxMax = Offset(origin, colliderRadius).voxel + IV3(1);
+
+    auto minChunk = ChunkPosFromWorldPos(bboxMin).chunk;
+    auto maxChunk = ChunkPosFromWorldPos(bboxMax).chunk;
+
+    for (i32 z = minChunk.z; z <= maxChunk.z; z++) {
+        for (i32 y = minChunk.y; y <= maxChunk.y; y++) {
+            for (i32 x = minChunk.x; x <= maxChunk.x; x++) {
+                auto chunk = GetChunk(world, x, y, z);
+                if (chunk) {
+                    foreach(chunk->spatialEntityStorage) {
+                        if (it->id != entity->id) {
+                            v3 relativePos = RelativePos(entity->p, it->p);
+                            v3 testSize = V3(entity->scale);
+                            v3 testRadius = colliderSize * 0.5f;
+                            v3 testMin = relativePos - testRadius - colliderRadius;
+                            v3 testMax = relativePos + testRadius + colliderRadius;
+                            v3 bary = GetBarycentric(testMin, testMax, V3(0.0f));
+                            // TODO: Inside bary
+                            if ((bary.x > 0.0f && bary.x <= 1.0f) &&
+                                (bary.y > 0.0f && bary.y <= 1.0f) &&
+                                (bary.z > 0.0f && bary.z <= 1.0f)) {
+                                ProcessSpatialEntityOverlap(world, entity, it);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct OverlapResolveResult {
@@ -389,9 +472,47 @@ void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP) {
                 entity->p = MakeWorldPos(voxelP, randomOffset);
                 // TODO: SetEntityPos
                 entity->scale = 0.2f;
-                entity->type = SpatialEntityType::CoalOre;
+                entity->type = SpatialEntityType::Pickup;
+                entity->pickupItem = Item::CoalOre;
+                entity->itemCount = 1;
             }
         }
     }
     voxel->value = VoxelValue::Empty;
+}
+
+EntityInventory* AllocateEntityInventory(u32 slotCount, u32 slotCapacity) {
+    // TODO: Joint allocation
+    auto inventory = (EntityInventory*)PlatformAlloc(sizeof(EntityInventory) * slotCount, 0, nullptr);
+    assert(inventory);
+    auto slots = (InventorySlot*)PlatformAlloc(sizeof(InventorySlot) * slotCount, 0, nullptr);
+    ClearArray(slots, slotCount);
+    assert(slots);
+    inventory->slots = slots;
+    inventory->slotCount = slotCount;
+    inventory->slotCapacity = slotCapacity;
+    return inventory;
+}
+
+void DeleteEntityInventory(EntityInventory* inventory) {
+    PlatformFree(inventory->slots, nullptr);
+    PlatformFree(inventory, nullptr);
+}
+
+u32 EntityInventoryPushItem(EntityInventory* inventory, Item item, u32 count) {
+    bool fitted = false;
+    if (count > 0) {
+        for (usize i = 0; i < inventory->slotCount; i++) {
+            auto slot = inventory->slots + i;
+            if (slot->item == Item::None || slot->item == item) {
+                u32 slotFree = inventory->slotCapacity - slot->count;
+                u32 amount = count <= slotFree ? count : slotFree;
+                count = count - amount;
+                slot->item = item;
+                slot->count += amount;
+                if (!count) break;
+            }
+        }
+    }
+    return count;
 }

@@ -53,13 +53,65 @@ struct EntityID {
     u64 id;
 };
 
+inline bool operator==(EntityID a, EntityID b) {
+    return a.id == b.id;
+}
+
+inline bool operator!=(EntityID a, EntityID b) {
+    return a.id != b.id;
+}
+
 enum struct SpatialEntityType : u32 {
-    Player, CoalOre
+    Player, Pickup
 };
+
+enum struct Item : u32 {
+    None = 0, CoalOre
+};
+
+// TODO: Generate these
+constexpr const char* ToString(SpatialEntityType e) {
+    switch (e) {
+    case SpatialEntityType::Player: { return "Player"; }
+    case SpatialEntityType::Pickup: { return "Pickup"; }
+    invalid_default();
+    }
+    return nullptr;
+}
+
+constexpr const char* ToString(Item e) {
+    switch (e) {
+    case Item::CoalOre: { return "CoalOre"; }
+        invalid_default();
+    }
+    return nullptr;
+}
+
+struct InventorySlot {
+    Item item;
+    u32 count;
+};
+
+struct EntityInventory {
+    u32 slotCapacity;
+    u32 slotCount;
+    InventorySlot* slots;
+};
+
+// NOTE: Returns a count of items that isn't fitted
+u32 EntityInventoryPushItem(EntityInventory* inventory, Item item, u32 count);
+EntityInventory* AllocateEntityInventory(u32 slotCount, u32 slotCapacity);
+void DeleteEntityInventory(EntityInventory* inventory);
 
 struct SpatialEntity {
     EntityID id;
     SpatialEntityType type;
+    Item pickupItem;
+    u32 itemCount;
+    EntityInventory* inventory;
+    // NOTE: Set this flag when deleting entity. It means that entity will be deleted at the end of a frame
+    // And should not be simulated anymore
+    b32 deleted;
     WorldPos p;
     // TODO: Propperly support entity size
     f32 scale;
@@ -67,6 +119,8 @@ struct SpatialEntity {
     f32 acceleration;
     f32 friction;
     b32 grounded;
+    // TODO: When we go to chunk swapping and saving/loading we probably
+    // won't be able to store direct pointers to chunks
     Chunk* residenceChunk;
 
     SpatialEntity* nextInStorage;
@@ -191,7 +245,8 @@ bool ChunkHashCompFunc(void* a, void* b) {
 }
 
 struct Player {
-    SpatialEntity* entity;
+    SimRegion* region;
+    EntityID entityID;
     b32 flightMode;
     f32 height;
     iv3 selectedVoxel;
@@ -206,7 +261,6 @@ struct GameWorld {
     static const i32 MaxHeightChunk = 2;
     static const i32 InvalidCoord = I32::Max;
     inline static const iv3 InvalidPos = IV3(InvalidCoord);
-    SpatialEntity playerEntity;
     Player player;
     HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc> chunkHashMap;
     // TODO: Dynamic view distance
@@ -217,23 +271,11 @@ struct GameWorld {
 
     u64 entitySerialCount;
 
-    void Init(ChunkMesher* mesher, u32 seed) {
-        this->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
-        this->mesher = mesher;
-        this->worldGen.Init(seed);
-        this->player.entity = &this->playerEntity;
-        this->playerEntity.type = SpatialEntityType::Player;
-        this->playerEntity.p = MakeWorldPos(IV3(0, 30, 0));
-        this->playerEntity.scale = 0.95f;
-        this->playerEntity.acceleration = 70.0f;
-        this->playerEntity.friction = 10.0f;
-        this->player.height = 1.8f;
-        this->player.selectedVoxel = InvalidPos;
-        this->player.jumpAcceleration = 420.0f;
-        this->player.runAcceleration = 140.0f;
-    }
+    // Be carefull with pointers
+    BucketArray<SpatialEntity*, 16> spatialEntitiesToDelete;
 };
 
+void InitWorld(GameWorld* world, ChunkMesher* mesher, u32 seed);
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z);
 const Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z);
 const Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z);
@@ -243,7 +285,8 @@ Chunk* AddChunk(GameWorld* world, iv3 coord);
 Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z);
 
 SpatialEntity* AddSpatialEntity(GameWorld* world, iv3 p);
-
+void DeleteSpatialEntity(GameWorld* world, SpatialEntity* entity);
+void DeleteSpatialEntityAfterThisFrame(GameWorld* world, SpatialEntity* entity);
 WorldPos NormalizeWorldPos(WorldPos p);
 
 WorldPos Offset(WorldPos p, v3 offset);
@@ -263,3 +306,5 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
 bool UpdateEntityResidence(SpatialEntity* entity);
 
 void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP);
+
+void FindOverlapsFor(GameWorld* world, SpatialEntity* entity);

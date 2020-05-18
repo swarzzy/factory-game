@@ -27,7 +27,7 @@ void FluxInit(Context* context) {
     GenEnvPrefiliteredMap(context->renderer, &context->enviromentMap, context->hdrMap.gpuHandle, 6);
 
     auto gameWorld = &context->gameWorld;
-    gameWorld->Init(&context->chunkMesher, 234234);
+    InitWorld(&context->gameWorld, &context->chunkMesher, 234234);
 
     auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     SetVoxelTexture(context->renderer, VoxelValue::Stone, stone->bits);
@@ -59,6 +59,21 @@ void FluxInit(Context* context) {
     InitRegion(&context->playerRegion);
     ResizeRegion(&context->playerRegion, GameWorld::ViewDistance, context->gameArena);
     MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(context->camera.targetWorldPosition.voxel).chunk);
+
+    auto player = AddSpatialEntity(gameWorld, IV3(0, 30, 0));
+    player->type = SpatialEntityType::Player;
+    player->scale = 0.95f;
+    player->acceleration = 70.0f;
+    player->friction = 10.0f;
+
+    player->inventory = AllocateEntityInventory(16, 128);
+
+    gameWorld->player.entityID = player->id;
+    gameWorld->player.region = &context->playerRegion;
+    gameWorld->player.height = 1.8f;
+    gameWorld->player.selectedVoxel = GameWorld::InvalidPos;
+    gameWorld->player.jumpAcceleration = 420.0f;
+    gameWorld->player.runAcceleration = 140.0f;
 
     context->camera.mode = CameraMode::DebugFollowing;
     GlobalPlatform.inputMode = InputMode::FreeCursor;
@@ -145,7 +160,7 @@ void FluxUpdate(Context* context) {
         context->gameWorld.player.flightMode = !context->gameWorld.player.flightMode;
     }
 
-    auto player = &context->gameWorld.playerEntity;
+    auto player = GetSpatialEntity(&context->playerRegion, context->gameWorld.player.entityID);
     auto oldPlayerP = player->p;
 
     f32 playerAcceleration;
@@ -185,7 +200,7 @@ void FluxUpdate(Context* context) {
     player->velocity += frameAcceleration * GlobalGameDeltaTime;
     DEBUG_OVERLAY_TRACE(player->velocity);
     bool hitGround = false;
-    MoveSpatialEntity(&context->gameWorld, &context->gameWorld.playerEntity, movementDelta, camera, group);
+    MoveSpatialEntity(&context->gameWorld, player, movementDelta, camera, group);
 
     if (ChunkPosFromWorldPos(player->p.voxel).chunk != ChunkPosFromWorldPos(oldPlayerP.voxel).chunk) {
         MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(player->p.voxel).chunk);
@@ -203,6 +218,7 @@ void FluxUpdate(Context* context) {
     DEBUG_OVERLAY_TRACE(context->playerRegion.chunkCount);
     DEBUG_OVERLAY_TRACE(context->playerRegion.maxChunkCount);
 
+    // TODO: Raycast
     v3 ro = camera->position;
     v3 rd = camera->mouseRay;
     f32 dist = 10.0f;
@@ -264,7 +280,15 @@ void FluxUpdate(Context* context) {
         DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);
     }
 
+    // Deleting entities
+    foreach(context->gameWorld.spatialEntitiesToDelete) {
+        assert(it);
+        auto entity = *it;
+        assert(entity->deleted);
+        DeleteSpatialEntity(&context->gameWorld, entity);
+    }
 
+    BucketArrayClear(&context->gameWorld.spatialEntitiesToDelete);
 
     DEBUG_OVERLAY_TRACE(context->gameWorld.player.selectedVoxel);
 

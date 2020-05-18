@@ -83,3 +83,16 @@ void BucketArrayRemove(bucket_array_decl* array, T* entry) {
         array->bucketCount--;
     }
 }
+
+bucket_array_template_decl
+void BucketArrayClear(bucket_array_decl* array) {
+    auto bucket = array->firstBucket;
+    while (bucket) {
+        auto bucketToDelete = bucket;
+        bucket = bucket->next;
+        array->allocator.Dealloc(bucketToDelete);
+    }
+    array->firstBucket = nullptr;
+    array->bucketCount = 0;
+    array->entryCount = 0;
+}

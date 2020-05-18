@@ -58,7 +58,8 @@ static const ConsoleCommand GlobalConsoleCommands[] = {
     { "add_entity",         AddEntityCommand },
     { "print_entities",     PrintEntitiesCommand },
     { "toggle_dbg_overlay", ToggleDebugOverlayCommand },
-    { "pos",                SetEntityPosCommand }
+    { "pos",                SetEntityPosCommand },
+    { "inventory",          PrintPlayerInventoryCommand }
 };
 
 struct ConsoleCommandRecord {
