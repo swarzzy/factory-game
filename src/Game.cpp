@@ -44,6 +44,10 @@ void FluxInit(Context* context) {
     assert(context->coalOreMesh);
     UploadToGPU(context->coalOreMesh);
 
+    context->containerMesh = LoadMeshFlux("../res/container/container.mesh");
+    assert(context->containerMesh);
+    UploadToGPU(context->containerMesh);
+
     context->playerMaterial.workflow = Material::Workflow::PBR;
     context->playerMaterial.pbr.albedoValue = V3(0.8f, 0.0f, 0.0f);
     context->playerMaterial.pbr.roughnessValue = 0.7f;
@@ -51,6 +55,30 @@ void FluxInit(Context* context) {
     context->coalOreMaterial.workflow = Material::Workflow::PBR;
     context->coalOreMaterial.pbr.albedoValue = V3(0.0f, 0.0f, 0.0f);
     context->coalOreMaterial.pbr.roughnessValue = 0.95f;
+
+    context->containerAlbedo = LoadTextureFromFile("../res/container/albedo_1024.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->containerAlbedo.base);
+    UploadToGPU(&context->containerAlbedo);
+    context->containerMetallic = LoadTextureFromFile("../res/container/metallic_1024.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->containerMetallic.base);
+    UploadToGPU(&context->containerMetallic);
+    context->containerNormal = LoadTextureFromFile("../res/container/normal_1024.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->containerNormal.base);
+    UploadToGPU(&context->containerNormal);
+    context->containerAO = LoadTextureFromFile("../res/container/AO_1024.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->containerAO.base);
+    UploadToGPU(&context->containerAO);
+    context->containerMaterial.workflow = Material::Workflow::PBR;
+    context->containerMaterial.pbr.useAlbedoMap = true;
+    context->containerMaterial.pbr.useMetallicMap = true;
+    context->containerMaterial.pbr.useNormalMap = true;
+    context->containerMaterial.pbr.useAOMap = true;
+    context->containerMaterial.pbr.normalFormat = NormalFormat::DirectX;
+    context->containerMaterial.pbr.albedoMap = &context->containerAlbedo;
+    context->containerMaterial.pbr.roughnessValue = 0.35f;
+    context->containerMaterial.pbr.metallicMap = &context->containerMetallic;
+    context->containerMaterial.pbr.normalMap = &context->containerNormal;
+    context->containerMaterial.pbr.AOMap = &context->containerAO;
 
     context->camera.targetWorldPosition = MakeWorldPos(IV3(0, 15, 0));
 
@@ -74,6 +102,10 @@ void FluxInit(Context* context) {
     gameWorld->player.selectedVoxel = GameWorld::InvalidPos;
     gameWorld->player.jumpAcceleration = 420.0f;
     gameWorld->player.runAcceleration = 140.0f;
+
+    auto chest = AddBlockEntity(gameWorld, IV3(0, 7, 0));
+    chest->type = BlockEntityType::Container;
+    chest->flags |= BlockEntityFlag_Collides;
 
     context->camera.mode = CameraMode::DebugFollowing;
     GlobalPlatform.inputMode = InputMode::FreeCursor;
@@ -289,6 +321,16 @@ void FluxUpdate(Context* context) {
     }
 
     BucketArrayClear(&context->gameWorld.spatialEntitiesToDelete);
+
+    foreach(context->gameWorld.blockEntitiesToDelete) {
+        assert(it);
+        auto entity = *it;
+        assert(entity->deleted);
+        DeleteBlockEntity(&context->gameWorld, entity);
+    }
+
+    BucketArrayClear(&context->gameWorld.blockEntitiesToDelete);
+
 
     DEBUG_OVERLAY_TRACE(context->gameWorld.player.selectedVoxel);
 

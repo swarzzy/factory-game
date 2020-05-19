@@ -185,13 +185,17 @@ void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs*
 
 void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
     auto region = &context->playerRegion;
-    LogMessage(console->logger, "Entities in region:\n");
+    LogMessage(console->logger, "\nSpatial entities in region:\n");
     for (auto entity : region->spatialEntityTable) {
         if (entity->type == SpatialEntityType::Pickup) {
             LogMessage(console->logger, "%llu: %s:%s at position (%d, %d, %d)\n", entity->id.id, ToString(entity->type), ToString(entity->pickupItem), entity->p.voxel.x, entity->p.voxel.y, entity->p.voxel.z);
         } else {
             LogMessage(console->logger, "%llu: %s at position (%d, %d, %d)\n", entity->id.id, ToString(entity->type), entity->p.voxel.x, entity->p.voxel.y, entity->p.voxel.z);
         }
+    }
+    LogMessage(console->logger, "\nBlock entities in region:\n");
+    for (auto entity : region->blockEntityTable) {
+        LogMessage(console->logger, "%llu: %s at position (%d, %d, %d)\n", entity->id.id, ToString(entity->type), entity->p.x, entity->p.y, entity->p.z);
     }
 }
 

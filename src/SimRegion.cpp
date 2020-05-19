@@ -50,6 +50,11 @@ void RemoveChunkFromRegion(SimRegion* region, Chunk* chunk) {
         UnregisterSpatialEntity(region, it->id);
     }
 
+    foreach (chunk->blockEntityStorage) {
+        UnregisterBlockEntity(region, it->id);
+    }
+
+
     chunk->region = nullptr;
 }
 
@@ -140,6 +145,10 @@ void AddChunkToRegion(SimRegion* region, Chunk* chunk) {
 
     foreach (chunk->spatialEntityStorage) {
         RegisterSpatialEntity(region, it);
+    }
+
+    foreach (chunk->blockEntityStorage) {
+        RegisterBlockEntity(region, it);
     }
 
     chunk->region = region;
@@ -261,6 +270,7 @@ void RegionUpdateChunkStates(SimRegion* region) {
 
 void InitRegion(SimRegion* region) {
     region->spatialEntityTable = HashMap<EntityID, SpatialEntity*, SimRegionHashFunc, SimRegionHashCompFunc>::Make();
+    region->blockEntityTable = HashMap<EntityID, BlockEntity*, SimRegionHashFunc, SimRegionHashCompFunc>::Make();
 }
 
 // TODO: Make this an actual function
@@ -350,6 +360,17 @@ bool UnregisterSpatialEntity(SimRegion* region, EntityID id) {
     return result;
 }
 
+void RegisterBlockEntity(SimRegion* region, BlockEntity* entity) {
+    auto entry = Add(&region->blockEntityTable, &entity->id);
+    assert(entry);
+    *entry = entity;
+}
+
+bool UnregisterBlockEntity(SimRegion* region, EntityID id) {
+    bool result = Delete(&region->blockEntityTable, &id);
+    return result;
+}
+
 void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera, Context* context) {
     auto chunk = region->firstChunk;
     while (chunk) {
@@ -386,6 +407,19 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
                 }
             }
         }
+
+        foreach (chunk->blockEntityStorage) {
+            auto entity = it;
+            assert(entity->id.id);
+            if (entity->type == BlockEntityType::Container) {
+                RenderCommandDrawMesh command {};
+                command.transform = Translate(RelativePos(camera->targetWorldPosition, MakeWorldPos(entity->p)));
+                command.mesh = context->containerMesh;
+                command.material = &context->containerMaterial;
+                Push(renderGroup, &command);
+            }
+        }
+
         chunk = chunk->nextActive;
     }
 }
@@ -393,6 +427,15 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
 SpatialEntity* GetSpatialEntity(SimRegion* region, EntityID id) {
     SpatialEntity* result = nullptr;
     auto ptr = Get(&region->spatialEntityTable, &id);
+    if (ptr) {
+        result = *ptr;
+    }
+    return result;
+}
+
+BlockEntity* GetBlockEntity(SimRegion* region, EntityID id) {
+    BlockEntity* result = nullptr;
+    auto ptr = Get(&region->blockEntityTable, &id);
     if (ptr) {
         result = *ptr;
     }

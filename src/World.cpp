@@ -24,6 +24,34 @@ const Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z) {
     return result;
 }
 
+bool OccupyVoxel(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
+    bool result = false;
+    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+        auto voxel = GetVoxelRaw(chunk, x, y, z);
+        assert(voxel);
+        if (!voxel->entity) {
+            voxel->entity = entity;
+            result = true;
+        }
+    }
+    return result;
+}
+
+bool ReleaseVoxel(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
+    bool result = false;
+    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+        auto voxel = GetVoxelRaw(chunk, x, y, z);
+        assert(voxel);
+        // Only entity that lives here allowed to release voxel
+        assert(voxel->entity->id == entity->id);
+        if (voxel->entity->id == entity->id) {
+            voxel->entity = nullptr;
+            result = true;
+        }
+    }
+    return result;
+}
+
 Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
     Voxel* result = nullptr;
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
@@ -37,6 +65,7 @@ Chunk* AddChunk(GameWorld* world, iv3 coord) {
     auto chunk = (Chunk*)PlatformAlloc(sizeof(Chunk), 0, nullptr);
     ClearMemory(chunk);
     chunk->spatialEntityStorage.Init(MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+    chunk->blockEntityStorage.Init(MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
     chunk->p = coord;
     chunk->priority = ChunkPriority::Low;
     chunk->world = world;
@@ -61,10 +90,24 @@ void InitWorld(GameWorld* world, ChunkMesher* mesher, u32 seed) {
     world->mesher = mesher;
     world->worldGen.Init(seed);
     BucketArrayInit(&world->spatialEntitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+    BucketArrayInit(&world->blockEntitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
 }
 
-EntityID GenEntityID(GameWorld* world) {
-    EntityID result = { ++world->entitySerialCount };
+// TODO: Are 64 bit literals supported on all compilers?
+EntityKind ClassifyEntity(EntityID id) {
+    bool spatial = id.id & 0x8000000000000000ull;
+    if (spatial) {
+        return EntityKind::Spatial;
+    } else {
+        return EntityKind::Block;
+    }
+}
+
+EntityID GenEntityID(GameWorld* world, EntityKind kind) {
+    assert(world->entitySerialCount < (U64::Max - 1));
+    u64 mask = kind == EntityKind::Spatial ? 0x8000000000000000ull : 0ull;
+    EntityID result = { (++world->entitySerialCount) | mask };
+    ClassifyEntity(result);
     return result;
 }
 
@@ -75,7 +118,7 @@ SpatialEntity* AddSpatialEntity(GameWorld* world, iv3 p) {
     if (chunk) {
         entity = chunk->spatialEntityStorage.Add();
         if (entity) {
-            entity->id = GenEntityID(chunk->world);
+            entity->id = GenEntityID(chunk->world, EntityKind::Spatial);
             entity->p = MakeWorldPos(p);
             entity->residenceChunk = chunk;
             if (chunk->region) {
@@ -101,6 +144,52 @@ void DeleteSpatialEntityAfterThisFrame(GameWorld* world, SpatialEntity* entity) 
     *entry = entity;
     entity->deleted = true;
 }
+
+BlockEntity* AddBlockEntity(GameWorld* world, iv3 p) {
+    BlockEntity* entity = nullptr;
+    auto chunkP = ChunkPosFromWorldPos(p);
+    auto chunk = GetChunk(world, chunkP.chunk);
+    if (chunk) {
+        auto voxel = GetVoxel(chunk, chunkP.voxel);
+        if (voxel) {
+            if (!IsVoxelCollider(voxel) && (voxel->entity == nullptr)) {
+                entity = chunk->blockEntityStorage.Add();
+                if (entity) {
+                    entity->id = GenEntityID(chunk->world, EntityKind::Block);
+                    entity->p = p;
+                    auto occupied = OccupyVoxel(chunk, entity, chunkP.voxel);
+                    assert(occupied);
+                    if (chunk->region) {
+                        RegisterBlockEntity(chunk->region, entity);
+                    }
+                }
+            }
+        }
+    }
+    return entity;
+}
+
+void DeleteBlockEntity(GameWorld* world, BlockEntity* entity) {
+    // TODO: Get chunk from region for speed?
+    auto chunkP = ChunkPosFromWorldPos(entity->p);
+    auto chunk = GetChunk(world, chunkP.chunk);
+    assert(chunk);
+    auto released = ReleaseVoxel(chunk, entity, chunkP.voxel);
+    assert(released);
+    UnregisterBlockEntity(chunk->region, entity->id);
+    if (entity->inventory) {
+        DeleteEntityInventory(entity->inventory);
+    }
+    chunk->blockEntityStorage.Remove(entity);
+}
+
+void DeleteBlockEntityAfterThisFrame(GameWorld* world, BlockEntity* entity) {
+    auto entry = BucketArrayPush(&world->blockEntitiesToDelete);
+    assert(entry);
+    *entry = entity;
+    entity->deleted = true;
+}
+
 
 bool UpdateEntityResidence(SpatialEntity* entity) {
     bool changedResidence = false;
@@ -206,11 +295,16 @@ WorldPos WorldPosFromChunkPos(ChunkPos p) {
 }
 
 bool IsVoxelCollider(const Voxel* voxel) {
-    bool collides = true;
-    if (voxel && voxel->value == VoxelValue::Empty) {
-        collides = false;
+    bool hasColliderTerrain = true;
+    bool hasColliderEntity = false;
+    if (voxel->entity && (voxel->entity->flags & BlockEntityFlag_Collides)) {
+        hasColliderEntity = true;
     }
-    return collides;
+    if (voxel && (voxel->value == VoxelValue::Empty)) {
+        hasColliderTerrain = false;
+    }
+
+    return hasColliderTerrain || hasColliderEntity;
 }
 
 void ProcessSpatialEntityOverlap(GameWorld* world, SpatialEntity* entity, SpatialEntity* overlapped) {
@@ -515,4 +609,37 @@ u32 EntityInventoryPushItem(EntityInventory* inventory, Item item, u32 count) {
         }
     }
     return count;
+}
+
+// TODO: Store world poninter in entity or smth?
+bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP) {
+    bool moved = false;
+    // TODO validate coords
+    //assert(newP)
+    if (newP != entity->p) {
+        auto newChunkP = ChunkPosFromWorldPos(newP);
+        auto oldChunkP = ChunkPosFromWorldPos(entity->p);
+        auto oldChunk = GetChunk(world, oldChunkP.chunk);
+        auto newChunk = GetChunk(world, newChunkP.chunk);
+        assert(oldChunk);
+        // TODO: Just asserting for now. Should do something smart here.
+        // Entity may move to the chunk which is generated yet (i.e. outside of a region).
+        // So we need handle this situation somehow. Just scheduling chunk gen will not solve this problem
+        // because we will need to wait somehow them. Maybe just discard whole frame movement for entity
+        // is actually ok since spatial entities won't have complicated behavior and movements. Of the will?
+        // see TODO in UpdateEntityResidence
+        assert(newChunk);
+        auto occupied = OccupyVoxel(newChunk, entity, newChunkP.voxel);
+
+        if (occupied) {
+            auto released = ReleaseVoxel(oldChunk, entity, oldChunkP.voxel);
+            assert(released);
+            oldChunk->blockEntityStorage.Unlink(entity);
+            newChunk->blockEntityStorage.Insert(entity);
+            log_print("[World] Block entity %lu changed it's residence (%ld, %ld, %ld) -> (%ld, %ld, %ld)\n", entity->id, oldChunk->p.x, oldChunk->p.y, oldChunk->p.z, newChunk->p.x, newChunk->p.y, newChunk->p.z);
+            entity->p = newP;
+            moved = true;
+        }
+    }
+    return moved;
 }

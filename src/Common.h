@@ -106,6 +106,10 @@ namespace U32 {
     constexpr u32 Max = 0xffffffff;
 }
 
+namespace U64 {
+    constexpr u64 Max = UINT64_MAX;
+}
+
 // NOTE: Allocator API
 typedef void*(AllocateFn)(uptr size, uptr alignment, void* allocatorData);
 typedef void(DeallocateFn)(void* ptr, void* allocatorData);

@@ -17,6 +17,12 @@ struct Context {
     Material playerMaterial;
     Mesh* coalOreMesh;
     Material coalOreMaterial;
+    Mesh* containerMesh;
+    Texture containerAlbedo;
+    Texture containerMetallic;
+    Texture containerNormal;
+    Texture containerAO;
+    Material containerMaterial;
     Camera camera;
     Renderer* renderer;
     RenderGroup renderGroup;
