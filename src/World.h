@@ -74,8 +74,24 @@ enum struct SpatialEntityType : u32 {
 };
 
 enum struct Item : u32 {
-    None = 0, CoalOre
+    None = 0,
+    Container,
+    Stone,
+    Grass,
+    CoalOre
 };
+
+VoxelValue ItemToBlock(Item item) {
+    switch (item) {
+    case Item::None: { return VoxelValue::Empty; } break;
+    case Item::Container: { return VoxelValue::Empty; } break;
+    case Item::Stone: { return VoxelValue::Stone; } break;
+    case Item::Grass: { return VoxelValue::Grass; } break;
+    case Item::CoalOre: { return VoxelValue::CoalOre; } break;
+    }
+    return VoxelValue::Empty;
+}
+
 
 // TODO: Generate these
 constexpr const char* ToString(SpatialEntityType e) {
@@ -90,6 +106,7 @@ constexpr const char* ToString(SpatialEntityType e) {
 constexpr const char* ToString(Item e) {
     switch (e) {
     case Item::CoalOre: { return "CoalOre"; }
+    case Item::Container: { return "Container"; }
         invalid_default();
     }
     return nullptr;
@@ -104,6 +121,17 @@ struct EntityInventory {
     u32 slotCapacity;
     u32 slotCount;
     InventorySlot* slots;
+
+    struct Iterator {
+        EntityInventory* inventory;
+        usize at;
+        InventorySlot* Begin() { return inventory->slots + at; }
+        InventorySlot* Get() { return inventory->slots + at; }
+        void Advance() { at++; }
+        bool End() { return at >= inventory->slotCount; }
+    };
+
+    inline Iterator GetIterator() { return Iterator { this }; }
 };
 
 enum struct EntityKind {
@@ -141,8 +169,15 @@ struct SpatialEntity {
 };
 
 enum struct BlockEntityType : u32 {
-    Container
+    Unknown = 0, Container
 };
+
+BlockEntityType ItemToBlockEntityType(Item item) {
+    switch (item) {
+    case Item::Container: { return BlockEntityType::Container; } break;
+    }
+    return BlockEntityType::Unknown;
+}
 
 const char* ToString(BlockEntityType type) {
     switch (type) {
@@ -359,6 +394,7 @@ struct Player {
     b32 flightMode;
     f32 height;
     iv3 selectedVoxel;
+    EntityID selectedEntity;
     f32 jumpAcceleration;
     f32 runAcceleration;
 };
@@ -439,3 +475,5 @@ void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP);
 void FindOverlapsFor(GameWorld* world, SpatialEntity* entity);
 
 bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP);
+
+bool BuildBlock(GameWorld* world, iv3 p, Item item);

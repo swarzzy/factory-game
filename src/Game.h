@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Camera.h"
 #include "Renderer.h"
 #include "RenderGroup.h"
@@ -6,12 +7,14 @@
 #include "MeshGenerator.h"
 #include "SimRegion.h"
 #include "Console.h"
+#include "UI.h"
 
 struct Context {
     MemoryArena* gameArena;
     MemoryArena* tempArena;
     ChunkMesher chunkMesher;
     GameWorld gameWorld;
+    UI ui;
     SimRegion playerRegion;
     Mesh* playerMesh;
     Material playerMaterial;

@@ -56,7 +56,7 @@ class ExitScopeHelp
 
 #define defer const auto& concat(defer__, __LINE__) = ExitScopeHelp() + [&]()
 
-#define foreach(collection) auto concat(iterator__, __LINE__) =  collection.GetIterator(); for (auto it = concat(iterator__, __LINE__) .Begin(); ! concat(iterator__, __LINE__) .End(); concat(iterator__, __LINE__) .Advance(), it = concat(iterator__, __LINE__). Get())
+#define foreach(collection) auto concat(iterator__, __LINE__) =  (collection).GetIterator(); for (auto it = concat(iterator__, __LINE__) .Begin(); ! concat(iterator__, __LINE__) .End(); concat(iterator__, __LINE__) .Advance(), it = concat(iterator__, __LINE__). Get())
 
 typedef uint8_t byte;
 typedef unsigned char uchar;

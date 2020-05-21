@@ -1,49 +1,52 @@
 #include "Camera.h"
 
 void GatherInput(Camera* camera) {
-    auto z = Normalize(V3(camera->front.x, 0.0f, camera->front.z));
-    auto x = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), z));
-    auto y = V3(0.0f, 1.0f, 0.0f);
-    DEBUG_OVERLAY_TRACE(z);
-    DEBUG_OVERLAY_TRACE(x);
+    if (camera->inputMode == GameInputMode::Game || camera->inputMode == GameInputMode::InGameUI) {
+        auto z = Normalize(V3(camera->front.x, 0.0f, camera->front.z));
+        auto x = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), z));
+        auto y = V3(0.0f, 1.0f, 0.0f);
+        DEBUG_OVERLAY_TRACE(z);
+        DEBUG_OVERLAY_TRACE(x);
 
-    camera->frameAcceleration = {};
-    if (KeyHeld(Key::W)) {
-        camera->frameAcceleration -= z;
-    }
-    if (KeyHeld(Key::S)) {
-        camera->frameAcceleration += z;
-    }
-    if (KeyHeld(Key::A)) {
-        camera->frameAcceleration -= x;
-    }
-    if (KeyHeld(Key::D)) {
-        camera->frameAcceleration += x;
-    }
-    if ((KeyHeld(Key::Space))) {
-        camera->frameAcceleration += y;
-    }
-    if ((KeyHeld(Key::Shift))) {
-        camera->frameAcceleration -= y;
-    }
+        camera->frameAcceleration = {};
+        if (KeyHeld(Key::W)) {
+            camera->frameAcceleration -= z;
+        }
+        if (KeyHeld(Key::S)) {
+            camera->frameAcceleration += z;
+        }
+        if (KeyHeld(Key::A)) {
+            camera->frameAcceleration -= x;
+        }
+        if (KeyHeld(Key::D)) {
+            camera->frameAcceleration += x;
+        }
+        if ((KeyHeld(Key::Space))) {
+            camera->frameAcceleration += y;
+        }
+        if ((KeyHeld(Key::Shift))) {
+            camera->frameAcceleration -= y;
+        }
 
-    camera->frameAcceleration = Normalize(camera->frameAcceleration);
-    camera->frameAcceleration *= camera->moveSpeed;
-
-    v2 mousePos;
-    f32 speed = camera->rotSpeed;
-    mousePos.x = GlobalInput.mouseFrameOffsetX * speed;
-    mousePos.y = GlobalInput.mouseFrameOffsetY * speed;
-    camera->targetYaw += mousePos.x;
-    camera->targetPitch -= mousePos.y;
-
-    if (MouseButtonHeld(MouseButton::Right))
-    {
-        camera->targetOrbit.x += mousePos.x;
-        camera->targetOrbit.y -= mousePos.y;
+        camera->frameAcceleration = Normalize(camera->frameAcceleration);
+        camera->frameAcceleration *= camera->moveSpeed;
     }
+    if (camera->inputMode == GameInputMode::Game) {
+        v2 mousePos;
+        f32 speed = camera->rotSpeed;
+        mousePos.x = GlobalInput.mouseFrameOffsetX * speed;
+        mousePos.y = GlobalInput.mouseFrameOffsetY * speed;
+        camera->targetYaw += mousePos.x;
+        camera->targetPitch -= mousePos.y;
 
-    camera->frameScrollOffset = GlobalInput.scrollFrameOffset;
+        if (MouseButtonHeld(MouseButton::Right))
+        {
+            camera->targetOrbit.x += mousePos.x;
+            camera->targetOrbit.y -= mousePos.y;
+        }
+
+        camera->frameScrollOffset = GlobalInput.scrollFrameOffset;
+    }
 }
 
 

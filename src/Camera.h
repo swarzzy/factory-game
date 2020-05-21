@@ -23,7 +23,14 @@ enum struct CameraMode {
     DebugFree, DebugFollowing, Gameplay
 };
 
+enum struct GameInputMode {
+    UI,       // UI captures keyboard and mouse input
+    Game,     // All input is passed to game
+    InGameUI  // UI captures mouse, but keyboard input is still passed to game
+};
+
 struct Camera : public CameraBase {
+    GameInputMode inputMode;
     CameraMode mode;
     //WorldPos targetPosition;
     WorldPos targetWorldPosition;

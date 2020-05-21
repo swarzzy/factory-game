@@ -573,6 +573,23 @@ void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP) {
         }
     }
     voxel->value = VoxelValue::Empty;
+    if (voxel->entity) {
+        DeleteBlockEntityAfterThisFrame(world, voxel->entity);
+        switch (voxel->entity->type) {
+        case BlockEntityType::Container: {
+            auto entity = AddSpatialEntity(world, voxelP);
+            if (entity) {
+                // TODO: SetEntityPos
+                entity->scale = 0.2f;
+                entity->type = SpatialEntityType::Pickup;
+                entity->pickupItem = Item::Container;
+                entity->itemCount = 1;
+            }
+        } break;
+        default: {} break;
+        }
+
+    }
 }
 
 EntityInventory* AllocateEntityInventory(u32 slotCount, u32 slotCapacity) {
@@ -642,4 +659,28 @@ bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP) {
         }
     }
     return moved;
+}
+
+bool BuildBlock(GameWorld* world, iv3 p, Item item) {
+    bool result = false;
+    auto blockValue = ItemToBlock(item);
+    if (blockValue != VoxelValue::Empty) {
+        auto chunkPos = ChunkPosFromWorldPos(p);
+        auto chunk = GetChunk(world, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
+        auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
+        voxel->value = blockValue;
+        result = true;
+    } else {
+        auto type = ItemToBlockEntityType(item);
+        if (type != BlockEntityType::Unknown) {
+            // It's block entity
+            auto entity = AddBlockEntity(world, p);
+            if (entity) {
+                // TODO: Create block entities
+                entity->type = type;
+                result = true;
+            }
+        }
+    }
+    return result;
 }

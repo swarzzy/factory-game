@@ -399,10 +399,17 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
                     RenderCommandDrawMesh command {};
                     command.transform = Translate(RelativePos(camera->targetWorldPosition, entity->p));
                     switch (entity->pickupItem) {
-                    case Item::CoalOre: { command.mesh = context->coalOreMesh; } break;
+                    case Item::CoalOre: {
+                        command.mesh = context->coalOreMesh;
+                        command.material = &context->coalOreMaterial;
+                    } break;
+                    case Item::Container: {
+                        command.mesh = context->containerMesh;
+                        command.material = &context->containerMaterial;
+                        command.transform = command.transform * Scale(V3(0.2));
+                    } break;
                         invalid_default();
                     }
-                    command.material = &context->coalOreMaterial;
                     Push(renderGroup, &command);
                 }
             }

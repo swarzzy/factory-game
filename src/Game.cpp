@@ -106,9 +106,13 @@ void FluxInit(Context* context) {
     auto chest = AddBlockEntity(gameWorld, IV3(0, 7, 0));
     chest->type = BlockEntityType::Container;
     chest->flags |= BlockEntityFlag_Collides;
+    chest->inventory = AllocateEntityInventory(64, 128);
+
+    InitUI(&context->ui, &gameWorld->player, &context->camera);
 
     context->camera.mode = CameraMode::DebugFollowing;
     GlobalPlatform.inputMode = InputMode::FreeCursor;
+    context->camera.inputMode = GameInputMode::Game;
 }
 
 void FluxReload(Context* context) {
@@ -116,12 +120,23 @@ void FluxReload(Context* context) {
 
 void FluxUpdate(Context* context) {
     auto renderer = context->renderer;
+    auto camera = &context->camera;
 
     if(KeyPressed(Key::Tilde)) {
         context->consoleEnabled = !context->consoleEnabled;
         if (context->consoleEnabled) {
+            camera->inputMode = GameInputMode::UI;
             context->console.justOpened = true;
+        } else {
+            // TODO: check if inventory wants to capture input
+            camera->inputMode = GameInputMode::Game;
         }
+    }
+
+    if (camera->inputMode == GameInputMode::InGameUI || camera->inputMode == GameInputMode::UI) {
+        GlobalPlatform.inputMode = InputMode::FreeCursor;
+    } else {
+        GlobalPlatform.inputMode = InputMode::CaptureCursor;
     }
 
     if (context->consoleEnabled) {
@@ -140,6 +155,18 @@ void FluxUpdate(Context* context) {
         ChangeRenderResolution(renderer, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), GetRenderSampleCount(renderer));
     }
 
+    if (KeyPressed(Key::E)) {
+        // TODO: If entity inventory open then close else open player inventory
+        CloseEntityInventory(&context->ui);
+
+        context->ui.openPlayerInventory = !context->ui.openPlayerInventory;
+    }
+
+    if (KeyPressed(Key::Escape)) {
+        CloseEntityInventory(&context->ui);
+    }
+
+    TickUI(&context->ui, context);
 
     Update(&context->camera, &context->gameWorld.player, 1.0f / 60.0f);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -150,7 +177,6 @@ void FluxUpdate(Context* context) {
     auto group = &context->renderGroup;
 
     group->camera = &context->camera;
-    auto camera = &context->camera;
 
     DirectionalLight light = {};
     light.dir = Normalize(V3(0.3f, -1.0f, -0.95f));
@@ -165,67 +191,73 @@ void FluxUpdate(Context* context) {
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->freeBlockCount);
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->totalBlockCount);
 
-    auto z = Normalize(V3(camera->front.x, 0.0f, camera->front.z));
-    auto x = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), z));
-    auto y = V3(0.0f, 1.0f, 0.0f);
-
-    v3 frameAcceleration = {};
-
-    if (KeyHeld(Key::W)) {
-        frameAcceleration -= z;
-    }
-    if (KeyHeld(Key::S)) {
-        frameAcceleration += z;
-    }
-    if (KeyHeld(Key::A)) {
-        frameAcceleration -= x;
-    }
-    if (KeyHeld(Key::D)) {
-        frameAcceleration += x;
-    }
-
-    if ((KeyHeld(Key::Space))) {
-        //frameAcceleration += y;
-    }
-
-    if (KeyPressed(Key::Y)) {
-        context->gameWorld.player.flightMode = !context->gameWorld.player.flightMode;
-    }
-
     auto player = GetSpatialEntity(&context->playerRegion, context->gameWorld.player.entityID);
     auto oldPlayerP = player->p;
+
+    v3 frameAcceleration = {};
 
     f32 playerAcceleration;
     v3 drag = player->velocity * player->friction;
 
-    if (context->gameWorld.player.flightMode) {
-        if (KeyHeld(Key::Space)) {
-            frameAcceleration += y;
+    auto z = Normalize(V3(camera->front.x, 0.0f, camera->front.z));
+    auto x = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), z));
+    auto y = V3(0.0f, 1.0f, 0.0f);
+
+    if (camera->inputMode == GameInputMode::Game || camera->inputMode == GameInputMode::InGameUI) {
+
+        if (KeyHeld(Key::W)) {
+            frameAcceleration -= z;
         }
-        if (KeyHeld(Key::Ctrl)) {
-            frameAcceleration -= y;
+        if (KeyHeld(Key::S)) {
+            frameAcceleration += z;
         }
-    } else {
-        drag.y = 0.0f;
+        if (KeyHeld(Key::A)) {
+            frameAcceleration -= x;
+        }
+        if (KeyHeld(Key::D)) {
+            frameAcceleration += x;
+        }
+
+        if ((KeyHeld(Key::Space))) {
+            //frameAcceleration += y;
+        }
+
+        if (KeyPressed(Key::Y)) {
+            context->gameWorld.player.flightMode = !context->gameWorld.player.flightMode;
+        }
+
+        if (context->gameWorld.player.flightMode) {
+            if (KeyHeld(Key::Space)) {
+                frameAcceleration += y;
+            }
+            if (KeyHeld(Key::Ctrl)) {
+                frameAcceleration -= y;
+            }
+        } else {
+            drag.y = 0.0f;
+        }
+
+        if ((KeyHeld(Key::Shift))) {
+            playerAcceleration = context->gameWorld.player.runAcceleration;
+        } else {
+            playerAcceleration = player->acceleration;
+        }
+        frameAcceleration *= playerAcceleration;
     }
 
-    if ((KeyHeld(Key::Shift))) {
-        playerAcceleration = context->gameWorld.player.runAcceleration;
-    } else {
-        playerAcceleration = player->acceleration;
-    }
-
-    frameAcceleration *= playerAcceleration;
     // TODO: Physically correct friction
     frameAcceleration -= drag;
 
     if (!context->gameWorld.player.flightMode) {
-        if (KeyPressed(Key::Space) && player->grounded) {
-            frameAcceleration += y * context->gameWorld.player.jumpAcceleration * (1.0f / GlobalGameDeltaTime) / 60.0f;
+        if (camera->inputMode == GameInputMode::Game || camera->inputMode == GameInputMode::InGameUI) {
+            if (KeyPressed(Key::Space) && player->grounded) {
+                frameAcceleration += y * context->gameWorld.player.jumpAcceleration * (1.0f / GlobalGameDeltaTime) / 60.0f;
+            }
         }
 
         frameAcceleration.y += -20.8f;
     }
+
 
     v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + player->velocity * GlobalGameDeltaTime;
 
@@ -250,66 +282,81 @@ void FluxUpdate(Context* context) {
     DEBUG_OVERLAY_TRACE(context->playerRegion.chunkCount);
     DEBUG_OVERLAY_TRACE(context->playerRegion.maxChunkCount);
 
-    // TODO: Raycast
-    v3 ro = camera->position;
-    v3 rd = camera->mouseRay;
-    f32 dist = 10.0f;
+    if (camera->inputMode == GameInputMode::Game) {
 
-    iv3 roWorld = Offset(camera->targetWorldPosition, ro).voxel;
-    iv3 rdWorld = Offset(camera->targetWorldPosition, ro + rd * dist).voxel;
+        // TODO: Raycast
+        v3 ro = camera->position;
+        v3 rd = camera->mouseRay;
+        f32 dist = 10.0f;
 
-    iv3 min = IV3(Min(roWorld.x, rdWorld.x), Min(roWorld.y, rdWorld.y), Min(roWorld.z, rdWorld.z)) - IV3(1);
-    iv3 max = IV3(Max(roWorld.x, rdWorld.x), Max(roWorld.y, rdWorld.y), Max(roWorld.z, rdWorld.z)) + IV3(1);
+        iv3 roWorld = Offset(camera->targetWorldPosition, ro).voxel;
+        iv3 rdWorld = Offset(camera->targetWorldPosition, ro + rd * dist).voxel;
 
-    f32 tMin = F32::Max;
-    iv3 hitVoxel = GameWorld::InvalidPos;
-    v3 hitNormal;
-    iv3 hitNormalInt;
+        iv3 min = IV3(Min(roWorld.x, rdWorld.x), Min(roWorld.y, rdWorld.y), Min(roWorld.z, rdWorld.z)) - IV3(1);
+        iv3 max = IV3(Max(roWorld.x, rdWorld.x), Max(roWorld.y, rdWorld.y), Max(roWorld.z, rdWorld.z)) + IV3(1);
 
-    for (i32 z = min.z; z < max.z; z++) {
-        for (i32 y = min.y; y < max.y; y++) {
-            for (i32 x = min.x; x < max.x; x++) {
-                const Voxel* voxel = GetVoxel(&context->gameWorld, x, y, z);
-                if (voxel && voxel->value != VoxelValue::Empty) {
-                    WorldPos voxelWorldP = MakeWorldPos(x, y, z);
-                    v3 voxelRelP = RelativePos(camera->targetWorldPosition, voxelWorldP);
-                    BBoxAligned voxelAABB;
-                    voxelAABB.min = voxelRelP - V3(Voxel::HalfDim);
-                    voxelAABB.max = voxelRelP + V3(Voxel::HalfDim);
+        f32 tMin = F32::Max;
+        iv3 hitVoxel = GameWorld::InvalidPos;
+        EntityID hitEntity = EntityID {0};
+        v3 hitNormal;
+        iv3 hitNormalInt;
 
-                    //DrawAlignedBoxOutline(group, voxelAABB.min, voxelAABB.max, V3(0.0f, 1.0f, 0.0f), 2.0f);
+        for (i32 z = min.z; z < max.z; z++) {
+            for (i32 y = min.y; y < max.y; y++) {
+                for (i32 x = min.x; x < max.x; x++) {
+                    const Voxel* voxel = GetVoxel(&context->gameWorld, x, y, z);
+                    if (voxel && (voxel->value != VoxelValue::Empty || voxel->entity)) {
+                        WorldPos voxelWorldP = MakeWorldPos(x, y, z);
+                        v3 voxelRelP = RelativePos(camera->targetWorldPosition, voxelWorldP);
+                        BBoxAligned voxelAABB;
+                        voxelAABB.min = voxelRelP - V3(Voxel::HalfDim);
+                        voxelAABB.max = voxelRelP + V3(Voxel::HalfDim);
 
-                    auto intersection = Intersect(voxelAABB, ro, rd, 0.0f, dist); // TODO: Raycast distance
-                    if (intersection.hit && intersection.t < tMin) {
-                        tMin = intersection.t;
-                        hitVoxel = voxelWorldP.voxel;
-                        hitNormal = intersection.normal;
-                        hitNormalInt = intersection.iNormal;
+                        //DrawAlignedBoxOutline(group, voxelAABB.min, voxelAABB.max, V3(0.0f, 1.0f, 0.0f), 2.0f);
+
+                        auto intersection = Intersect(voxelAABB, ro, rd, 0.0f, dist); // TODO: Raycast distance
+                        if (intersection.hit && intersection.t < tMin) {
+                            tMin = intersection.t;
+                            hitVoxel = voxelWorldP.voxel;
+                            hitNormal = intersection.normal;
+                            hitNormalInt = intersection.iNormal;
+                            if (voxel->entity) {
+                                hitEntity = voxel->entity->id;
+                            }
+                        }
                     }
                 }
             }
         }
-    }
-    context->gameWorld.player.selectedVoxel = hitVoxel;
+        context->gameWorld.player.selectedVoxel = hitVoxel;
+        context->gameWorld.player.selectedEntity = hitEntity;
 
-    if (hitVoxel.x != GameWorld::InvalidCoord) {
-        if (MouseButtonPressed(MouseButton::Left)) {
-            ConvertVoxelToPickup(&context->gameWorld, hitVoxel);
+        if (hitVoxel.x != GameWorld::InvalidCoord) {
+            if (MouseButtonPressed(MouseButton::Left)) {
+                ConvertVoxelToPickup(&context->gameWorld, hitVoxel);
+            }
+            if (MouseButtonPressed(MouseButton::Right)) {
+                bool buildBlock = true;
+                if (hitEntity != EntityID {0}) {
+                    if (OpenInventoryForEntity(&context->ui, context, hitEntity)) {
+                        buildBlock = false;
+                    }
+                }
+                if (buildBlock) {
+                    auto result = BuildBlock(&context->gameWorld, hitVoxel + hitNormalInt, Item::Stone);
+                    assert(result);
+                }
+            }
+
+            iv3 selectedVoxelPos = context->gameWorld.player.selectedVoxel;
+
+            v3 minP = RelativePos(camera->targetWorldPosition, MakeWorldPos(selectedVoxelPos));
+            v3 maxP = RelativePos(camera->targetWorldPosition, MakeWorldPos(selectedVoxelPos));
+            minP -= V3(Voxel::HalfDim);
+            maxP += V3(Voxel::HalfDim);
+            DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);
         }
-        if (MouseButtonPressed(MouseButton::Right)) {
-            auto chunkPos = ChunkPosFromWorldPos(hitVoxel + hitNormalInt);
-            auto chunk = GetChunk(&context->gameWorld, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
-            auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
-            voxel->value = VoxelValue::Stone;
-        }
 
-        iv3 selectedVoxelPos = context->gameWorld.player.selectedVoxel;
-
-        v3 minP = RelativePos(camera->targetWorldPosition, MakeWorldPos(selectedVoxelPos));
-        v3 maxP = RelativePos(camera->targetWorldPosition, MakeWorldPos(selectedVoxelPos));
-        minP -= V3(Voxel::HalfDim);
-        maxP += V3(Voxel::HalfDim);
-        DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);
     }
 
     // Deleting entities
