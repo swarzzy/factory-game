@@ -5,6 +5,183 @@
 
 #include <stdlib.h>
 
+BlockEntity* CreateContainer(Context* context, GameWorld* world, iv3 p) {
+    auto container = AddBlockEntity(world, p);
+    if (container) {
+        container->type = BlockEntityType::Container;
+        container->flags |= BlockEntityFlag_Collides;
+        container->inventory = AllocateEntityInventory(64, 128);
+        container->mesh = context->containerMesh;
+        container->material = &context->containerMaterial;
+    }
+    return container;
+}
+
+
+// This proc is crazy mess for now. We need some smart algorithm for orienting pipes
+void OrientPipe(Context* context, GameWorld* world, BlockEntity* pipe) {
+    iv3 p = pipe->p;
+
+    // TODO: Be carefull with pointers in blocks
+    BlockEntity* westNeighbour = GetVoxel(world, p + IV3(-1, 0, 0))->entity;
+    BlockEntity* eastNeighbour = GetVoxel(world, p + IV3(1, 0, 0))->entity;
+    BlockEntity* northNeighbour = GetVoxel(world, p + IV3(0, 0, -1))->entity;
+    BlockEntity* southNeighbour = GetVoxel(world, p + IV3(0, 0, 1))->entity;
+    BlockEntity* upNeighbour = GetVoxel(world, p + IV3(0, 1, 0))->entity;
+    BlockEntity* downNeighbour = GetVoxel(world, p + IV3(0, -1, 0))->entity;
+
+    bool px = 0;
+    bool nx = 0;
+    bool py = 0;
+    bool ny = 0;
+    bool pz = 0;
+    bool nz = 0;
+    if (westNeighbour && westNeighbour->type == BlockEntityType::Pipe) { nx = true; }
+    if (eastNeighbour && eastNeighbour->type == BlockEntityType::Pipe) { px = true; }
+    if (northNeighbour && northNeighbour->type == BlockEntityType::Pipe) { nz = true; }
+    if (southNeighbour && southNeighbour->type == BlockEntityType::Pipe) { pz = true; }
+    if (upNeighbour && upNeighbour->type == BlockEntityType::Pipe) { py = true; }
+    if (downNeighbour && downNeighbour->type == BlockEntityType::Pipe) { ny = true; }
+
+    bool xConnected = px && nx;
+    bool yConnected = py && ny;
+    bool zConnected = pz && nz;
+
+    // Check for crossing
+    if (xConnected && zConnected) {
+        pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
+        pipe->mesh = context->pipeCrossMesh;
+    } else if (xConnected && yConnected) {
+        pipe->mesh = context->pipeCrossMesh;
+        pipe->meshRotation = V3(90.0f, 0.0f, 0.0f);
+    } else if (yConnected && zConnected) {
+        pipe->mesh = context->pipeCrossMesh;
+        pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
+    } else {
+        // Not a crossing
+        if (xConnected) {
+            // checking for tee
+            // TODO: Check whether side pipe as a turn. If it is then place straight pipe instead of a tee
+            if (ny) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(180.0f, 0.0f, 0.0f);
+            } else if (py) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
+            } else if (nz) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(90.0f, 0.0f, 0.0f);
+            } else if (pz) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(-90.0f, 0.0f, 0.0f);
+            } else { // Straight pipe
+                pipe->mesh = context->pipeStraightMesh;
+                pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
+            }
+        } else if (yConnected) {
+            // checking for tee
+            if (nx) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(0.0f, 0.0f, -90.0f);
+            } else if (px) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
+            } else if (nz) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(90.0f, 0.0f, 90.0f);
+            } else if (pz) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(-90.0f, 0.0f, 90.0f);
+            } else { // Straight pipe
+                pipe->mesh = context->pipeStraightMesh;
+                pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
+            }
+        } else if (zConnected) {
+            // checking for tee
+            if (nx) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(0.0f, 90.0f, -90.0f);
+            } else if (px) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(0.0f, 90.0f, 90.0f);
+            } else if (ny) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(0.0f, 90.0f, 180.0f);
+            } else if (py) {
+                pipe->mesh = context->pipeTeeMesh;
+                pipe->meshRotation = V3(0.0f, 90.0f, 0.0f);
+            } else { // Straight pipe
+                pipe->mesh = context->pipeStraightMesh;
+                pipe->meshRotation = V3(0.0f, 90.0f, 0.0f);
+            }
+        } else { // Turn or staight end
+            // checking for turn
+            if (nx && nz) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(0.0f, -270.0f, 0.0f);
+            } else if (px && nz) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
+            } else if (px && pz) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(0.0f, -90.0f, 0.0f);
+            } else if (nx && pz) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(0.0f, -180.0f, 0.0f);
+            } else if (nx && py) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(-90.0f, 180.0f, 0.0f);
+            } else if (nz && py) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(0.0f, 0.0f, -90.0f);
+            } else if (px && py) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(-90.0f, 0.0f, 0.0f);
+            } else if (pz && py) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(-90.0f, -90.0f, 0.0f);
+            } else if (nx && ny) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(90.0f, 180.0f, 0.0f);
+            } else if (nz && ny) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
+            } else if (px && ny) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(90.0f, 0.0f, 0.0f);
+            } else if (pz && ny) {
+                pipe->mesh = context->pipeTurnMesh;
+                pipe->meshRotation = V3(90.0f, -90.0f, 0.0f);
+            } else { // straight end
+                if (px && nx) {
+                    pipe->mesh = context->pipeStraightMesh;
+                    pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
+                } else if (py || ny) {
+                    pipe->mesh = context->pipeStraightMesh;
+                    pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
+                } else if (pz || nz) {
+                    pipe->mesh = context->pipeStraightMesh;
+                    pipe->meshRotation = V3(0.0f, 90.0f, 0.0f);
+                }
+            }
+        }
+    }
+}
+
+BlockEntity* CreatePipe(Context* context, GameWorld* world, iv3 p) {
+    auto pipe = AddBlockEntity(world, p);
+    if (pipe) {
+        pipe->type = BlockEntityType::Pipe;
+        pipe->flags |= BlockEntityFlag_Collides;
+        pipe->mesh = context->pipeStraightMesh;
+        pipe->material = &context->pipeMaterial;
+        //OrientPipe(context, world, pipe);
+    }
+
+
+    return pipe;
+}
+
 void FluxInit(Context* context) {
     LogMessage(&context->logger, "Logger test %s", "message\n");
     LogMessage(&context->logger, "Logger prints string");
@@ -27,7 +204,7 @@ void FluxInit(Context* context) {
     GenEnvPrefiliteredMap(context->renderer, &context->enviromentMap, context->hdrMap.gpuHandle, 6);
 
     auto gameWorld = &context->gameWorld;
-    InitWorld(&context->gameWorld, &context->chunkMesher, 234234);
+    InitWorld(&context->gameWorld, context, &context->chunkMesher, 234234);
 
     auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     SetVoxelTexture(context->renderer, VoxelValue::Stone, stone->bits);
@@ -47,6 +224,22 @@ void FluxInit(Context* context) {
     context->containerMesh = LoadMeshFlux("../res/container/container.mesh");
     assert(context->containerMesh);
     UploadToGPU(context->containerMesh);
+
+    context->pipeStraightMesh = LoadMeshFlux("../res/pipesss/pipe_straight.mesh");
+    assert(context->pipeStraightMesh);
+    UploadToGPU(context->pipeStraightMesh);
+
+    context->pipeTurnMesh = LoadMeshFlux("../res/pipesss/pipe_turn.mesh");
+    assert(context->pipeTurnMesh);
+    UploadToGPU(context->pipeTurnMesh);
+
+    context->pipeTeeMesh = LoadMeshFlux("../res/pipesss/pipe_Tee.mesh");
+    assert(context->pipeTeeMesh);
+    UploadToGPU(context->pipeTeeMesh);
+
+    context->pipeCrossMesh = LoadMeshFlux("../res/pipesss/pipe_cross.mesh");
+    assert(context->pipeCrossMesh);
+    UploadToGPU(context->pipeCrossMesh);
 
     context->playerMaterial.workflow = Material::Workflow::PBR;
     context->playerMaterial.pbr.albedoValue = V3(0.8f, 0.0f, 0.0f);
@@ -80,6 +273,34 @@ void FluxInit(Context* context) {
     context->containerMaterial.pbr.normalMap = &context->containerNormal;
     context->containerMaterial.pbr.AOMap = &context->containerAO;
 
+    context->pipeAlbedo = LoadTextureFromFile("../res/pipesss/textures/albedo.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->pipeAlbedo.base);
+    UploadToGPU(&context->pipeAlbedo);
+    context->pipeRoughness = LoadTextureFromFile("../res/pipesss/textures/roughness.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->pipeRoughness.base);
+    UploadToGPU(&context->pipeRoughness);
+    context->pipeMetallic = LoadTextureFromFile("../res/pipesss/textures/metallic.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->pipeMetallic.base);
+    UploadToGPU(&context->pipeMetallic);
+    context->pipeNormal = LoadTextureFromFile("../res/pipesss/textures/normal.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->pipeNormal.base);
+    UploadToGPU(&context->pipeNormal);
+    context->pipeAO = LoadTextureFromFile("../res/pipesss/textures/AO.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->pipeAO.base);
+    UploadToGPU(&context->pipeAO);
+    context->pipeMaterial.workflow = Material::Workflow::PBR;
+    context->pipeMaterial.pbr.useAlbedoMap = true;
+    context->pipeMaterial.pbr.useMetallicMap = true;
+    context->pipeMaterial.pbr.useRoughnessMap = true;
+    context->pipeMaterial.pbr.useNormalMap = true;
+    context->pipeMaterial.pbr.useAOMap = true;
+    context->pipeMaterial.pbr.normalFormat = NormalFormat::DirectX;
+    context->pipeMaterial.pbr.albedoMap = &context->pipeAlbedo;
+    context->pipeMaterial.pbr.roughnessMap = &context->pipeRoughness;
+    context->pipeMaterial.pbr.metallicMap = &context->pipeMetallic;
+    context->pipeMaterial.pbr.normalMap = &context->pipeNormal;
+    context->pipeMaterial.pbr.AOMap = &context->pipeAO;
+
     context->camera.targetWorldPosition = MakeWorldPos(IV3(0, 15, 0));
 
     context->playerRegion.world = &context->gameWorld;
@@ -103,14 +324,12 @@ void FluxInit(Context* context) {
     gameWorld->player.jumpAcceleration = 420.0f;
     gameWorld->player.runAcceleration = 140.0f;
 
-    auto chest = AddBlockEntity(gameWorld, IV3(0, 7, 0));
-    chest->type = BlockEntityType::Container;
-    chest->flags |= BlockEntityFlag_Collides;
-    chest->inventory = AllocateEntityInventory(64, 128);
+    BlockEntity* container = CreateContainer(context, gameWorld, IV3(0, 7, 0));
+    BlockEntity* pipe = CreatePipe(context, gameWorld, IV3(2, 7, 0));
 
     InitUI(&context->ui, &gameWorld->player, &context->camera);
 
-    context->camera.mode = CameraMode::DebugFollowing;
+    context->camera.mode = CameraMode::Gameplay;
     GlobalPlatform.inputMode = InputMode::FreeCursor;
     context->camera.inputMode = GameInputMode::Game;
 }
@@ -157,13 +376,17 @@ void FluxUpdate(Context* context) {
 
     if (KeyPressed(Key::E)) {
         // TODO: If entity inventory open then close else open player inventory
-        CloseEntityInventory(&context->ui);
-
-        context->ui.openPlayerInventory = !context->ui.openPlayerInventory;
+        //CloseEntityInventory(&context->ui);
+        if (!context->ui.openPlayerInventory) {
+            OpenPlayerInventory(&context->ui);
+        } else {
+            ClosePlayerInventory(&context->ui);
+        }
     }
 
     if (KeyPressed(Key::Escape)) {
         CloseEntityInventory(&context->ui);
+        context->ui.openPlayerInventory = !context->ui.openPlayerInventory;
     }
 
     TickUI(&context->ui, context);
@@ -343,7 +566,7 @@ void FluxUpdate(Context* context) {
                     }
                 }
                 if (buildBlock) {
-                    auto result = BuildBlock(&context->gameWorld, hitVoxel + hitNormalInt, Item::Stone);
+                    auto result = BuildBlock(context, &context->gameWorld, hitVoxel + hitNormalInt, Item::Pipe);
                     assert(result);
                 }
             }

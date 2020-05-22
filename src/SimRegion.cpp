@@ -371,6 +371,16 @@ bool UnregisterBlockEntity(SimRegion* region, EntityID id) {
     return result;
 }
 
+void BlockEntityDirtyNeghborhoodUpdate(SimRegion* region, BlockEntity* entity) {
+    entity->dirtyNeighborhood = false;
+    switch (entity->type) {
+    case BlockEntityType::Pipe: {
+        OrientPipe(region->world->context, region->world, entity);
+    } break;
+    default: {} break;
+    }
+}
+
 void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera, Context* context) {
     auto chunk = region->firstChunk;
     while (chunk) {
@@ -408,6 +418,12 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
                         command.material = &context->containerMaterial;
                         command.transform = command.transform * Scale(V3(0.2));
                     } break;
+                    case Item::Pipe: {
+                        command.mesh = context->pipeStraightMesh;
+                        command.material = &context->pipeMaterial;
+                        command.transform = command.transform * Scale(V3(0.2));
+                    } break;
+
                         invalid_default();
                     }
                     Push(renderGroup, &command);
@@ -417,16 +433,18 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
 
         foreach (chunk->blockEntityStorage) {
             auto entity = it;
+            if (entity->dirtyNeighborhood) {
+                BlockEntityDirtyNeghborhoodUpdate(region, entity);
+            }
             assert(entity->id.id);
-            if (entity->type == BlockEntityType::Container) {
-                RenderCommandDrawMesh command {};
-                command.transform = Translate(RelativePos(camera->targetWorldPosition, MakeWorldPos(entity->p)));
-                command.mesh = context->containerMesh;
-                command.material = &context->containerMaterial;
+            if (entity->mesh && entity->material) {
+                RenderCommandDrawMesh command{};
+                command.transform = Translate(RelativePos(camera->targetWorldPosition, MakeWorldPos(entity->p))) * Rotate(entity->meshRotation);
+                command.mesh = entity->mesh;
+                command.material = entity->material;
                 Push(renderGroup, &command);
             }
         }
-
         chunk = chunk->nextActive;
     }
 }

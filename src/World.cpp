@@ -85,8 +85,9 @@ Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z) {
     return result;
 }
 
-void InitWorld(GameWorld* world, ChunkMesher* mesher, u32 seed) {
+void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed) {
     world->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
+    world->context = context;
     world->mesher = mesher;
     world->worldGen.Init(seed);
     BucketArrayInit(&world->spatialEntitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
@@ -145,6 +146,27 @@ void DeleteSpatialEntityAfterThisFrame(GameWorld* world, SpatialEntity* entity) 
     entity->deleted = true;
 }
 
+BlockEntity* GetBlockEntity(GameWorld* world, iv3 p) {
+    const Voxel* voxel = GetVoxel(world, p);
+    return voxel->entity;
+}
+
+void MakeBlockEntityNeighborhoodDirty(GameWorld* world, BlockEntity* entity) {
+    iv3 min = entity->p - IV3(1);
+    iv3 max = entity->p + IV3(1);
+
+    for (i32 z = min.z; z <= max.z; z++) {
+        for (i32 y = min.y; y <= max.y; y++) {
+            for (i32 x = min.x; x <= max.x; x++) {
+                BlockEntity* neighbor = GetBlockEntity(world, IV3(x, y, z));
+                if (neighbor) {
+                    neighbor->dirtyNeighborhood = true;
+                }
+            }
+        }
+    }
+}
+
 BlockEntity* AddBlockEntity(GameWorld* world, iv3 p) {
     BlockEntity* entity = nullptr;
     auto chunkP = ChunkPosFromWorldPos(p);
@@ -159,6 +181,7 @@ BlockEntity* AddBlockEntity(GameWorld* world, iv3 p) {
                     entity->p = p;
                     auto occupied = OccupyVoxel(chunk, entity, chunkP.voxel);
                     assert(occupied);
+                    MakeBlockEntityNeighborhoodDirty(world, entity);
                     if (chunk->region) {
                         RegisterBlockEntity(chunk->region, entity);
                     }
@@ -174,6 +197,7 @@ void DeleteBlockEntity(GameWorld* world, BlockEntity* entity) {
     auto chunkP = ChunkPosFromWorldPos(entity->p);
     auto chunk = GetChunk(world, chunkP.chunk);
     assert(chunk);
+    MakeBlockEntityNeighborhoodDirty(world, entity);
     auto released = ReleaseVoxel(chunk, entity, chunkP.voxel);
     assert(released);
     UnregisterBlockEntity(chunk->region, entity->id);
@@ -586,6 +610,16 @@ void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP) {
                 entity->itemCount = 1;
             }
         } break;
+        case BlockEntityType::Pipe: {
+            auto entity = AddSpatialEntity(world, voxelP);
+            if (entity) {
+                // TODO: SetEntityPos
+                entity->scale = 0.2f;
+                entity->type = SpatialEntityType::Pickup;
+                entity->pickupItem = Item::Pipe;
+                entity->itemCount = 1;
+            }
+        } break;
         default: {} break;
         }
 
@@ -661,7 +695,7 @@ bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP) {
     return moved;
 }
 
-bool BuildBlock(GameWorld* world, iv3 p, Item item) {
+bool BuildBlock(Context* context, GameWorld* world, iv3 p, Item item) {
     bool result = false;
     auto blockValue = ItemToBlock(item);
     if (blockValue != VoxelValue::Empty) {
@@ -673,12 +707,11 @@ bool BuildBlock(GameWorld* world, iv3 p, Item item) {
     } else {
         auto type = ItemToBlockEntityType(item);
         if (type != BlockEntityType::Unknown) {
-            // It's block entity
-            auto entity = AddBlockEntity(world, p);
-            if (entity) {
-                // TODO: Create block entities
-                entity->type = type;
-                result = true;
+            // TODO: You know what!! Too many switch statements
+            switch (type) {
+            case BlockEntityType::Container: { result = (bool)CreateContainer(context, world, p); } break;
+            case BlockEntityType::Pipe: { result = (bool)CreatePipe(context, world, p); } break;
+            default: {} break;
             }
         }
     }

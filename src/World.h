@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Common.h"
 #include "HashMap.h"
 #include "BucketArray.h"
 #include "WorldGen.h"
@@ -9,6 +10,9 @@ struct ChunkMesh;
 struct ChunkMesher;
 struct Camera;
 struct RenderGroup;
+struct Mesh;
+struct Material;
+struct Context;
 
 struct WorldPos {
     iv3 voxel;
@@ -78,7 +82,8 @@ enum struct Item : u32 {
     Container,
     Stone,
     Grass,
-    CoalOre
+    CoalOre,
+    Pipe
 };
 
 VoxelValue ItemToBlock(Item item) {
@@ -107,6 +112,7 @@ constexpr const char* ToString(Item e) {
     switch (e) {
     case Item::CoalOre: { return "CoalOre"; }
     case Item::Container: { return "Container"; }
+    case Item::Pipe: { return "Pipe"; }
         invalid_default();
     }
     return nullptr;
@@ -169,12 +175,13 @@ struct SpatialEntity {
 };
 
 enum struct BlockEntityType : u32 {
-    Unknown = 0, Container
+    Unknown = 0, Container, Pipe
 };
 
 BlockEntityType ItemToBlockEntityType(Item item) {
     switch (item) {
     case Item::Container: { return BlockEntityType::Container; } break;
+    case Item::Pipe: { return BlockEntityType::Pipe; } break;
     }
     return BlockEntityType::Unknown;
 }
@@ -182,6 +189,7 @@ BlockEntityType ItemToBlockEntityType(Item item) {
 const char* ToString(BlockEntityType type) {
     switch (type) {
     case BlockEntityType::Container: { return "Container"; } break;
+    case BlockEntityType::Pipe: { return "Pipe"; } break;
     invalid_default();
     }
     return nullptr;
@@ -197,8 +205,14 @@ struct BlockEntity {
     u32 flags;
     EntityInventory* inventory;
     b32 deleted;
+    // TODO: More data-driven architecture probably?
+    b32 dirtyNeighborhood;
     iv3 p; // should be moved only through SetBlockEntityPos
+    // TODO: Quaternions
+    v3 meshRotation;
     // TODO: Footprints
+    Mesh* mesh;
+    Material* material;
 
     BlockEntity* nextInStorage;
     BlockEntity* prevInStorage;
@@ -410,6 +424,7 @@ struct GameWorld {
     HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc> chunkHashMap;
     // TODO: Dynamic view distance
     static const u32 ViewDistance = 4;
+    Context* context;
     WorldGen worldGen;
     ChunkMesher* mesher;
     Chunk* firstActive;
@@ -422,11 +437,12 @@ struct GameWorld {
     BucketArray<BlockEntity*, 16> blockEntitiesToDelete;
 };
 
-void InitWorld(GameWorld* world, ChunkMesher* mesher, u32 seed);
+void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed);
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z);
 const Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z);
 inline const Voxel* GetVoxel(Chunk* chunk, uv3 p) { return GetVoxel(chunk, p.x, p.y, p.z); }
 const Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z);
+inline const Voxel* GetVoxel(GameWorld* world, iv3 p) { return GetVoxel(world, p.x, p.y, p.z); }
 Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z);
 Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z);
 
@@ -476,4 +492,6 @@ void FindOverlapsFor(GameWorld* world, SpatialEntity* entity);
 
 bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP);
 
-bool BuildBlock(GameWorld* world, iv3 p, Item item);
+bool BuildBlock(Context* context, GameWorld* world, iv3 p, Item item);
+
+BlockEntity* GetBlockEntity(GameWorld* world, iv3 p);

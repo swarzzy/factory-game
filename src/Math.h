@@ -571,6 +571,10 @@ m4x4 Rotate(f32 xAngle, f32 yAngle, f32 zAngle) {
     return M4x4(RotateZ(zAngle) * RotateY(yAngle) * RotateX(xAngle));
 }
 
+m4x4 Rotate(v3 angles) {
+    return M4x4(RotateZ(angles.z) * RotateY(angles.y) * RotateX(angles.x));
+}
+
 f32 Determinant(m3x3 m) {
     auto result = m._11 * m._22 * m._33 - m._11 * m._23 * m._32
         - m._12 * m._21 * m._33 + m._12 * m._23 * m._31
