@@ -32,10 +32,16 @@ struct Context {
     Texture pipeNormal;
     Texture pipeAO;
     Material pipeMaterial;
+    Texture barrelAlbedo;
+    Texture barrelRoughness;
+    Texture barrelNormal;
+    Texture barrelAO;
+    Material barrelMaterial;
     Mesh* pipeStraightMesh;
     Mesh* pipeTurnMesh;
     Mesh* pipeCrossMesh;
     Mesh* pipeTeeMesh;
+    Mesh* barrelMesh;
     Camera camera;
     Renderer* renderer;
     RenderGroup renderGroup;

@@ -46,7 +46,8 @@ enum struct VoxelValue : u32 {
     Empty = 0,
     Stone,
     Grass,
-    CoalOre
+    CoalOre,
+    Water
 };
 
 const f32 MeterScale = 1.0f;
@@ -83,8 +84,21 @@ enum struct Item : u32 {
     Stone,
     Grass,
     CoalOre,
-    Pipe
+    Pipe,
+    Barrel
 };
+
+enum struct Liquid : u32 {
+    Water
+};
+
+const char* ToString(Liquid liquid) {
+    switch (liquid) {
+    case Liquid::Water: { return "Water"; }
+    invalid_default();
+    }
+    return nullptr;
+}
 
 VoxelValue ItemToBlock(Item item) {
     switch (item) {
@@ -113,6 +127,9 @@ constexpr const char* ToString(Item e) {
     case Item::CoalOre: { return "CoalOre"; }
     case Item::Container: { return "Container"; }
     case Item::Pipe: { return "Pipe"; }
+    case Item::Barrel: { return "Barrel"; }
+    case Item::Grass: { return "Grass"; }
+    case Item::Stone: { return "Stone"; }
         invalid_default();
     }
     return nullptr;
@@ -175,13 +192,14 @@ struct SpatialEntity {
 };
 
 enum struct BlockEntityType : u32 {
-    Unknown = 0, Container, Pipe
+    Unknown = 0, Container, Pipe, Barrel
 };
 
 BlockEntityType ItemToBlockEntityType(Item item) {
     switch (item) {
     case Item::Container: { return BlockEntityType::Container; } break;
     case Item::Pipe: { return BlockEntityType::Pipe; } break;
+    case Item::Barrel: { return BlockEntityType::Barrel; } break;
     }
     return BlockEntityType::Unknown;
 }
@@ -190,6 +208,7 @@ const char* ToString(BlockEntityType type) {
     switch (type) {
     case BlockEntityType::Container: { return "Container"; } break;
     case BlockEntityType::Pipe: { return "Pipe"; } break;
+    case BlockEntityType::Barrel: { return "Barrel"; } break;
     invalid_default();
     }
     return nullptr;
@@ -213,6 +232,24 @@ struct BlockEntity {
     // TODO: Footprints
     Mesh* mesh;
     Material* material;
+
+    // Pipe stuff
+    // TODO: use these for update
+    b32 nxConnected;
+    b32 pxConnected;
+    b32 nyConnected;
+    b32 pyConnected;
+    b32 nzConnected;
+    b32 pzConnected;
+
+    inline static const f32 MaxPipeCapacity = 2.0f;
+    inline static const f32 MaxBarrelCapacity = 200.0f;
+    inline static const f32 PipePressureDrop = 0.0001f;
+    b32 source;
+    b32 filled;
+    Liquid liquid;
+    f32 amount;
+    f32 pressure;
 
     BlockEntity* nextInStorage;
     BlockEntity* prevInStorage;

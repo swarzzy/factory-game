@@ -47,31 +47,56 @@ void OrientPipe(Context* context, GameWorld* world, BlockEntity* pipe) {
     bool yConnected = py && ny;
     bool zConnected = pz && nz;
 
+    pipe->nxConnected = false;
+    pipe->pxConnected = false;
+    pipe->nyConnected = false;
+    pipe->pyConnected = false;
+    pipe->nzConnected = false;
+    pipe->pzConnected = false;
+
     // Check for crossing
     if (xConnected && zConnected) {
         pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
         pipe->mesh = context->pipeCrossMesh;
+        pipe->nxConnected = true;
+        pipe->pxConnected = true;
+        pipe->nzConnected = true;
+        pipe->pzConnected = true;
     } else if (xConnected && yConnected) {
         pipe->mesh = context->pipeCrossMesh;
         pipe->meshRotation = V3(90.0f, 0.0f, 0.0f);
+        pipe->nxConnected = true;
+        pipe->pxConnected = true;
+        pipe->nyConnected = true;
+        pipe->pyConnected = true;
     } else if (yConnected && zConnected) {
         pipe->mesh = context->pipeCrossMesh;
         pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
+        pipe->nyConnected = true;
+        pipe->pyConnected = true;
+        pipe->nzConnected = true;
+        pipe->pzConnected = true;
     } else {
         // Not a crossing
         if (xConnected) {
+            pipe->nxConnected = true;
+            pipe->pxConnected = true;
             // checking for tee
             // TODO: Check whether side pipe as a turn. If it is then place straight pipe instead of a tee
             if (ny) {
+                pipe->nyConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(180.0f, 0.0f, 0.0f);
             } else if (py) {
+                pipe->pyConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
             } else if (nz) {
+                pipe->nzConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(90.0f, 0.0f, 0.0f);
             } else if (pz) {
+                pipe->pzConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(-90.0f, 0.0f, 0.0f);
             } else { // Straight pipe
@@ -79,17 +104,23 @@ void OrientPipe(Context* context, GameWorld* world, BlockEntity* pipe) {
                 pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
             }
         } else if (yConnected) {
+            pipe->nyConnected = true;
+            pipe->pyConnected = true;
             // checking for tee
             if (nx) {
+                pipe->nxConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(0.0f, 0.0f, -90.0f);
             } else if (px) {
+                pipe->pxConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
             } else if (nz) {
+                pipe->nzConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(90.0f, 0.0f, 90.0f);
             } else if (pz) {
+                pipe->pzConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(-90.0f, 0.0f, 90.0f);
             } else { // Straight pipe
@@ -97,17 +128,22 @@ void OrientPipe(Context* context, GameWorld* world, BlockEntity* pipe) {
                 pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
             }
         } else if (zConnected) {
+            pipe->nzConnected = true;
+            pipe->pzConnected = true;
             // checking for tee
             if (nx) {
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(0.0f, 90.0f, -90.0f);
             } else if (px) {
+                pipe->pxConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(0.0f, 90.0f, 90.0f);
             } else if (ny) {
+                pipe->nyConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(0.0f, 90.0f, 180.0f);
             } else if (py) {
+                pipe->pyConnected = true;
                 pipe->mesh = context->pipeTeeMesh;
                 pipe->meshRotation = V3(0.0f, 90.0f, 0.0f);
             } else { // Straight pipe
@@ -117,49 +153,79 @@ void OrientPipe(Context* context, GameWorld* world, BlockEntity* pipe) {
         } else { // Turn or staight end
             // checking for turn
             if (nx && nz) {
+                pipe->nzConnected = true;
+                pipe->nxConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(0.0f, -270.0f, 0.0f);
             } else if (px && nz) {
+                pipe->nzConnected = true;
+                pipe->pxConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
             } else if (px && pz) {
+                pipe->pzConnected = true;
+                pipe->pxConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(0.0f, -90.0f, 0.0f);
             } else if (nx && pz) {
+                pipe->pzConnected = true;
+                pipe->nxConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(0.0f, -180.0f, 0.0f);
             } else if (nx && py) {
+                pipe->pyConnected = true;
+                pipe->nxConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(-90.0f, 180.0f, 0.0f);
             } else if (nz && py) {
+                pipe->pyConnected = true;
+                pipe->nzConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(0.0f, 0.0f, -90.0f);
             } else if (px && py) {
+                pipe->pyConnected = true;
+                pipe->pxConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(-90.0f, 0.0f, 0.0f);
             } else if (pz && py) {
+                pipe->pyConnected = true;
+                pipe->pzConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(-90.0f, -90.0f, 0.0f);
             } else if (nx && ny) {
+                pipe->nyConnected = true;
+                pipe->nxConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(90.0f, 180.0f, 0.0f);
             } else if (nz && ny) {
+                pipe->nyConnected = true;
+                pipe->nzConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
             } else if (px && ny) {
+                pipe->nyConnected = true;
+                pipe->pxConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(90.0f, 0.0f, 0.0f);
             } else if (pz && ny) {
+                pipe->nyConnected = true;
+                pipe->pzConnected = true;
                 pipe->mesh = context->pipeTurnMesh;
                 pipe->meshRotation = V3(90.0f, -90.0f, 0.0f);
             } else { // straight end
-                if (px && nx) {
+                if (px || nx) {
+                    pipe->pxConnected = px;
+                    pipe->nxConnected = nx;
                     pipe->mesh = context->pipeStraightMesh;
                     pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
                 } else if (py || ny) {
+                    pipe->pyConnected = py;
+                    pipe->nyConnected = ny;
                     pipe->mesh = context->pipeStraightMesh;
                     pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
                 } else if (pz || nz) {
+                    pipe->pzConnected = pz;
+                    pipe->nzConnected = nz;
                     pipe->mesh = context->pipeStraightMesh;
                     pipe->meshRotation = V3(0.0f, 90.0f, 0.0f);
                 }
@@ -180,6 +246,19 @@ BlockEntity* CreatePipe(Context* context, GameWorld* world, iv3 p) {
 
 
     return pipe;
+}
+
+BlockEntity* CreateBarrel(Context* context, GameWorld* world, iv3 p) {
+    auto barrel = AddBlockEntity(world, p);
+    if (barrel) {
+        barrel->type = BlockEntityType::Barrel;
+        barrel->flags |= BlockEntityFlag_Collides;
+        barrel->mesh = context->barrelMesh;
+        barrel->material = &context->barrelMaterial;
+    }
+
+
+    return barrel;
 }
 
 void FluxInit(Context* context) {
@@ -204,7 +283,7 @@ void FluxInit(Context* context) {
     GenEnvPrefiliteredMap(context->renderer, &context->enviromentMap, context->hdrMap.gpuHandle, 6);
 
     auto gameWorld = &context->gameWorld;
-    InitWorld(&context->gameWorld, context, &context->chunkMesher, 234234);
+    InitWorld(&context->gameWorld, context, &context->chunkMesher, 293847);
 
     auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     SetVoxelTexture(context->renderer, VoxelValue::Stone, stone->bits);
@@ -212,6 +291,8 @@ void FluxInit(Context* context) {
     SetVoxelTexture(context->renderer, VoxelValue::Grass, grass->bits);
     auto coalOre = ResourceLoaderLoadImage("../res/tile_coal_ore.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     SetVoxelTexture(context->renderer, VoxelValue::CoalOre, coalOre->bits);
+    auto water = ResourceLoaderLoadImage("../res/tile_water.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
+    SetVoxelTexture(context->renderer, VoxelValue::Water, water->bits);
 
     context->playerMesh = LoadMeshFlux("../res/cube.mesh");
     assert(context->playerMesh);
@@ -240,6 +321,10 @@ void FluxInit(Context* context) {
     context->pipeCrossMesh = LoadMeshFlux("../res/pipesss/pipe_cross.mesh");
     assert(context->pipeCrossMesh);
     UploadToGPU(context->pipeCrossMesh);
+
+    context->barrelMesh = LoadMeshFlux("../res/barrel/barrel.mesh");
+    assert(context->barrelMesh);
+    UploadToGPU(context->barrelMesh);
 
     context->playerMaterial.workflow = Material::Workflow::PBR;
     context->playerMaterial.pbr.albedoValue = V3(0.8f, 0.0f, 0.0f);
@@ -301,6 +386,30 @@ void FluxInit(Context* context) {
     context->pipeMaterial.pbr.normalMap = &context->pipeNormal;
     context->pipeMaterial.pbr.AOMap = &context->pipeAO;
 
+    context->barrelAlbedo = LoadTextureFromFile("../res/barrel/albedo.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->barrelAlbedo.base);
+    UploadToGPU(&context->barrelAlbedo);
+    context->barrelRoughness = LoadTextureFromFile("../res/barrel/roughness.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->barrelRoughness.base);
+    UploadToGPU(&context->barrelRoughness);
+    context->barrelNormal = LoadTextureFromFile("../res/barrel/normal.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->barrelNormal.base);
+    UploadToGPU(&context->barrelNormal);
+    context->barrelAO = LoadTextureFromFile("../res/barrel/AO.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->barrelAO.base);
+    UploadToGPU(&context->barrelAO);
+    context->barrelMaterial.workflow = Material::Workflow::PBR;
+    context->barrelMaterial.pbr.useAlbedoMap = true;
+    context->barrelMaterial.pbr.useRoughnessMap = true;
+    context->barrelMaterial.pbr.useNormalMap = true;
+    context->barrelMaterial.pbr.useAOMap = true;
+    context->barrelMaterial.pbr.normalFormat = NormalFormat::DirectX;
+    context->barrelMaterial.pbr.albedoMap = &context->barrelAlbedo;
+    context->barrelMaterial.pbr.roughnessMap = &context->barrelRoughness;
+    context->barrelMaterial.pbr.metallicValue = 0.0f;
+    context->barrelMaterial.pbr.normalMap = &context->barrelNormal;
+    context->barrelMaterial.pbr.AOMap = &context->barrelAO;
+
     context->camera.targetWorldPosition = MakeWorldPos(IV3(0, 15, 0));
 
     context->playerRegion.world = &context->gameWorld;
@@ -324,8 +433,9 @@ void FluxInit(Context* context) {
     gameWorld->player.jumpAcceleration = 420.0f;
     gameWorld->player.runAcceleration = 140.0f;
 
-    BlockEntity* container = CreateContainer(context, gameWorld, IV3(0, 7, 0));
-    BlockEntity* pipe = CreatePipe(context, gameWorld, IV3(2, 7, 0));
+    BlockEntity* container = CreateContainer(context, gameWorld, IV3(0, 16, 0));
+    BlockEntity* pipe = CreatePipe(context, gameWorld, IV3(2, 16, 0));
+    BlockEntity* barrel = CreateBarrel(context, gameWorld, IV3(4, 16, 0));
 
     InitUI(&context->ui, &gameWorld->player, &context->camera);
 
@@ -553,6 +663,14 @@ void FluxUpdate(Context* context) {
         }
         context->gameWorld.player.selectedVoxel = hitVoxel;
         context->gameWorld.player.selectedEntity = hitEntity;
+
+        if (hitEntity != EntityID {0}) {
+            BlockEntity* entity = GetBlockEntity(&context->playerRegion, hitEntity); {
+                if (entity) {
+                    DrawEntityInfo(&context->ui, entity);
+                }
+            }
+        }
 
         if (hitVoxel.x != GameWorld::InvalidCoord) {
             if (MouseButtonPressed(MouseButton::Left)) {

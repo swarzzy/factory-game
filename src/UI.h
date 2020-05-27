@@ -62,3 +62,6 @@ void CloseEntityInventory(UI* ui) {
 }
 
 void TickUI(UI* ui, Context* context);
+
+// TODO: Both entity classes
+void DrawEntityInfo(UI* ui, BlockEntity* blockEntity);

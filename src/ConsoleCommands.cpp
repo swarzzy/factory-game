@@ -1,65 +1,65 @@
 #include "ConsoleCommands.h"
 #include "Console.h"
 
-#define REGISTER_SET_FLOAT(name, variable) \
-if (StringsAreEqual(varName, name)) {\
-    variableRecognized = true;                          \
-    const char* varValue = PullCommandArg(args);\
-    if (varValue) {\
-        auto parseResult = StringToFloat(varValue);\
-        if (parseResult.succeed) {\
-            LogMessage(console->logger, "Setting a value of %s to %f. Old value was %f\n", name, parseResult.value, variable);\
-            variable = parseResult.value;\
-            return;\
-        } else {\
-            LogMessage(console->logger, "Failed to parse a value\n");\
-        }\
-    } else {\
-        LogMessage(console->logger, "No value specified\n");\
-    }\
-} do {} while(false)\
+#define REGISTER_SET_FLOAT(name, variable)                              \
+    if (StringsAreEqual(varName, name)) {                               \
+        variableRecognized = true;                                      \
+        const char* varValue = PullCommandArg(args);                    \
+        if (varValue) {                                                 \
+            auto parseResult = StringToFloat(varValue);                 \
+            if (parseResult.succeed) {                                  \
+                LogMessage(console->logger, "Setting a value of %s to %f. Old value was %f\n", name, parseResult.value, variable); \
+                variable = parseResult.value;                           \
+                return;                                                 \
+            } else {                                                    \
+                LogMessage(console->logger, "Failed to parse a value\n"); \
+            }                                                           \
+        } else {                                                        \
+            LogMessage(console->logger, "No value specified\n");        \
+        }                                                               \
+    } do {} while(false)                                                \
 
-#define REGISTER_SET_IV3(name, variable) \
-if (StringsAreEqual(varName, name)) {       \
-    variableRecognized = true;                          \
-    const char* varValue1 = PullCommandArg(args);       \
-    const char* varValue2 = PullCommandArg(args);       \
-    const char* varValue3 = PullCommandArg(args);       \
-    if (varValue1 && varValue2 && varValue3) {\
-        auto parseResult1 = StringToInt(varValue1);\
-        auto parseResult2 = StringToInt(varValue2);\
-        auto parseResult3 = StringToInt(varValue3);\
-        if (parseResult1.succeed && parseResult2.succeed && parseResult3.succeed) {\
-            LogMessage(console->logger, "Setting a value of %s to (%d, %d, %d). Old value was (%d, %d, %d)\n", name, (int)parseResult1.value, (int)parseResult2.value, (int)parseResult2.value, (int)variable.x, (int)variable.y, (int)variable.z); \
-            variable.x = parseResult1.value;\
-            variable.y = parseResult2.value;\
-            variable.z = parseResult3.value;\
-            return;\
-        } else {\
-            LogMessage(console->logger, "Failed to parse a value\n");\
-        }\
-    } else {\
-        LogMessage(console->logger, "No value specified\n");\
-    }\
-} do {} while(false)\
+#define REGISTER_SET_IV3(name, variable)                                \
+    if (StringsAreEqual(varName, name)) {                               \
+        variableRecognized = true;                                      \
+        const char* varValue1 = PullCommandArg(args);                   \
+        const char* varValue2 = PullCommandArg(args);                   \
+        const char* varValue3 = PullCommandArg(args);                   \
+        if (varValue1 && varValue2 && varValue3) {                      \
+            auto parseResult1 = StringToInt(varValue1);                 \
+            auto parseResult2 = StringToInt(varValue2);                 \
+            auto parseResult3 = StringToInt(varValue3);                 \
+            if (parseResult1.succeed && parseResult2.succeed && parseResult3.succeed) { \
+                LogMessage(console->logger, "Setting a value of %s to (%d, %d, %d). Old value was (%d, %d, %d)\n", name, (int)parseResult1.value, (int)parseResult2.value, (int)parseResult2.value, (int)variable.x, (int)variable.y, (int)variable.z); \
+                variable.x = parseResult1.value;                        \
+                variable.y = parseResult2.value;                        \
+                variable.z = parseResult3.value;                        \
+                return;                                                 \
+            } else {                                                    \
+                LogMessage(console->logger, "Failed to parse a value\n"); \
+            }                                                           \
+        } else {                                                        \
+            LogMessage(console->logger, "No value specified\n");        \
+        }                                                               \
+    } do {} while(false)                                                \
 
 
 
-void ConsoleSetCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
-    const char* varName = PullCommandArg(args);
-    if (varName) {
-        bool variableRecognized = false;
-        // NOTE: Register variables here
-        REGISTER_SET_FLOAT("playerRunSpeed", context->gameWorld.player.runAcceleration);
-        //REGISTER_SET_IV3("playerP", context->gameWorld.playerEntity.p.voxel);
+        void ConsoleSetCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
+            const char* varName = PullCommandArg(args);
+            if (varName) {
+                bool variableRecognized = false;
+                // NOTE: Register variables here
+                REGISTER_SET_FLOAT("playerRunSpeed", context->gameWorld.player.runAcceleration);
+                //REGISTER_SET_IV3("playerP", context->gameWorld.playerEntity.p.voxel);
 
-        if (!variableRecognized) {
-            LogMessage(console->logger, "Unknown variable name %s\n", varName);
+                if (!variableRecognized) {
+                    LogMessage(console->logger, "Unknown variable name %s\n", varName);
+                }
+            } else {
+                LogMessage(console->logger, "No variable specified\n");
+            }
         }
-    } else {
-        LogMessage(console->logger, "No variable specified\n");
-    }
-}
 
 void ConsoleClearCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
     ClearLogger(console->logger);
@@ -122,20 +122,24 @@ void ResetPlayerPositionCommand(Console* console, Context* context, ConsoleComma
 }
 
 void CameraCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
-    if (StringsAreEqual(args->args, "free")) {
-        LogMessage(console->logger, "Camera mode changed to free\n");
-        context->camera.mode = CameraMode::DebugFree;
-        GlobalPlatform.inputMode = InputMode::FreeCursor;
-    } else if (StringsAreEqual(args->args, "follow")) {
-        LogMessage(console->logger, "Camera mode changed to follow\n");
-        context->camera.mode = CameraMode::DebugFollowing;
-        GlobalPlatform.inputMode = InputMode::FreeCursor;
-    } else if (StringsAreEqual(args->args, "game")) {
-        LogMessage(console->logger, "Camera mode changed to game\n");
-        context->camera.mode = CameraMode::Gameplay;
-        GlobalPlatform.inputMode = InputMode::CaptureCursor;
+    if (args->args) {
+        if (StringsAreEqual(args->args, "free")) {
+            LogMessage(console->logger, "Camera mode changed to free\n");
+            context->camera.mode = CameraMode::DebugFree;
+            GlobalPlatform.inputMode = InputMode::FreeCursor;
+        } else if (StringsAreEqual(args->args, "follow")) {
+            LogMessage(console->logger, "Camera mode changed to follow\n");
+            context->camera.mode = CameraMode::DebugFollowing;
+            GlobalPlatform.inputMode = InputMode::FreeCursor;
+        } else if (StringsAreEqual(args->args, "game")) {
+            LogMessage(console->logger, "Camera mode changed to game\n");
+            context->camera.mode = CameraMode::Gameplay;
+            GlobalPlatform.inputMode = InputMode::CaptureCursor;
+        } else {
+            LogMessage(console->logger, "Unknown camera mode\n");
+        }
     } else {
-        LogMessage(console->logger, "Unknown camera mode\n");
+        LogMessage(console->logger, "usage: camera {game, free, follow}\n");
     }
 }
 

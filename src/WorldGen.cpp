@@ -94,11 +94,18 @@ void GenChunk(WorldGen* gen, Chunk* chunk) {
                 auto wp = WorldPosFromChunkPos(ChunkPos{chunk->p, UV3(bx, 0, bz)});
                 u32 grassHeight = GetHeightFromNoise(&gen->noise, wp.voxel.x, wp.voxel.z, 10);
                 u32 rockHeight = GetHeightFromNoise(&gen->anotherNoise, wp.voxel.x, wp.voxel.z, 8);
+                auto height = grassHeight;
                 auto value = grassHeight > rockHeight ? VoxelValue::Grass : VoxelValue::Stone;
-                for (u32 by = 0; by < grassHeight; by++) {
+                if (rockHeight <= 7 && grassHeight <= 7) {
+                    value = VoxelValue::Water;
+                    height = 6;
+                }
+                for (u32 by = 0; by < height; by++) {
                     i32 coal = rand() % 1000;
-                    if (coal == 1) {
-                        value = VoxelValue::CoalOre;
+                    if (value != VoxelValue::Water) {
+                        if (coal == 1) {
+                            value = VoxelValue::CoalOre;
+                        }
                     }
                     auto block = GetVoxelForModification(chunk, bx, by, bz);
                     block->value = value;

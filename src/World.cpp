@@ -192,12 +192,22 @@ BlockEntity* AddBlockEntity(GameWorld* world, iv3 p) {
     return entity;
 }
 
+// TODO Propper entity behaviors instead f dirty hack-in's
+void BlockEntityDeleteBehavior(GameWorld* world, BlockEntity* entity) {
+    switch (entity->type) {
+        case BlockEntityType::Pipe: {
+            MakeBlockEntityNeighborhoodDirty(world, entity);
+        } break;
+    default: {} break;
+    }
+}
+
 void DeleteBlockEntity(GameWorld* world, BlockEntity* entity) {
     // TODO: Get chunk from region for speed?
     auto chunkP = ChunkPosFromWorldPos(entity->p);
     auto chunk = GetChunk(world, chunkP.chunk);
     assert(chunk);
-    MakeBlockEntityNeighborhoodDirty(world, entity);
+    BlockEntityDeleteBehavior(world, entity);
     auto released = ReleaseVoxel(chunk, entity, chunkP.voxel);
     assert(released);
     UnregisterBlockEntity(chunk->region, entity->id);
@@ -620,6 +630,16 @@ void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP) {
                 entity->itemCount = 1;
             }
         } break;
+        case BlockEntityType::Barrel: {
+            auto entity = AddSpatialEntity(world, voxelP);
+            if (entity) {
+                // TODO: SetEntityPos
+                entity->scale = 0.2f;
+                entity->type = SpatialEntityType::Pickup;
+                entity->pickupItem = Item::Barrel;
+                entity->itemCount = 1;
+            }
+        } break;
         default: {} break;
         }
 
@@ -711,6 +731,7 @@ bool BuildBlock(Context* context, GameWorld* world, iv3 p, Item item) {
             switch (type) {
             case BlockEntityType::Container: { result = (bool)CreateContainer(context, world, p); } break;
             case BlockEntityType::Pipe: { result = (bool)CreatePipe(context, world, p); } break;
+            case BlockEntityType::Barrel: { result = (bool)CreateBarrel(context, world, p); } break;
             default: {} break;
             }
         }

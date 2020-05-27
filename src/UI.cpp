@@ -168,3 +168,37 @@ void TickUI(UI* ui, Context* context) {
         ImGui::End();
     }
 }
+
+void DrawEntityInfo(UI* ui, BlockEntity* blockEntity) {
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2, 0);
+    ImVec2 windowPivot = ImVec2(0.5f, 0.0f);
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, windowPivot);
+    ImGui::SetNextWindowBgAlpha(0.35f);
+    bool open = true;
+    if (ImGui::Begin("entity info", &open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
+        ImGui::Text("%s", ToString(blockEntity->type));
+        ImGui::Text("id: %llu", blockEntity->id);
+        ImGui::Text("pos: (%ld, %ld, %ld)", blockEntity->p.x, blockEntity->p.y, blockEntity->p.z);
+        ImGui::Text("has inventory: %s", blockEntity->inventory ? "true" : "false");
+        switch (blockEntity->type) {
+        case BlockEntityType::Pipe: {
+            ImGui::Text("source: %s", blockEntity->source ? "true" : "false");
+            ImGui::Text("filled: %s", blockEntity->filled ? "true" : "false");
+            ImGui::Text("liquid: %s", ToString(blockEntity->liquid));
+            ImGui::Text("amount: %f", blockEntity->amount);
+            ImGui::Text("pressure: %f", blockEntity->pressure);
+            ImGui::Text("nx connection: %s", blockEntity->nxConnected ? "true" : "false");
+            ImGui::Text("px connection: %s", blockEntity->pxConnected ? "true" : "false");
+            ImGui::Text("ny connection: %s", blockEntity->nyConnected ? "true" : "false");
+            ImGui::Text("py connection: %s", blockEntity->pyConnected ? "true" : "false");
+            ImGui::Text("nz connection: %s", blockEntity->nzConnected ? "true" : "false");
+            ImGui::Text("pz connection: %s", blockEntity->pzConnected ? "true" : "false");
+        } break;
+        case BlockEntityType::Barrel: {
+            ImGui::Text("liquid: %s", ToString(blockEntity->liquid));
+        } break;
+        }
+    }
+    ImGui::End();
+}
