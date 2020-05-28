@@ -5,6 +5,7 @@
 #include "BucketArray.h"
 #include "WorldGen.h"
 #include "Memory.h"
+#include "Position.h"
 
 struct ChunkMesh;
 struct ChunkMesher;
@@ -14,33 +15,7 @@ struct Mesh;
 struct Material;
 struct Context;
 
-struct WorldPos {
-    iv3 voxel;
-    v3 offset;
-};
-
-inline WorldPos MakeWorldPos(iv3 voxel) { return WorldPos{voxel, V3(0.0f)}; }
-inline WorldPos MakeWorldPos(i32 x, i32 y, i32 z) { return WorldPos{IV3(x, y, z), V3(0.0f)}; }
-inline WorldPos MakeWorldPos(iv3 voxel, v3 offset) { return WorldPos{voxel, offset}; }
-
-struct ChunkPos {
-    iv3 chunk;
-    uv3 voxel;
-};
-
-inline ChunkPos MakeChunkPos(iv3 chunk, uv3 voxel) { return ChunkPos{chunk, voxel}; }
-
-struct EntityID {
-    u64 id;
-};
-
-inline bool operator==(EntityID a, EntityID b) {
-    return a.id == b.id;
-}
-
-inline bool operator!=(EntityID a, EntityID b) {
-    return a.id != b.id;
-}
+typedef u64 EntityID;
 
 enum struct VoxelValue : u32 {
     Empty = 0,
@@ -74,9 +49,11 @@ enum struct ChunkPriority : u32 {
     Low = 0, High
 };
 
+#if 0
 enum struct SpatialEntityType : u32 {
     Player, Pickup
 };
+#endif
 
 enum struct Item : u32 {
     None = 0,
@@ -85,7 +62,8 @@ enum struct Item : u32 {
     Grass,
     CoalOre,
     Pipe,
-    Barrel
+    Barrel,
+    Tank
 };
 
 enum struct Liquid : u32 {
@@ -113,14 +91,6 @@ VoxelValue ItemToBlock(Item item) {
 
 
 // TODO: Generate these
-constexpr const char* ToString(SpatialEntityType e) {
-    switch (e) {
-    case SpatialEntityType::Player: { return "Player"; }
-    case SpatialEntityType::Pickup: { return "Pickup"; }
-    invalid_default();
-    }
-    return nullptr;
-}
 
 constexpr const char* ToString(Item e) {
     switch (e) {
@@ -130,6 +100,7 @@ constexpr const char* ToString(Item e) {
     case Item::Barrel: { return "Barrel"; }
     case Item::Grass: { return "Grass"; }
     case Item::Stone: { return "Stone"; }
+    case Item::Tank: { return "Tank"; }
         invalid_default();
     }
     return nullptr;
@@ -166,6 +137,7 @@ u32 EntityInventoryPushItem(EntityInventory* inventory, Item item, u32 count);
 EntityInventory* AllocateEntityInventory(u32 slotCount, u32 slotCapacity);
 void DeleteEntityInventory(EntityInventory* inventory);
 
+#if 0
 struct SpatialEntity {
     EntityID id;
     SpatialEntityType type;
@@ -190,9 +162,15 @@ struct SpatialEntity {
     SpatialEntity* nextInStorage;
     SpatialEntity* prevInStorage;
 };
-
+#endif
 enum struct BlockEntityType : u32 {
-    Unknown = 0, Container, Pipe, Barrel
+    Unknown = 0,
+    Container,
+    Pipe,
+    Barrel,
+    Tank,
+    Pickup,
+    Player,
 };
 
 BlockEntityType ItemToBlockEntityType(Item item) {
@@ -200,6 +178,7 @@ BlockEntityType ItemToBlockEntityType(Item item) {
     case Item::Container: { return BlockEntityType::Container; } break;
     case Item::Pipe: { return BlockEntityType::Pipe; } break;
     case Item::Barrel: { return BlockEntityType::Barrel; } break;
+    case Item::Tank: { return BlockEntityType::Tank; } break;
     }
     return BlockEntityType::Unknown;
 }
@@ -209,6 +188,10 @@ const char* ToString(BlockEntityType type) {
     case BlockEntityType::Container: { return "Container"; } break;
     case BlockEntityType::Pipe: { return "Pipe"; } break;
     case BlockEntityType::Barrel: { return "Barrel"; } break;
+    case BlockEntityType::Tank: { return "Tank"; } break;
+    case BlockEntityType::Player: { return "Player"; }
+    case BlockEntityType::Pickup: { return "Pickup"; }
+
     invalid_default();
     }
     return nullptr;
@@ -218,8 +201,13 @@ enum BlockEntityFlags : u32 {
     BlockEntityFlag_Collides = (1 << 0)
 };
 
+enum EntityClass {
+    Block, Spatial
+};
+
 struct BlockEntity {
     EntityID id;
+    EntityClass entityClass;
     BlockEntityType type;
     u32 flags;
     EntityInventory* inventory;
@@ -227,11 +215,22 @@ struct BlockEntity {
     // TODO: More data-driven architecture probably?
     b32 dirtyNeighborhood;
     iv3 p; // should be moved only through SetBlockEntityPos
+    v3 offset;
     // TODO: Quaternions
     v3 meshRotation;
     // TODO: Footprints
     Mesh* mesh;
     Material* material;
+    Item pickupItem;
+    u32 itemCount;
+    //
+    iv3* multiBlockEntityFootprint;
+
+    b32 grounded;
+    v3 velocity;
+    f32 scale;
+    f32 acceleration;
+    f32 friction;
 
     // Pipe stuff
     // TODO: use these for update
@@ -258,71 +257,6 @@ struct BlockEntity {
 struct GameWorld;
 struct SimRegion;
 
-// NOTE: Store entities as linked list for now
-struct SpatialEntityStorage {
-    Allocator allocator;
-    SpatialEntity* first;
-    usize count;
-
-    void Init(Allocator allocator) {
-        assert(!this->first);
-        this->allocator = allocator;
-    }
-
-    void Insert(SpatialEntity* entity) {
-        entity->nextInStorage = this->first;
-        if (this->first) this->first->prevInStorage = entity;
-        this->first = entity;
-        this->count++;
-    }
-
-    SpatialEntity* Add() {
-        SpatialEntity* result = nullptr;
-        auto entity = (SpatialEntity*)this->allocator.Alloc(sizeof(SpatialEntity), 0);
-        if (entity) {
-            ClearMemory(entity);
-            entity->nextInStorage = this->first;
-            if (this->first) this->first->prevInStorage = entity;
-            this->first = entity;
-            this->count++;
-            result = entity;
-        }
-        return result;
-    }
-
-
-    void Unlink(SpatialEntity* entity) {
-        auto prev = entity->prevInStorage;
-        auto next = entity->nextInStorage;
-        if (prev) {
-            prev->nextInStorage = next;
-        } else {
-            this->first = next;
-        }
-        if (next) {
-            next->prevInStorage = prev;
-        }
-        assert(this->count);
-        this->count--;
-        entity->prevInStorage = nullptr;
-        entity->nextInStorage = nullptr;
-    }
-
-    void Remove(SpatialEntity* entity) {
-        Unlink(entity);
-        this->allocator.Dealloc(entity);
-    }
-
-    struct Iterator {
-        SpatialEntity* current;
-        SpatialEntity* Begin() {return current; }
-        SpatialEntity* Get() { return current; }
-        void Advance() { current = current->nextInStorage; }
-        bool End() { return current == nullptr; }
-    };
-
-    inline Iterator GetIterator() { return Iterator { this->first }; }
-};
 
 // NOTE: Store entities as linked list for now
 struct BlockEntityStorage {
@@ -415,7 +349,6 @@ struct Chunk {
     u32 primaryMeshPoolIndex;
     u32 secondaryMeshPoolIndex;
 
-    SpatialEntityStorage spatialEntityStorage;
     BlockEntityStorage blockEntityStorage;
 
     GameWorld* world;
@@ -469,7 +402,6 @@ struct GameWorld {
     u64 entitySerialCount;
 
     // Be carefull with pointers
-    BucketArray<SpatialEntity*, 16> spatialEntitiesToDelete;
     // Be carefull with pointers
     BucketArray<BlockEntity*, 16> blockEntitiesToDelete;
 };
@@ -495,9 +427,9 @@ Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z);
 inline Chunk* GetChunk(GameWorld* world, iv3 chunkP) { return GetChunk(world, chunkP.x, chunkP.y, chunkP.z); }
 
 
-SpatialEntity* AddSpatialEntity(GameWorld* world, iv3 p);
-void DeleteSpatialEntity(GameWorld* world, SpatialEntity* entity);
-void DeleteSpatialEntityAfterThisFrame(GameWorld* world, SpatialEntity* entity);
+BlockEntity* AddSpatialEntity(GameWorld* world, iv3 p);
+void DeleteSpatialEntity(GameWorld* world, BlockEntity* entity);
+void DeleteSpatialEntityAfterThisFrame(GameWorld* world, BlockEntity* entity);
 
 EntityKind ClassifyEntity(EntityID id);
 
@@ -505,27 +437,13 @@ BlockEntity* AddBlockEntity(GameWorld* world, iv3 p);
 void DeleteBlockEntity(GameWorld* world, BlockEntity* entity);
 void DeleteBlockEntityAfterThisFrame(GameWorld* world, BlockEntity* entity);
 
-WorldPos NormalizeWorldPos(WorldPos p);
+void MoveSpatialEntity(GameWorld* world, BlockEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup);
 
-WorldPos Offset(WorldPos p, v3 offset);
-
-v3 Difference(WorldPos a, WorldPos b);
-v3 RelativePos(WorldPos origin, WorldPos target);
-
-iv3 GetChunkCoord(i32 x, i32 y, i32 z);
-
-uv3 GetVoxelCoordInChunk(i32 x, i32 y, i32 z);
-
-ChunkPos ChunkPosFromWorldPos(iv3 tile);
-WorldPos WorldPosFromChunkPos(ChunkPos p);
-
-void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup);
-
-bool UpdateEntityResidence(SpatialEntity* entity);
+bool UpdateEntityResidence(GameWorld* world, BlockEntity* entity);
 
 void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP);
 
-void FindOverlapsFor(GameWorld* world, SpatialEntity* entity);
+void FindOverlapsFor(GameWorld* world, BlockEntity* entity);
 
 bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP);
 

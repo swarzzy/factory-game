@@ -46,12 +46,8 @@ void RemoveChunkFromRegion(SimRegion* region, Chunk* chunk) {
         }
     }
 
-    foreach (chunk->spatialEntityStorage) {
-        UnregisterSpatialEntity(region, it->id);
-    }
-
     foreach (chunk->blockEntityStorage) {
-        UnregisterBlockEntity(region, it->id);
+        UnregisterEntity(region, it->id);
     }
 
 
@@ -143,12 +139,8 @@ void AddChunkToRegion(SimRegion* region, Chunk* chunk) {
     chunk->primaryMesh = mesh.mesh;
     chunk->primaryMeshPoolIndex = mesh.index;
 
-    foreach (chunk->spatialEntityStorage) {
-        RegisterSpatialEntity(region, it);
-    }
-
     foreach (chunk->blockEntityStorage) {
-        RegisterBlockEntity(region, it);
+        RegisterEntity(region, it);
     }
 
     chunk->region = region;
@@ -269,7 +261,6 @@ void RegionUpdateChunkStates(SimRegion* region) {
 }
 
 void InitRegion(SimRegion* region) {
-    region->spatialEntityTable = HashMap<EntityID, SpatialEntity*, SimRegionHashFunc, SimRegionHashCompFunc>::Make();
     region->blockEntityTable = HashMap<EntityID, BlockEntity*, SimRegionHashFunc, SimRegionHashCompFunc>::Make();
 }
 
@@ -340,7 +331,7 @@ void DrawRegion(SimRegion* region, RenderGroup* renderGroup, Camera* camera) {
                 assert(chunk->primaryMesh);
                 RenderCommandPushChunk chunkCommand = {};
                 chunkCommand.mesh = mesh;
-                chunkCommand.offset = RelativePos(camera->targetWorldPosition, MakeWorldPos(chunk->p * (i32)Chunk::Size));
+                chunkCommand.offset = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(chunk->p * (i32)Chunk::Size));
                 Push(renderGroup, &chunkCommand);
             }
         }
@@ -349,24 +340,13 @@ void DrawRegion(SimRegion* region, RenderGroup* renderGroup, Camera* camera) {
     Push(renderGroup, &RenderCommandEndChunkBatch{});
 }
 
-void RegisterSpatialEntity(SimRegion* region, SpatialEntity* entity) {
-    auto entry = Add(&region->spatialEntityTable, &entity->id);
-    assert(entry);
-    *entry = entity;
-}
-
-bool UnregisterSpatialEntity(SimRegion* region, EntityID id) {
-    bool result = Delete(&region->spatialEntityTable, &id);
-    return result;
-}
-
-void RegisterBlockEntity(SimRegion* region, BlockEntity* entity) {
+void RegisterEntity(SimRegion* region, BlockEntity* entity) {
     auto entry = Add(&region->blockEntityTable, &entity->id);
     assert(entry);
     *entry = entity;
 }
 
-bool UnregisterBlockEntity(SimRegion* region, EntityID id) {
+bool UnregisterEntity(SimRegion* region, EntityID id) {
     bool result = Delete(&region->blockEntityTable, &id);
     return result;
 }
@@ -491,82 +471,72 @@ void BlockEntityDirtyNeghborhoodUpdate(SimRegion* region, BlockEntity* entity) {
 void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera, Context* context) {
     auto chunk = region->firstChunk;
     while (chunk) {
-        foreach (chunk->spatialEntityStorage) {
-            auto entity = it;
-            if (entity->id.id) {
-                if (entity->type != SpatialEntityType::Player) {
-                    v3 frameAcceleration = V3(0.0f, -20.8f, 0.0f);
-                    v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + entity->velocity * GlobalGameDeltaTime;
-                    entity->velocity += frameAcceleration * GlobalGameDeltaTime;
-                    MoveSpatialEntity(region->world, entity, movementDelta, nullptr, nullptr);
-                } else {
-                    // Player
-                    FindOverlapsFor(region->world, it);
-                }
-
-                if(UpdateEntityResidence(entity)) {
-                    // HACK: Just aborting loop for now
-                    // If entity changed it's residence then iterator bocomes invalid
-                    // We need a way to continue this loop
-                    // Maybe ensure that iterator is still valid if onlu current element changes or smth
-                    break;
-                }
-
-                if (entity->type == SpatialEntityType::Pickup) {
-                    RenderCommandDrawMesh command {};
-                    command.transform = Translate(RelativePos(camera->targetWorldPosition, entity->p));
-                    switch (entity->pickupItem) {
-                    case Item::CoalOre: {
-                        command.mesh = context->coalOreMesh;
-                        command.material = &context->coalOreMaterial;
-                    } break;
-                    case Item::Container: {
-                        command.mesh = context->containerMesh;
-                        command.material = &context->containerMaterial;
-                        command.transform = command.transform * Scale(V3(0.2));
-                    } break;
-                    case Item::Pipe: {
-                        command.mesh = context->pipeStraightMesh;
-                        command.material = &context->pipeMaterial;
-                        command.transform = command.transform * Scale(V3(0.2));
-                    } break;
-
-                        invalid_default();
-                    }
-                    Push(renderGroup, &command);
-                }
-            }
-        }
-
         foreach (chunk->blockEntityStorage) {
             auto entity = it;
-            if (entity->dirtyNeighborhood) {
-                BlockEntityDirtyNeghborhoodUpdate(region, entity);
-            }
-            BlockEntityUpdate(region, entity);
-            assert(entity->id.id);
-            if (entity->mesh && entity->material) {
-                RenderCommandDrawMesh command{};
-                command.transform = Translate(RelativePos(camera->targetWorldPosition, MakeWorldPos(entity->p))) * Rotate(entity->meshRotation);
-                command.mesh = entity->mesh;
-                command.material = entity->material;
-                Push(renderGroup, &command);
+            if (entity->id) {
+                if (entity->entityClass == EntityClass::Spatial) {
+                    if (entity->type != BlockEntityType::Player) {
+                        v3 frameAcceleration = V3(0.0f, -20.8f, 0.0f);
+                        v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + entity->velocity * GlobalGameDeltaTime;
+                        entity->velocity += frameAcceleration * GlobalGameDeltaTime;
+                        MoveSpatialEntity(region->world, entity, movementDelta, nullptr, nullptr);
+                    } else {
+                        // Player
+                        FindOverlapsFor(region->world, it);
+                    }
+
+                    if (UpdateEntityResidence(region->world, entity)) {
+                        // HACK: Just aborting loop for now
+                        // If entity changed it's residence then iterator bocomes invalid
+                        // We need a way to continue this loop
+                        // Maybe ensure that iterator is still valid if onlu current element changes or smth
+                        break;
+                    }
+
+                    if (entity->type == BlockEntityType::Pickup) {
+                        RenderCommandDrawMesh command{};
+                        command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(entity->p, entity->offset)));
+                        switch (entity->pickupItem) {
+                            case Item::CoalOre: {
+                                command.mesh = context->coalOreMesh;
+                                command.material = &context->coalOreMaterial;
+                            } break;
+                            case Item::Container: {
+                                command.mesh = context->containerMesh;
+                                command.material = &context->containerMaterial;
+                                command.transform = command.transform * Scale(V3(0.2));
+                            } break;
+                            case Item::Pipe: {
+                                command.mesh = context->pipeStraightMesh;
+                                command.material = &context->pipeMaterial;
+                                command.transform = command.transform * Scale(V3(0.2));
+                            } break;
+
+                                invalid_default();
+                        }
+                        Push(renderGroup, &command);
+                    }
+                } else {
+                    if (entity->dirtyNeighborhood) {
+                        BlockEntityDirtyNeghborhoodUpdate(region, entity);
+                    }
+                    BlockEntityUpdate(region, entity);
+                    assert(entity->id);
+                    if (entity->mesh && entity->material) {
+                        RenderCommandDrawMesh command{};
+                        command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(entity->p))) * Rotate(entity->meshRotation);
+                        command.mesh = entity->mesh;
+                        command.material = entity->material;
+                        Push(renderGroup, &command);
+                    }
+                }
             }
         }
         chunk = chunk->nextActive;
     }
 }
 
-SpatialEntity* GetSpatialEntity(SimRegion* region, EntityID id) {
-    SpatialEntity* result = nullptr;
-    auto ptr = Get(&region->spatialEntityTable, &id);
-    if (ptr) {
-        result = *ptr;
-    }
-    return result;
-}
-
-BlockEntity* GetBlockEntity(SimRegion* region, EntityID id) {
+BlockEntity* GetEntity(SimRegion* region, EntityID id) {
     BlockEntity* result = nullptr;
     auto ptr = Get(&region->blockEntityTable, &id);
     if (ptr) {

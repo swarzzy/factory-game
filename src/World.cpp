@@ -1,6 +1,8 @@
 #include "World.h"
 #include "Renderer.h"
 
+
+
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z) {
     Voxel* result = &chunk->voxels[x + Chunk::Size * y + Chunk::Size * Chunk::Size * z];
     return result;
@@ -16,10 +18,10 @@ const Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z) {
 
 const Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z) {
     const Voxel* result = nullptr;
-    auto chunkP = ChunkPosFromWorldPos(IV3(x, y, z));
+    auto chunkP = WorldPos::ToChunk(IV3(x, y, z));
     Chunk* chunk = GetChunk(world, chunkP.chunk.x, chunkP.chunk.y, chunkP.chunk.z);
     if (chunk) {
-        result = GetVoxel(chunk, chunkP.voxel.x, chunkP.voxel.y, chunkP.voxel.z);
+        result = GetVoxel(chunk, chunkP.block.x, chunkP.block.y, chunkP.block.z);
     }
     return result;
 }
@@ -64,7 +66,6 @@ Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
 Chunk* AddChunk(GameWorld* world, iv3 coord) {
     auto chunk = (Chunk*)PlatformAlloc(sizeof(Chunk), 0, nullptr);
     ClearMemory(chunk);
-    chunk->spatialEntityStorage.Init(MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
     chunk->blockEntityStorage.Init(MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
     chunk->p = coord;
     chunk->priority = ChunkPriority::Low;
@@ -90,13 +91,12 @@ void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed
     world->context = context;
     world->mesher = mesher;
     world->worldGen.Init(seed);
-    BucketArrayInit(&world->spatialEntitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
     BucketArrayInit(&world->blockEntitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
 }
 
 // TODO: Are 64 bit literals supported on all compilers?
 EntityKind ClassifyEntity(EntityID id) {
-    bool spatial = id.id & 0x8000000000000000ull;
+    bool spatial = id & 0x8000000000000000ull;
     if (spatial) {
         return EntityKind::Spatial;
     } else {
@@ -112,38 +112,32 @@ EntityID GenEntityID(GameWorld* world, EntityKind kind) {
     return result;
 }
 
-SpatialEntity* AddSpatialEntity(GameWorld* world, iv3 p) {
-    SpatialEntity* entity = nullptr;
-    auto chunkP = ChunkPosFromWorldPos(p).chunk;
+BlockEntity* AddSpatialEntity(GameWorld* world, iv3 p) {
+    BlockEntity* entity = nullptr;
+    auto chunkP = WorldPos::ToChunk(p).chunk;
     auto chunk = GetChunk(world, chunkP.x, chunkP.y, chunkP.z);
     if (chunk) {
-        entity = chunk->spatialEntityStorage.Add();
+        entity = chunk->blockEntityStorage.Add();
         if (entity) {
             entity->id = GenEntityID(chunk->world, EntityKind::Spatial);
-            entity->p = MakeWorldPos(p);
-            entity->residenceChunk = chunk;
+            entity->entityClass = EntityClass::Spatial;
+            entity->p = p;
             if (chunk->region) {
-                RegisterSpatialEntity(chunk->region, entity);
+                RegisterEntity(chunk->region, entity);
             }
         }
     }
     return entity;
 }
 
-void DeleteSpatialEntity(GameWorld* world, SpatialEntity* entity) {
-    auto chunk = entity->residenceChunk;
-    UnregisterSpatialEntity(chunk->region, entity->id);
+void DeleteSpatialEntity(GameWorld* world, BlockEntity* entity) {
+    auto chunk = GetChunk(world, WorldPos::ToChunk(entity->p).chunk);
+    assert(chunk);
+    UnregisterEntity(chunk->region, entity->id);
     if (entity->inventory) {
         DeleteEntityInventory(entity->inventory);
     }
-    chunk->spatialEntityStorage.Remove(entity);
-}
-
-void DeleteSpatialEntityAfterThisFrame(GameWorld* world, SpatialEntity* entity) {
-    auto entry = BucketArrayPush(&world->spatialEntitiesToDelete);
-    assert(entry);
-    *entry = entity;
-    entity->deleted = true;
+    chunk->blockEntityStorage.Remove(entity);
 }
 
 BlockEntity* GetBlockEntity(GameWorld* world, iv3 p) {
@@ -169,21 +163,22 @@ void MakeBlockEntityNeighborhoodDirty(GameWorld* world, BlockEntity* entity) {
 
 BlockEntity* AddBlockEntity(GameWorld* world, iv3 p) {
     BlockEntity* entity = nullptr;
-    auto chunkP = ChunkPosFromWorldPos(p);
+    auto chunkP = WorldPos::ToChunk(p);
     auto chunk = GetChunk(world, chunkP.chunk);
     if (chunk) {
-        auto voxel = GetVoxel(chunk, chunkP.voxel);
+        auto voxel = GetVoxel(chunk, chunkP.block);
         if (voxel) {
             if (!IsVoxelCollider(voxel) && (voxel->entity == nullptr)) {
                 entity = chunk->blockEntityStorage.Add();
                 if (entity) {
                     entity->id = GenEntityID(chunk->world, EntityKind::Block);
+                    entity->entityClass = EntityClass::Block;
                     entity->p = p;
-                    auto occupied = OccupyVoxel(chunk, entity, chunkP.voxel);
+                    auto occupied = OccupyVoxel(chunk, entity, chunkP.block);
                     assert(occupied);
                     MakeBlockEntityNeighborhoodDirty(world, entity);
                     if (chunk->region) {
-                        RegisterBlockEntity(chunk->region, entity);
+                        RegisterEntity(chunk->region, entity);
                     }
                 }
             }
@@ -204,13 +199,13 @@ void BlockEntityDeleteBehavior(GameWorld* world, BlockEntity* entity) {
 
 void DeleteBlockEntity(GameWorld* world, BlockEntity* entity) {
     // TODO: Get chunk from region for speed?
-    auto chunkP = ChunkPosFromWorldPos(entity->p);
+    auto chunkP = WorldPos::ToChunk(entity->p);
     auto chunk = GetChunk(world, chunkP.chunk);
     assert(chunk);
     BlockEntityDeleteBehavior(world, entity);
-    auto released = ReleaseVoxel(chunk, entity, chunkP.voxel);
+    auto released = ReleaseVoxel(chunk, entity, chunkP.block);
     assert(released);
-    UnregisterBlockEntity(chunk->region, entity->id);
+    UnregisterEntity(chunk->region, entity->id);
     if (entity->inventory) {
         DeleteEntityInventory(entity->inventory);
     }
@@ -225,18 +220,17 @@ void DeleteBlockEntityAfterThisFrame(GameWorld* world, BlockEntity* entity) {
 }
 
 
-bool UpdateEntityResidence(SpatialEntity* entity) {
+bool UpdateEntityResidence(GameWorld* world, BlockEntity* entity) {
     bool changedResidence = false;
     // TODO: Maybe it's not so fast to go through chunk pointer for every entity
     // Maybe we could just have a position from frame start and a position at frame end
     // and compare them?
-    auto residenceChunkP = entity->residenceChunk->p;
-    auto currentP = ChunkPosFromWorldPos(entity->p.voxel).chunk;
+    auto residenceChunkP = WorldPos::ToChunk(entity->p).chunk;
+    auto currentP = WorldPos::ToChunk(entity->p).chunk;
     if (residenceChunkP != currentP) {
         // TODO: Just pass these pointers as agrs?
-        auto oldChunk = entity->residenceChunk;
-        auto region = oldChunk->region;
-        auto world = region->world;
+        auto oldChunk = GetChunk(world, residenceChunkP);
+        assert(oldChunk);
         auto newChunk = GetChunk(world, currentP.x, currentP.y, currentP.z);
         // TODO: Just asserting for now. Should do something smart here.
         // Entity may move to the chunk which is generated yet (i.e. outside of a region).
@@ -247,85 +241,13 @@ bool UpdateEntityResidence(SpatialEntity* entity) {
 
         // Don't need to update hash map entry since pointer isn't changed
         //UnregisterSpatialEntity(region, entity->id);
-        oldChunk->spatialEntityStorage.Unlink(entity);
-        newChunk->spatialEntityStorage.Insert(entity);
+        oldChunk->blockEntityStorage.Unlink(entity);
+        newChunk->blockEntityStorage.Insert(entity);
         //RegisterSpatialEntity(region, newEntity);
-        entity->residenceChunk = newChunk;
         changedResidence = true;
         log_print("[World] Entity %lu changed it's residence (%ld, %ld, %ld) -> (%ld, %ld, %ld)\n", entity->id, oldChunk->p.x, oldChunk->p.y, oldChunk->p.z, newChunk->p.x, newChunk->p.y, newChunk->p.z);
     }
     return changedResidence;
-}
-
-
-WorldPos NormalizeWorldPos(WorldPos p) {
-    WorldPos result;
-
-    // NOTE: We are not checking against integer overflowing
-    i32 voxelX = (i32)Floor((p.offset.x + Voxel::HalfDim) / Voxel::Dim);
-    i32 voxelY = (i32)Floor((p.offset.y + Voxel::HalfDim) / Voxel::Dim);
-    i32 voxelZ = (i32)Floor((p.offset.z + Voxel::HalfDim) / Voxel::Dim);
-
-    result.offset.x = p.offset.x - voxelX * Voxel::Dim;
-    result.offset.y = p.offset.y - voxelY * Voxel::Dim;
-    result.offset.z = p.offset.z - voxelZ * Voxel::Dim;
-
-    result.voxel.x = p.voxel.x + voxelX;
-    result.voxel.y = p.voxel.y + voxelY;
-    result.voxel.z = p.voxel.z + voxelZ;
-
-    return result;
-}
-
-WorldPos Offset(WorldPos p, v3 offset) {
-    p.offset += offset;
-    auto result = NormalizeWorldPos(p);
-    return result;
-}
-
-v3 Difference(WorldPos a, WorldPos b) {
-    v3 result;
-    iv3 voxelDiff = a.voxel - b.voxel;
-    v3 offsetDiff = a.offset - b.offset;
-    result = Hadamard(V3(voxelDiff), V3(Voxel::Dim)) + offsetDiff;
-    return result;
-}
-
-v3 RelativePos(WorldPos origin, WorldPos target) {
-    v3 result = Difference(target, origin);
-    return result;
-}
-
-iv3 GetChunkCoord(i32 x, i32 y, i32 z) {
-    iv3 result;
-    result.x = x >> Chunk::BitShift;
-    result.y = y >> Chunk::BitShift;
-    result.z = z >> Chunk::BitShift;
-    return result;
-}
-
-uv3 GetVoxelCoordInChunk(i32 x, i32 y, i32 z) {
-    uv3 result;
-    result.x = x & Chunk::BitMask;
-    result.y = y & Chunk::BitMask;
-    result.z = z & Chunk::BitMask;
-    return result;
-}
-
-ChunkPos ChunkPosFromWorldPos(iv3 tile) {
-    ChunkPos result;
-    iv3 c = GetChunkCoord(tile.x, tile.y, tile.z);
-    uv3 t = GetVoxelCoordInChunk(tile.x, tile.y, tile.z);
-    result = ChunkPos{c, t};
-    return result;
-}
-
-WorldPos WorldPosFromChunkPos(ChunkPos p) {
-    WorldPos result = {};
-    result.voxel.x = p.chunk.x * Chunk::Size + p.voxel.x;
-    result.voxel.y = p.chunk.y * Chunk::Size + p.voxel.y;
-    result.voxel.z = p.chunk.z * Chunk::Size + p.voxel.z;
-    return result;
 }
 
 bool IsVoxelCollider(const Voxel* voxel) {
@@ -341,26 +263,26 @@ bool IsVoxelCollider(const Voxel* voxel) {
     return hasColliderTerrain || hasColliderEntity;
 }
 
-void ProcessSpatialEntityOverlap(GameWorld* world, SpatialEntity* entity, SpatialEntity* overlapped) {
+void ProcessEntityOverlap(GameWorld* world, BlockEntity* entity, BlockEntity* overlapped) {
     switch (entity->type) {
-    case SpatialEntityType::Player: {
-        if (overlapped->type == SpatialEntityType::Pickup) {
+    case BlockEntityType::Player: {
+        if (overlapped->type == BlockEntityType::Pickup) {
             assert(entity->inventory);
             auto itemRemainder = EntityInventoryPushItem(entity->inventory, overlapped->pickupItem, overlapped->itemCount);
             if (itemRemainder == 0) {
-                DeleteSpatialEntityAfterThisFrame(world, overlapped);
+                DeleteBlockEntityAfterThisFrame(world, overlapped);
             } else {
                 overlapped->itemCount = itemRemainder;
             }
-            //log_print("Player is overlapping with: %llu %s (%ld, %ld, %ld)\n", overlapped->id, ToString(overlapped->type), overlapped->p.voxel.x, overlapped->p.voxel.y, overlapped->p.voxel.z);
+            //log_print("Player is overlapping with: %llu %s (%ld, %ld, %ld)\n", overlapped->id, ToString(overlapped->type), overlapped->p.block.x, overlapped->p.block.y, overlapped->p.block.z);
         }
     } break;
     invalid_default();
     }
 }
 
-void FindOverlapsFor(GameWorld* world, SpatialEntity* entity) {
-    WorldPos origin = entity->p;
+void FindOverlapsFor(GameWorld* world, BlockEntity* entity) {
+    WorldPos origin = WorldPos::Make(entity->p, entity->offset);
 
     bool overlaps = false;
     bool resolved = true;
@@ -368,30 +290,32 @@ void FindOverlapsFor(GameWorld* world, SpatialEntity* entity) {
     v3 colliderSize = V3(entity->scale);
     v3 colliderRadius = colliderSize * 0.5f;
 
-    iv3 bboxMin = Offset(origin, -colliderRadius).voxel - IV3(1);
-    iv3 bboxMax = Offset(origin, colliderRadius).voxel + IV3(1);
+    iv3 bboxMin = WorldPos::Offset(origin, -colliderRadius).block - IV3(1);
+    iv3 bboxMax = WorldPos::Offset(origin, colliderRadius).block + IV3(1);
 
-    auto minChunk = ChunkPosFromWorldPos(bboxMin).chunk;
-    auto maxChunk = ChunkPosFromWorldPos(bboxMax).chunk;
+    auto minChunk = WorldPos::ToChunk(bboxMin).chunk;
+    auto maxChunk = WorldPos::ToChunk(bboxMax).chunk;
 
     for (i32 z = minChunk.z; z <= maxChunk.z; z++) {
         for (i32 y = minChunk.y; y <= maxChunk.y; y++) {
             for (i32 x = minChunk.x; x <= maxChunk.x; x++) {
                 auto chunk = GetChunk(world, x, y, z);
                 if (chunk) {
-                    foreach(chunk->spatialEntityStorage) {
-                        if (it->id != entity->id) {
-                            v3 relativePos = RelativePos(entity->p, it->p);
-                            v3 testSize = V3(entity->scale);
-                            v3 testRadius = colliderSize * 0.5f;
-                            v3 testMin = relativePos - testRadius - colliderRadius;
-                            v3 testMax = relativePos + testRadius + colliderRadius;
-                            v3 bary = GetBarycentric(testMin, testMax, V3(0.0f));
-                            // TODO: Inside bary
-                            if ((bary.x > 0.0f && bary.x <= 1.0f) &&
-                                (bary.y > 0.0f && bary.y <= 1.0f) &&
-                                (bary.z > 0.0f && bary.z <= 1.0f)) {
-                                ProcessSpatialEntityOverlap(world, entity, it);
+                    foreach (chunk->blockEntityStorage) {
+                        if (it->entityClass == EntityClass::Spatial) {
+                            if (it->id != entity->id) {
+                                v3 relativePos = WorldPos::Relative(WorldPos::Make(entity->p), WorldPos::Make(it->p));
+                                v3 testSize = V3(entity->scale);
+                                v3 testRadius = colliderSize * 0.5f;
+                                v3 testMin = relativePos - testRadius - colliderRadius;
+                                v3 testMax = relativePos + testRadius + colliderRadius;
+                                v3 bary = GetBarycentric(testMin, testMax, V3(0.0f));
+                                // TODO: Inside bary
+                                if ((bary.x > 0.0f && bary.x <= 1.0f) &&
+                                    (bary.y > 0.0f && bary.y <= 1.0f) &&
+                                    (bary.z > 0.0f && bary.z <= 1.0f)) {
+                                    ProcessEntityOverlap(world, entity, it);
+                                }
                             }
                         }
                     }
@@ -406,8 +330,9 @@ struct OverlapResolveResult {
     bool resolved;
 };
 
-OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity) {
-    WorldPos origin = entity->p;
+OverlapResolveResult TryResolveOverlaps(GameWorld* world, BlockEntity* entity) {
+    assert(entity->entityClass == EntityClass::Spatial);
+    WorldPos origin = WorldPos::Make(entity->p);
 
     bool overlaps = false;
     bool resolved = true;
@@ -415,8 +340,8 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
     v3 colliderSize = V3(entity->scale);
     v3 colliderRadius = colliderSize * 0.5f;
 
-    iv3 bboxMin = Offset(origin, -colliderRadius).voxel - IV3(1);
-    iv3 bboxMax = Offset(origin, colliderRadius).voxel + IV3(1);
+    iv3 bboxMin = WorldPos::Offset(origin, -colliderRadius).block - IV3(1);
+    iv3 bboxMax = WorldPos::Offset(origin, colliderRadius).block + IV3(1);
 
     for (i32 z = bboxMin.z; z <= bboxMax.z; z++) {
         for (i32 y = bboxMin.y; y <= bboxMax.y; y++) {
@@ -432,7 +357,7 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
                     auto testVoxel = GetVoxel(world, x, y, z);
                     bool collides = IsVoxelCollider(testVoxel);
                     if (collides) {
-                        v3 relOrigin = RelativePos(MakeWorldPos(IV3(x, y, z)), origin);
+                        v3 relOrigin = WorldPos::Relative(WorldPos::Make(IV3(x, y, z)), origin);
                         v3 minCorner = V3(-Voxel::HalfDim);
                         v3 maxCorner = V3(Voxel::HalfDim);
                         // NOTE: Minkowski sum
@@ -457,7 +382,7 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
                                         auto neighborVoxel = GetVoxel(world, px, py, pz);
                                         if (!IsVoxelCollider(neighborVoxel)) {
                                             hasFreeNeighbor = true;
-                                            v3 neighborRelOrigin = RelativePos(MakeWorldPos(IV3(x, y, z)), MakeWorldPos(IV3(px, py, pz)));
+                                            v3 neighborRelOrigin = WorldPos::Relative(WorldPos::Make(IV3(x, y, z)), WorldPos::Make(IV3(px, py, pz)));
                                             f32 dist = LengthSq(neighborRelOrigin - relOrigin);
                                             if (dist < closestNeighborDist) {
                                                 closestNeighborDist = dist;
@@ -473,7 +398,7 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
                                 // TODO: this is temporary hack
                                 // Wee need an actual way to compute this coordinate
                                 v3 relNewOrigin = Normalize(closestNeighborRelOrigin + relOrigin) * Voxel::Dim + F32::Eps;
-                                origin = Offset(MakeWorldPos(IV3(x, y, z)), relNewOrigin);
+                                origin = WorldPos::Offset(WorldPos::Make(IV3(x, y, z)), relNewOrigin);
                             } else {
                                 resolved = false;
                             }
@@ -486,7 +411,8 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
     }
 
     if (overlaps && resolved) {
-        entity->p = origin;
+        entity->p = origin.block;
+        entity->offset = origin.offset;
     }
 
     OverlapResolveResult result = { overlaps, resolved };
@@ -495,7 +421,7 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
 }
 
 
-void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup) {
+void MoveSpatialEntity(GameWorld* world, BlockEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup) {
 
     auto overlapResolveResult = TryResolveOverlaps(world, entity);
 
@@ -510,7 +436,7 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
         v3 colliderSize = V3(entity->scale);
         v3 colliderRadius = colliderSize * 0.5f;
 
-        WorldPos origin = entity->p;
+        WorldPos origin = WorldPos::Make(entity->p, entity->offset);
         v3 velocity = entity->velocity;
 
         for (u32 pass = 0; pass < 4; pass++) {
@@ -518,11 +444,11 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
             f32 tMin = 1.0f;
             v3 hitNormal = {};
 
-            auto target = Offset(origin, delta);
-            iv3 originBoxMin = Offset(origin, -colliderRadius).voxel - IV3(1);
-            iv3 originBoxMax = Offset(origin, colliderRadius).voxel + IV3(1);
-            iv3 targetBoxMin = Offset(target, -colliderRadius).voxel - IV3(1);
-            iv3 targetBoxMax = Offset(target, colliderRadius).voxel + IV3(1);
+            auto target = WorldPos::Offset(origin, delta);
+            iv3 originBoxMin = WorldPos::Offset(origin, -colliderRadius).block - IV3(1);
+            iv3 originBoxMax = WorldPos::Offset(origin, colliderRadius).block + IV3(1);
+            iv3 targetBoxMin = WorldPos::Offset(target, -colliderRadius).block - IV3(1);
+            iv3 targetBoxMax = WorldPos::Offset(target, colliderRadius).block + IV3(1);
 
             iv3 minB = IV3(Min(originBoxMin.x, targetBoxMin.x) , Min(originBoxMin.y, targetBoxMin.y), Min(originBoxMin.z, targetBoxMin.z));
             iv3 maxB = IV3(Max(originBoxMax.x, targetBoxMax.x), Max(originBoxMax.y, targetBoxMax.y), Max(originBoxMax.z, targetBoxMax.z));
@@ -541,7 +467,7 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
                             auto testVoxel = GetVoxel(world, x, y, z);
                             bool collides = IsVoxelCollider(testVoxel);
                             if (collides) {
-                                v3 relOrigin = RelativePos(MakeWorldPos(IV3(x, y, z)), origin);
+                                v3 relOrigin = WorldPos::Relative(WorldPos::Make(IV3(x, y, z)), origin);
                                 v3 minCorner = V3(-Voxel::HalfDim);
                                 v3 maxCorner = V3(Voxel::HalfDim);
                                 // NOTE: Minkowski sum
@@ -567,14 +493,14 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
                 }
             }
 
-            origin = Offset(origin, delta * tMin);
+            origin = WorldPos::Offset(origin, delta * tMin);
             //hitNormal = -hitNormal;
 
             if (hit) {
                 if (hitNormal.y == 1.0f) {
                     entity->grounded = true;
                 }
-                delta = Difference(target, origin);
+                delta = WorldPos::Difference(target, origin);
                 velocity -= Dot(velocity, hitNormal) * hitNormal;
                 delta -= Dot(delta, hitNormal) * hitNormal;
 
@@ -582,25 +508,28 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
                 break;
             }
         }
-        entity->p = origin;
+        entity->p = origin.block;
+        entity->offset = origin.offset;
         entity->velocity = velocity;
     }
 }
 
 void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP) {
-    auto chunkPos = ChunkPosFromWorldPos(voxelP);
+    auto chunkPos = WorldPos::ToChunk(voxelP);
     auto chunk = GetChunk(world, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
-    auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
+    auto voxel = GetVoxelForModification(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
     if (voxel->value == VoxelValue::CoalOre) {
         RandomSeries series = {};
         for (u32 i = 0; i < 4; i++) {
             auto entity = AddSpatialEntity(world, voxelP);
             if (entity) {
                 v3 randomOffset = V3(RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f);
-                entity->p = MakeWorldPos(voxelP, randomOffset);
-                // TODO: SetEntityPos
+                auto worldPos = WorldPos::Make(voxelP, randomOffset);
+                entity->p = worldPos.block;
+                entity->offset = worldPos.offset;
+                    // TODO: SetEntityPos
                 entity->scale = 0.2f;
-                entity->type = SpatialEntityType::Pickup;
+                entity->type = BlockEntityType::Pickup;
                 entity->pickupItem = Item::CoalOre;
                 entity->itemCount = 1;
             }
@@ -615,7 +544,7 @@ void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP) {
             if (entity) {
                 // TODO: SetEntityPos
                 entity->scale = 0.2f;
-                entity->type = SpatialEntityType::Pickup;
+                entity->type = BlockEntityType::Pickup;
                 entity->pickupItem = Item::Container;
                 entity->itemCount = 1;
             }
@@ -625,7 +554,7 @@ void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP) {
             if (entity) {
                 // TODO: SetEntityPos
                 entity->scale = 0.2f;
-                entity->type = SpatialEntityType::Pickup;
+                entity->type = BlockEntityType::Pickup;
                 entity->pickupItem = Item::Pipe;
                 entity->itemCount = 1;
             }
@@ -635,7 +564,7 @@ void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP) {
             if (entity) {
                 // TODO: SetEntityPos
                 entity->scale = 0.2f;
-                entity->type = SpatialEntityType::Pickup;
+                entity->type = BlockEntityType::Pickup;
                 entity->pickupItem = Item::Barrel;
                 entity->itemCount = 1;
             }
@@ -688,8 +617,8 @@ bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP) {
     // TODO validate coords
     //assert(newP)
     if (newP != entity->p) {
-        auto newChunkP = ChunkPosFromWorldPos(newP);
-        auto oldChunkP = ChunkPosFromWorldPos(entity->p);
+        auto newChunkP = WorldPos::ToChunk(newP);
+        auto oldChunkP = WorldPos::ToChunk(entity->p);
         auto oldChunk = GetChunk(world, oldChunkP.chunk);
         auto newChunk = GetChunk(world, newChunkP.chunk);
         assert(oldChunk);
@@ -700,10 +629,10 @@ bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP) {
         // is actually ok since spatial entities won't have complicated behavior and movements. Of the will?
         // see TODO in UpdateEntityResidence
         assert(newChunk);
-        auto occupied = OccupyVoxel(newChunk, entity, newChunkP.voxel);
+        auto occupied = OccupyVoxel(newChunk, entity, newChunkP.block);
 
         if (occupied) {
-            auto released = ReleaseVoxel(oldChunk, entity, oldChunkP.voxel);
+            auto released = ReleaseVoxel(oldChunk, entity, oldChunkP.block);
             assert(released);
             oldChunk->blockEntityStorage.Unlink(entity);
             newChunk->blockEntityStorage.Insert(entity);
@@ -719,9 +648,9 @@ bool BuildBlock(Context* context, GameWorld* world, iv3 p, Item item) {
     bool result = false;
     auto blockValue = ItemToBlock(item);
     if (blockValue != VoxelValue::Empty) {
-        auto chunkPos = ChunkPosFromWorldPos(p);
+        auto chunkPos = WorldPos::ToChunk(p);
         auto chunk = GetChunk(world, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
-        auto voxel = GetVoxelForModification(chunk, chunkPos.voxel.x, chunkPos.voxel.y, chunkPos.voxel.z);
+        auto voxel = GetVoxelForModification(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
         voxel->value = blockValue;
         result = true;
     } else {

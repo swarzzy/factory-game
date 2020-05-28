@@ -325,6 +325,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "Console.cpp"
 #include "ConsoleCommands.cpp"
 #include "UI.cpp"
+#include "Position.cpp"
 
 
 // NOTE: Platform specific intrinsics implementation begins here

@@ -2,7 +2,7 @@
 
 bool OpenInventoryForEntity(UI* ui, Context* context, EntityID id) {
     bool opened = false;
-    auto entity = GetBlockEntity(&context->playerRegion, id);
+    auto entity = GetEntity(&context->playerRegion, id);
     if (entity && entity->inventory) {
         ui->entityToOpenInventoryFor = id;
         opened = true;
@@ -53,7 +53,7 @@ void TickEntityUI(UI* ui, Context* context, BlockEntity* entity) {
                         if (ImGui::Button("", ImVec2(50, 50))) {
                             if (ui->itemSelected) {
                                 if (ui->selectedInPlayer) {
-                                    SpatialEntity* player = GetSpatialEntity(&context->playerRegion, ui->player->entityID);
+                                    BlockEntity* player = GetEntity(&context->playerRegion, ui->player->entityID);
                                     assert(player);
                                     UIMoveItemSlot(player->inventory, inventory, ui->selectedItemSlotIndex, i);
                                 } else {
@@ -87,7 +87,7 @@ void TickEntityUI(UI* ui, Context* context, BlockEntity* entity) {
 void TickUI(UI* ui, Context* context) {
     BlockEntity* blockEntity = nullptr;
     if (ui->entityToOpenInventoryFor != EntityID {}) {
-        auto entity = GetBlockEntity(&context->playerRegion, ui->entityToOpenInventoryFor);
+        auto entity = GetEntity(&context->playerRegion, ui->entityToOpenInventoryFor);
         if (entity) {
             blockEntity = entity;
         } else {
@@ -117,7 +117,7 @@ void TickUI(UI* ui, Context* context) {
         auto windowFlags = 0; //ImGuiWindowFlags_NoResize; //ImGuiWindowFlags_AlwaysAutoResize;
         if (ImGui::Begin("Player inventory", &ui->openPlayerInventory, windowFlags)) {
             if (ImGui::BeginChild("inventory")) {
-                auto entity = GetSpatialEntity(ui->player->region, ui->player->entityID);
+                auto entity = GetEntity(ui->player->region, ui->player->entityID);
                 assert(entity);
                 auto inventory = entity->inventory;
                 u32 i = 0;
@@ -138,7 +138,7 @@ void TickUI(UI* ui, Context* context) {
                         if (ImGui::Button("", ImVec2(50, 50))) {
                             if (ui->itemSelected) {
                                 if (!ui->selectedInPlayer) {
-                                    BlockEntity* entity = GetBlockEntity(&context->playerRegion, ui->entityToOpenInventoryFor);
+                                    BlockEntity* entity = GetEntity(&context->playerRegion, ui->entityToOpenInventoryFor);
                                     assert(entity);
                                     UIMoveItemSlot(entity->inventory, inventory, ui->selectedItemSlotIndex, i);
                                 } else {

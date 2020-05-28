@@ -91,9 +91,9 @@ void GenChunk(WorldGen* gen, Chunk* chunk) {
     if (chunk->p.y == 0) {
         for (u32 bz = 0; bz < Chunk::Size; bz++) {
             for (u32 bx = 0; bx < Chunk::Size; bx++) {
-                auto wp = WorldPosFromChunkPos(ChunkPos{chunk->p, UV3(bx, 0, bz)});
-                u32 grassHeight = GetHeightFromNoise(&gen->noise, wp.voxel.x, wp.voxel.z, 10);
-                u32 rockHeight = GetHeightFromNoise(&gen->anotherNoise, wp.voxel.x, wp.voxel.z, 8);
+                auto wp = ChunkPos::ToWorld(ChunkPos{chunk->p, UV3(bx, 0, bz)});
+                u32 grassHeight = GetHeightFromNoise(&gen->noise, wp.block.x, wp.block.z, 10);
+                u32 rockHeight = GetHeightFromNoise(&gen->anotherNoise, wp.block.x, wp.block.z, 8);
                 auto height = grassHeight;
                 auto value = grassHeight > rockHeight ? VoxelValue::Grass : VoxelValue::Stone;
                 if (rockHeight <= 7 && grassHeight <= 7) {

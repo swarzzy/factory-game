@@ -410,16 +410,16 @@ void FluxInit(Context* context) {
     context->barrelMaterial.pbr.normalMap = &context->barrelNormal;
     context->barrelMaterial.pbr.AOMap = &context->barrelAO;
 
-    context->camera.targetWorldPosition = MakeWorldPos(IV3(0, 15, 0));
+    context->camera.targetWorldPosition = WorldPos::Make(IV3(0, 15, 0));
 
     context->playerRegion.world = &context->gameWorld;
 
     InitRegion(&context->playerRegion);
     ResizeRegion(&context->playerRegion, GameWorld::ViewDistance, context->gameArena);
-    MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(context->camera.targetWorldPosition.voxel).chunk);
+    MoveRegion(&context->playerRegion, WorldPos::ToChunk(context->camera.targetWorldPosition.block).chunk);
 
     auto player = AddSpatialEntity(gameWorld, IV3(0, 30, 0));
-    player->type = SpatialEntityType::Player;
+    player->type = BlockEntityType::Player;
     player->scale = 0.95f;
     player->acceleration = 70.0f;
     player->friction = 10.0f;
@@ -524,8 +524,8 @@ void FluxUpdate(Context* context) {
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->freeBlockCount);
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->totalBlockCount);
 
-    auto player = GetSpatialEntity(&context->playerRegion, context->gameWorld.player.entityID);
-    auto oldPlayerP = player->p;
+    auto player = GetEntity(&context->playerRegion, context->gameWorld.player.entityID);
+    auto oldPlayerP = WorldPos::Make(player->p, player->offset);
 
     v3 frameAcceleration = {};
 
@@ -599,13 +599,13 @@ void FluxUpdate(Context* context) {
     bool hitGround = false;
     MoveSpatialEntity(&context->gameWorld, player, movementDelta, camera, group);
 
-    if (ChunkPosFromWorldPos(player->p.voxel).chunk != ChunkPosFromWorldPos(oldPlayerP.voxel).chunk) {
-        MoveRegion(&context->playerRegion, ChunkPosFromWorldPos(player->p.voxel).chunk);
+    if (WorldPos::ToChunk(player->p).chunk != WorldPos::ToChunk(oldPlayerP.block).chunk) {
+        MoveRegion(&context->playerRegion, WorldPos::ToChunk(player->p).chunk);
     }
 
     UpdateEntities(&context->playerRegion, group, camera, context);
 
-    auto playerChunk = ChunkPosFromWorldPos(player->p.voxel).chunk;
+    auto playerChunk = WorldPos::ToChunk(player->p).chunk;
     DEBUG_OVERLAY_TRACE(playerChunk);
 
     RegionUpdateChunkStates(&context->playerRegion);
@@ -622,8 +622,8 @@ void FluxUpdate(Context* context) {
         v3 rd = camera->mouseRay;
         f32 dist = 10.0f;
 
-        iv3 roWorld = Offset(camera->targetWorldPosition, ro).voxel;
-        iv3 rdWorld = Offset(camera->targetWorldPosition, ro + rd * dist).voxel;
+        iv3 roWorld = WorldPos::Offset(camera->targetWorldPosition, ro).block;
+        iv3 rdWorld = WorldPos::Offset(camera->targetWorldPosition, ro + rd * dist).block;
 
         iv3 min = IV3(Min(roWorld.x, rdWorld.x), Min(roWorld.y, rdWorld.y), Min(roWorld.z, rdWorld.z)) - IV3(1);
         iv3 max = IV3(Max(roWorld.x, rdWorld.x), Max(roWorld.y, rdWorld.y), Max(roWorld.z, rdWorld.z)) + IV3(1);
@@ -639,8 +639,8 @@ void FluxUpdate(Context* context) {
                 for (i32 x = min.x; x < max.x; x++) {
                     const Voxel* voxel = GetVoxel(&context->gameWorld, x, y, z);
                     if (voxel && (voxel->value != VoxelValue::Empty || voxel->entity)) {
-                        WorldPos voxelWorldP = MakeWorldPos(x, y, z);
-                        v3 voxelRelP = RelativePos(camera->targetWorldPosition, voxelWorldP);
+                        WorldPos voxelWorldP = WorldPos::Make(x, y, z);
+                        v3 voxelRelP = WorldPos::Relative(camera->targetWorldPosition, voxelWorldP);
                         BBoxAligned voxelAABB;
                         voxelAABB.min = voxelRelP - V3(Voxel::HalfDim);
                         voxelAABB.max = voxelRelP + V3(Voxel::HalfDim);
@@ -650,7 +650,7 @@ void FluxUpdate(Context* context) {
                         auto intersection = Intersect(voxelAABB, ro, rd, 0.0f, dist); // TODO: Raycast distance
                         if (intersection.hit && intersection.t < tMin) {
                             tMin = intersection.t;
-                            hitVoxel = voxelWorldP.voxel;
+                            hitVoxel = voxelWorldP.block;
                             hitNormal = intersection.normal;
                             hitNormalInt = intersection.iNormal;
                             if (voxel->entity) {
@@ -665,7 +665,7 @@ void FluxUpdate(Context* context) {
         context->gameWorld.player.selectedEntity = hitEntity;
 
         if (hitEntity != EntityID {0}) {
-            BlockEntity* entity = GetBlockEntity(&context->playerRegion, hitEntity); {
+            BlockEntity* entity = GetEntity(&context->playerRegion, hitEntity); {
                 if (entity) {
                     DrawEntityInfo(&context->ui, entity);
                 }
@@ -691,8 +691,8 @@ void FluxUpdate(Context* context) {
 
             iv3 selectedVoxelPos = context->gameWorld.player.selectedVoxel;
 
-            v3 minP = RelativePos(camera->targetWorldPosition, MakeWorldPos(selectedVoxelPos));
-            v3 maxP = RelativePos(camera->targetWorldPosition, MakeWorldPos(selectedVoxelPos));
+            v3 minP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
+            v3 maxP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
             minP -= V3(Voxel::HalfDim);
             maxP += V3(Voxel::HalfDim);
             DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);
@@ -700,21 +700,15 @@ void FluxUpdate(Context* context) {
 
     }
 
-    // Deleting entities
-    foreach(context->gameWorld.spatialEntitiesToDelete) {
-        assert(it);
-        auto entity = *it;
-        assert(entity->deleted);
-        DeleteSpatialEntity(&context->gameWorld, entity);
-    }
-
-    BucketArrayClear(&context->gameWorld.spatialEntitiesToDelete);
-
     foreach(context->gameWorld.blockEntitiesToDelete) {
         assert(it);
         auto entity = *it;
         assert(entity->deleted);
-        DeleteBlockEntity(&context->gameWorld, entity);
+        if (entity->entityClass == EntityClass::Spatial) {
+            DeleteSpatialEntity(&context->gameWorld, entity);
+        } else {
+            DeleteBlockEntity(&context->gameWorld, entity);
+        }
     }
 
     BucketArrayClear(&context->gameWorld.blockEntitiesToDelete);
@@ -724,7 +718,7 @@ void FluxUpdate(Context* context) {
 
     if (camera->mode != CameraMode::Gameplay) {
         RenderCommandDrawMesh command {};
-        command.transform = Translate(RelativePos(camera->targetWorldPosition, player->p));
+        command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(player->p)));
         command.mesh = context->playerMesh;
         command.material = &context->playerMaterial;
         Push(group, &command);
