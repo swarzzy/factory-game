@@ -16,6 +16,9 @@ inline void AssertHandler(void* data, const char* file, const char* func, u32 li
     debug_break();
 }
 
+static Context* _GlobalContext = nullptr;
+inline Context* GetContext() { return _GlobalContext; }
+
 // NOTE: Platforn globals
 static PlatformState* _GlobalPlatform = 0;
 #define GlobalPlatform (*((_GlobalPlatform)))
@@ -231,6 +234,8 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         context->gameArena = gameArena;
         context->tempArena = tempArena;
 
+        _GlobalContext = context;
+
         InitLogger(&context->logger, gameArena);
         GlobalLoggerData = &context->logger;
         InitConsole(&context->console, &context->logger, context->gameArena, context);
@@ -251,6 +256,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
         _GlobalPlatform = platform;
+        _GlobalContext = context;
 #if defined(DEBUG_OPENGL)
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         glDebugMessageCallback(OpenglDebugCallback, 0);
@@ -326,6 +332,10 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "ConsoleCommands.cpp"
 #include "UI.cpp"
 #include "Position.cpp"
+#include "Inventory.cpp"
+#include "Entity.cpp"
+#include "Pickup.cpp"
+#include "Player.cpp"
 
 
 // NOTE: Platform specific intrinsics implementation begins here

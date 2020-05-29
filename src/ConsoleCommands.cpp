@@ -50,7 +50,7 @@
             if (varName) {
                 bool variableRecognized = false;
                 // NOTE: Register variables here
-                REGISTER_SET_FLOAT("playerRunSpeed", context->gameWorld.player.runAcceleration);
+                //REGISTER_SET_FLOAT("playerRunSpeed", context->gameWorld.player.runAcceleration);
                 //REGISTER_SET_IV3("playerP", context->gameWorld.playerEntity.p.block);
 
                 if (!variableRecognized) {
@@ -144,12 +144,13 @@ void CameraCommand(Console* console, Context* context, ConsoleCommandArgs* args)
 }
 
 void AddEntityCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
+    #if 0
     auto chunk = GetChunk(&context->gameWorld, 0, 0, 0);
     if (chunk) {
-        auto entity = AddSpatialEntity(&context->gameWorld, IV3(0, 30, 0));
+        auto entity = AddSpatialEntity(&context->gameWorld, WorldPos::Make(0, 30, 0));
         if (entity) {
             entity->scale = 0.4f;
-            entity->type = BlockEntityType::Pickup;
+            entity->type = EntityType::Pickup;
             entity->pickupItem = Item::CoalOre;
             LogMessage(console->logger, "Entity with id %llu added\n", entity->id);
         } else {
@@ -158,6 +159,7 @@ void AddEntityCommand(Console* console, Context* context, ConsoleCommandArgs* ar
     } else {
         LogMessage(console->logger, "Failed to add entity. Chunk is not exist\n");
     }
+    #endif
 }
 
 void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
@@ -173,11 +175,10 @@ void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs*
         auto arg4Value = StringToInt(arg4);
         if (arg1Value.succeed && arg2Value.succeed && arg3Value.succeed && arg4Value.succeed) {
             auto id = arg1Value.value;
-            auto entity = GetEntity(&context->playerRegion, EntityID {(u64)id});
-            if (entity) {
-                auto worldPos = WorldPos::Make(IV3(arg2Value.value, arg3Value.value, arg4Value.value));
-                entity->p = worldPos.block;
-                entity->offset = worldPos.offset;
+            auto _entity = GetEntity(&context->playerRegion, EntityID {(u64)id});
+            if (_entity && _entity->kind == EntityKind::Spatial) {
+                auto entity = static_cast<SpatialEntity*>(_entity);
+                entity->p = WorldPos::Make(IV3(arg2Value.value, arg3Value.value, arg4Value.value));
             } else {
                 LogMessage(console->logger, "Entity with id %lu not found\n", id);
             }
@@ -190,10 +191,12 @@ void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs*
 }
 
 void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
+    // TODO: Enable this
+#if 0
     auto region = &context->playerRegion;
     LogMessage(console->logger, "\nSpatial entities in region:\n");
     for (auto entity : region->blockEntityTable) {
-        if (entity->type == BlockEntityType::Pickup) {
+        if (entity->type == EntityType::Pickup) {
             LogMessage(console->logger, "%llu: %s:%s at position (%d, %d, %d)\n", entity->id, ToString(entity->type), ToString(entity->pickupItem), entity->p.x, entity->p.y, entity->p.z);
         } else {
             LogMessage(console->logger, "%llu: %s at position (%d, %d, %d)\n", entity->id, ToString(entity->type), entity->p.x, entity->p.y, entity->p.z);
@@ -203,6 +206,7 @@ void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs
     for (auto entity : region->blockEntityTable) {
         LogMessage(console->logger, "%llu: %s at position (%d, %d, %d)\n", entity->id, ToString(entity->type), entity->p.x, entity->p.y, entity->p.z);
     }
+#endif
 }
 
 void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
@@ -210,6 +214,7 @@ void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleComman
 }
 
 void PrintPlayerInventoryCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
+    #if 0
     auto region = &context->playerRegion;
     auto player = GetEntity(region, context->gameWorld.player.entityID);
     assert(player);
@@ -222,4 +227,5 @@ void PrintPlayerInventoryCommand(Console* console, Context* context, ConsoleComm
             LogMessage(console->logger, "%s: %lu\n", ToString(slot->item), slot->count);
         }
     }
+    #endif
 }

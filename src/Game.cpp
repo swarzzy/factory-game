@@ -3,13 +3,15 @@
 #include "DebugOverlay.h"
 #include "Resource.h"
 
+#include "Player.h"
+
 #include <stdlib.h>
 
-BlockEntity* CreateContainer(Context* context, GameWorld* world, iv3 p) {
+Entity* CreateContainer(Context* context, GameWorld* world, iv3 p) {
     auto container = AddBlockEntity(world, p);
     if (container) {
-        container->type = BlockEntityType::Container;
-        container->flags |= BlockEntityFlag_Collides;
+        container->type = EntityType::Container;
+        container->flags |= EntityFlag_Collides;
         container->inventory = AllocateEntityInventory(64, 128);
         container->mesh = context->containerMesh;
         container->material = &context->containerMaterial;
@@ -23,12 +25,12 @@ void OrientPipe(Context* context, GameWorld* world, BlockEntity* pipe) {
     iv3 p = pipe->p;
 
     // TODO: Be carefull with pointers in blocks
-    BlockEntity* westNeighbour = GetVoxel(world, p + IV3(-1, 0, 0))->entity;
-    BlockEntity* eastNeighbour = GetVoxel(world, p + IV3(1, 0, 0))->entity;
-    BlockEntity* northNeighbour = GetVoxel(world, p + IV3(0, 0, -1))->entity;
-    BlockEntity* southNeighbour = GetVoxel(world, p + IV3(0, 0, 1))->entity;
-    BlockEntity* upNeighbour = GetVoxel(world, p + IV3(0, 1, 0))->entity;
-    BlockEntity* downNeighbour = GetVoxel(world, p + IV3(0, -1, 0))->entity;
+    Entity* westNeighbour = GetVoxel(world, p + IV3(-1, 0, 0))->entity;
+    Entity* eastNeighbour = GetVoxel(world, p + IV3(1, 0, 0))->entity;
+    Entity* northNeighbour = GetVoxel(world, p + IV3(0, 0, -1))->entity;
+    Entity* southNeighbour = GetVoxel(world, p + IV3(0, 0, 1))->entity;
+    Entity* upNeighbour = GetVoxel(world, p + IV3(0, 1, 0))->entity;
+    Entity* downNeighbour = GetVoxel(world, p + IV3(0, -1, 0))->entity;
 
     bool px = 0;
     bool nx = 0;
@@ -36,12 +38,12 @@ void OrientPipe(Context* context, GameWorld* world, BlockEntity* pipe) {
     bool ny = 0;
     bool pz = 0;
     bool nz = 0;
-    if (westNeighbour && westNeighbour->type == BlockEntityType::Pipe) { nx = true; }
-    if (eastNeighbour && eastNeighbour->type == BlockEntityType::Pipe) { px = true; }
-    if (northNeighbour && northNeighbour->type == BlockEntityType::Pipe) { nz = true; }
-    if (southNeighbour && southNeighbour->type == BlockEntityType::Pipe) { pz = true; }
-    if (upNeighbour && upNeighbour->type == BlockEntityType::Pipe) { py = true; }
-    if (downNeighbour && downNeighbour->type == BlockEntityType::Pipe) { ny = true; }
+    if (westNeighbour && westNeighbour->type == EntityType::Pipe) { nx = true; }
+    if (eastNeighbour && eastNeighbour->type == EntityType::Pipe) { px = true; }
+    if (northNeighbour && northNeighbour->type == EntityType::Pipe) { nz = true; }
+    if (southNeighbour && southNeighbour->type == EntityType::Pipe) { pz = true; }
+    if (upNeighbour && upNeighbour->type == EntityType::Pipe) { py = true; }
+    if (downNeighbour && downNeighbour->type == EntityType::Pipe) { ny = true; }
 
     bool xConnected = px && nx;
     bool yConnected = py && ny;
@@ -234,11 +236,11 @@ void OrientPipe(Context* context, GameWorld* world, BlockEntity* pipe) {
     }
 }
 
-BlockEntity* CreatePipe(Context* context, GameWorld* world, iv3 p) {
+Entity* CreatePipe(Context* context, GameWorld* world, iv3 p) {
     auto pipe = AddBlockEntity(world, p);
     if (pipe) {
-        pipe->type = BlockEntityType::Pipe;
-        pipe->flags |= BlockEntityFlag_Collides;
+        pipe->type = EntityType::Pipe;
+        pipe->flags |= EntityFlag_Collides;
         pipe->mesh = context->pipeStraightMesh;
         pipe->material = &context->pipeMaterial;
         //OrientPipe(context, world, pipe);
@@ -248,11 +250,11 @@ BlockEntity* CreatePipe(Context* context, GameWorld* world, iv3 p) {
     return pipe;
 }
 
-BlockEntity* CreateBarrel(Context* context, GameWorld* world, iv3 p) {
+Entity* CreateBarrel(Context* context, GameWorld* world, iv3 p) {
     auto barrel = AddBlockEntity(world, p);
     if (barrel) {
-        barrel->type = BlockEntityType::Barrel;
-        barrel->flags |= BlockEntityFlag_Collides;
+        barrel->type = EntityType::Barrel;
+        barrel->flags |= EntityFlag_Collides;
         barrel->mesh = context->barrelMesh;
         barrel->material = &context->barrelMaterial;
     }
@@ -418,26 +420,14 @@ void FluxInit(Context* context) {
     ResizeRegion(&context->playerRegion, GameWorld::ViewDistance, context->gameArena);
     MoveRegion(&context->playerRegion, WorldPos::ToChunk(context->camera.targetWorldPosition.block).chunk);
 
-    auto player = AddSpatialEntity(gameWorld, IV3(0, 30, 0));
-    player->type = BlockEntityType::Player;
-    player->scale = 0.95f;
-    player->acceleration = 70.0f;
-    player->friction = 10.0f;
+    auto player = CreatePlayerEntity(gameWorld, WorldPos::Make(0, 30, 0), &context->playerRegion, &context->camera);
+    gameWorld->playerID = player->id;
 
-    player->inventory = AllocateEntityInventory(16, 128);
+    Entity* container = CreateContainer(context, gameWorld, IV3(0, 16, 0));
+    Entity* pipe = CreatePipe(context, gameWorld, IV3(2, 16, 0));
+    Entity* barrel = CreateBarrel(context, gameWorld, IV3(4, 16, 0));
 
-    gameWorld->player.entityID = player->id;
-    gameWorld->player.region = &context->playerRegion;
-    gameWorld->player.height = 1.8f;
-    gameWorld->player.selectedVoxel = GameWorld::InvalidPos;
-    gameWorld->player.jumpAcceleration = 420.0f;
-    gameWorld->player.runAcceleration = 140.0f;
-
-    BlockEntity* container = CreateContainer(context, gameWorld, IV3(0, 16, 0));
-    BlockEntity* pipe = CreatePipe(context, gameWorld, IV3(2, 16, 0));
-    BlockEntity* barrel = CreateBarrel(context, gameWorld, IV3(4, 16, 0));
-
-    InitUI(&context->ui, &gameWorld->player, &context->camera);
+    InitUI(&context->ui, static_cast<Player*>(player), &context->camera);
 
     context->camera.mode = CameraMode::Gameplay;
     GlobalPlatform.inputMode = InputMode::FreeCursor;
@@ -448,6 +438,9 @@ void FluxReload(Context* context) {
 }
 
 void FluxUpdate(Context* context) {
+    auto player = static_cast<Player*>(GetEntity(&context->playerRegion, context->gameWorld.playerID));
+    assert(player);
+
     auto renderer = context->renderer;
     auto camera = &context->camera;
 
@@ -501,7 +494,7 @@ void FluxUpdate(Context* context) {
 
     TickUI(&context->ui, context);
 
-    Update(&context->camera, &context->gameWorld.player, 1.0f / 60.0f);
+    Update(&context->camera, player, 1.0f / 60.0f);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     DrawDebugPerformanceCounters();
@@ -524,89 +517,8 @@ void FluxUpdate(Context* context) {
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->freeBlockCount);
     DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->totalBlockCount);
 
-    auto player = GetEntity(&context->playerRegion, context->gameWorld.player.entityID);
-    auto oldPlayerP = WorldPos::Make(player->p, player->offset);
-
-    v3 frameAcceleration = {};
-
-    f32 playerAcceleration;
-    v3 drag = player->velocity * player->friction;
-
-    auto z = Normalize(V3(camera->front.x, 0.0f, camera->front.z));
-    auto x = Normalize(Cross(V3(0.0f, 1.0f, 0.0f), z));
-    auto y = V3(0.0f, 1.0f, 0.0f);
-
-    if (camera->inputMode == GameInputMode::Game || camera->inputMode == GameInputMode::InGameUI) {
-
-        if (KeyHeld(Key::W)) {
-            frameAcceleration -= z;
-        }
-        if (KeyHeld(Key::S)) {
-            frameAcceleration += z;
-        }
-        if (KeyHeld(Key::A)) {
-            frameAcceleration -= x;
-        }
-        if (KeyHeld(Key::D)) {
-            frameAcceleration += x;
-        }
-
-        if ((KeyHeld(Key::Space))) {
-            //frameAcceleration += y;
-        }
-
-        if (KeyPressed(Key::Y)) {
-            context->gameWorld.player.flightMode = !context->gameWorld.player.flightMode;
-        }
-
-        if (context->gameWorld.player.flightMode) {
-            if (KeyHeld(Key::Space)) {
-                frameAcceleration += y;
-            }
-            if (KeyHeld(Key::Ctrl)) {
-                frameAcceleration -= y;
-            }
-        } else {
-            drag.y = 0.0f;
-        }
-
-        if ((KeyHeld(Key::Shift))) {
-            playerAcceleration = context->gameWorld.player.runAcceleration;
-        } else {
-            playerAcceleration = player->acceleration;
-        }
-        frameAcceleration *= playerAcceleration;
-    }
-
-    // TODO: Physically correct friction
-    frameAcceleration -= drag;
-
-    if (!context->gameWorld.player.flightMode) {
-        if (camera->inputMode == GameInputMode::Game || camera->inputMode == GameInputMode::InGameUI) {
-            if (KeyPressed(Key::Space) && player->grounded) {
-                frameAcceleration += y * context->gameWorld.player.jumpAcceleration * (1.0f / GlobalGameDeltaTime) / 60.0f;
-            }
-        }
-
-        frameAcceleration.y += -20.8f;
-    }
-
-
-    v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + player->velocity * GlobalGameDeltaTime;
-
-    player->velocity += frameAcceleration * GlobalGameDeltaTime;
-    DEBUG_OVERLAY_TRACE(player->velocity);
-    bool hitGround = false;
-    MoveSpatialEntity(&context->gameWorld, player, movementDelta, camera, group);
-
-    if (WorldPos::ToChunk(player->p).chunk != WorldPos::ToChunk(oldPlayerP.block).chunk) {
-        MoveRegion(&context->playerRegion, WorldPos::ToChunk(player->p).chunk);
-    }
-
     UpdateEntities(&context->playerRegion, group, camera, context);
 
-    auto playerChunk = WorldPos::ToChunk(player->p).chunk;
-    DEBUG_OVERLAY_TRACE(playerChunk);
 
     RegionUpdateChunkStates(&context->playerRegion);
 
@@ -661,11 +573,11 @@ void FluxUpdate(Context* context) {
                 }
             }
         }
-        context->gameWorld.player.selectedVoxel = hitVoxel;
-        context->gameWorld.player.selectedEntity = hitEntity;
+        player->selectedVoxel = hitVoxel;
+        player->selectedEntity = hitEntity;
 
         if (hitEntity != EntityID {0}) {
-            BlockEntity* entity = GetEntity(&context->playerRegion, hitEntity); {
+            Entity* entity = GetEntity(&context->playerRegion, hitEntity); {
                 if (entity) {
                     DrawEntityInfo(&context->ui, entity);
                 }
@@ -689,7 +601,7 @@ void FluxUpdate(Context* context) {
                 }
             }
 
-            iv3 selectedVoxelPos = context->gameWorld.player.selectedVoxel;
+            iv3 selectedVoxelPos = player->selectedVoxel;
 
             v3 minP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
             v3 maxP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
@@ -704,25 +616,25 @@ void FluxUpdate(Context* context) {
         assert(it);
         auto entity = *it;
         assert(entity->deleted);
-        if (entity->entityClass == EntityClass::Spatial) {
-            DeleteSpatialEntity(&context->gameWorld, entity);
+        if (entity->kind == EntityKind::Spatial) {
+            DeleteSpatialEntity(&context->gameWorld, static_cast<SpatialEntity*>(entity));
         } else {
-            DeleteBlockEntity(&context->gameWorld, entity);
+            DeleteBlockEntity(&context->gameWorld, static_cast<BlockEntity*>(entity));
         }
     }
 
     BucketArrayClear(&context->gameWorld.blockEntitiesToDelete);
 
-
-    DEBUG_OVERLAY_TRACE(context->gameWorld.player.selectedVoxel);
-
+    // TODO: Move to player entity
+#if 0
     if (camera->mode != CameraMode::Gameplay) {
         RenderCommandDrawMesh command {};
-        command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(player->p)));
+        command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, player->p));
         command.mesh = context->playerMesh;
         command.material = &context->playerMaterial;
         Push(group, &command);
     }
+#endif
 
     Begin(renderer, group);
     ShadowPass(renderer, group);

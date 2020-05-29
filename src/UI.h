@@ -10,7 +10,7 @@ struct Camera;
 
 struct UI {
     Camera* camera; // Only for input mode
-    Player* player;
+    EntityID player;
     bool openPlayerInventory;
     Texture coalIcon;
     Texture containerIcon;
@@ -18,6 +18,7 @@ struct UI {
     bool itemSelected;
     bool selectedInPlayer;
     u32 selectedItemSlotIndex;
+    SimRegion* region;
 };
 
 void UISelectItem(UI* ui, bool inPlayerInventory, u32 slotIndex) {
@@ -27,20 +28,7 @@ void UISelectItem(UI* ui, bool inPlayerInventory, u32 slotIndex) {
 }
 
 
-void InitUI(UI* ui, Player* player, Camera* camera) {
-    ui->player = player;
-    ui->camera = camera;
-
-    ui->coalIcon = LoadTextureFromFile("../res/coal_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
-    assert(ui->coalIcon.base);
-    UploadToGPU(&ui->coalIcon);
-
-    ui->containerIcon = LoadTextureFromFile("../res/chest_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
-    assert(ui->containerIcon.base);
-    UploadToGPU(&ui->containerIcon);
-
-}
-
+void InitUI(UI* ui, Player* player, Camera* camera);
 void OpenPlayerInventory(UI* ui) {
     ui->openPlayerInventory = true;
 }
@@ -64,4 +52,4 @@ void CloseEntityInventory(UI* ui) {
 void TickUI(UI* ui, Context* context);
 
 // TODO: Both entity classes
-void DrawEntityInfo(UI* ui, BlockEntity* blockEntity);
+void DrawEntityInfo(UI* ui, Entity* blockEntity);

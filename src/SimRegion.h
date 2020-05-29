@@ -30,7 +30,7 @@ struct SimRegion {
     byte* chunkMeshPoolUsage;
     ChunkMesh* chunkMeshPool;
     b32 hasPendingRemeshesAfterEdit;
-    HashMap<EntityID, BlockEntity*, SimRegionHashFunc, SimRegionHashCompFunc> blockEntityTable;
+    HashMap<EntityID, Entity*, SimRegionHashFunc, SimRegionHashCompFunc> blockEntityTable;
 };
 
 void InitRegion(SimRegion* region);
@@ -39,10 +39,10 @@ void ResizeRegion(SimRegion* region, u32 newSpan, MemoryArena* arena);
 void MoveRegion(SimRegion* region, iv3 newP);
 void RegionUpdateChunkStates(SimRegion* region);
 
-void RegisterEntity(SimRegion* region, BlockEntity* entity);
+void RegisterEntity(SimRegion* region, Entity* entity);
 bool UnregisterEntity(SimRegion* region, EntityID id);
 
 struct Context;
 void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera, Context* context);
 
-BlockEntity* GetEntity(SimRegion* region, EntityID id);
+Entity* GetEntity(SimRegion* region, EntityID id);

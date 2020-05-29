@@ -46,7 +46,7 @@ void RemoveChunkFromRegion(SimRegion* region, Chunk* chunk) {
         }
     }
 
-    foreach (chunk->blockEntityStorage) {
+    foreach (chunk->entityStorage) {
         UnregisterEntity(region, it->id);
     }
 
@@ -139,7 +139,7 @@ void AddChunkToRegion(SimRegion* region, Chunk* chunk) {
     chunk->primaryMesh = mesh.mesh;
     chunk->primaryMeshPoolIndex = mesh.index;
 
-    foreach (chunk->blockEntityStorage) {
+    foreach (chunk->entityStorage) {
         RegisterEntity(region, it);
     }
 
@@ -261,7 +261,7 @@ void RegionUpdateChunkStates(SimRegion* region) {
 }
 
 void InitRegion(SimRegion* region) {
-    region->blockEntityTable = HashMap<EntityID, BlockEntity*, SimRegionHashFunc, SimRegionHashCompFunc>::Make();
+    region->blockEntityTable = HashMap<EntityID, Entity*, SimRegionHashFunc, SimRegionHashCompFunc>::Make();
 }
 
 // TODO: Make this an actual function
@@ -340,7 +340,7 @@ void DrawRegion(SimRegion* region, RenderGroup* renderGroup, Camera* camera) {
     Push(renderGroup, &RenderCommandEndChunkBatch{});
 }
 
-void RegisterEntity(SimRegion* region, BlockEntity* entity) {
+void RegisterEntity(SimRegion* region, Entity* entity) {
     auto entry = Add(&region->blockEntityTable, &entity->id);
     assert(entry);
     *entry = entity;
@@ -353,7 +353,7 @@ bool UnregisterEntity(SimRegion* region, EntityID id) {
 
 void BlockEntityUpdate(SimRegion* region, BlockEntity* entity) {
     switch (entity->type) {
-    case BlockEntityType::Pipe: {
+    case EntityType::Pipe: {
         if (entity->source) {
             entity->amount = 0.01;
             entity->pressure = 2.0f;
@@ -362,74 +362,92 @@ void BlockEntityUpdate(SimRegion* region, BlockEntity* entity) {
             u32 connectionCount = 0;
 
             if (entity->nxConnected) {
-                BlockEntity* neighbor = GetBlockEntity(region->world, entity->p - IV3(1, 0, 0));
-                if (neighbor && neighbor->liquid == entity->liquid) {
-                    pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
-                    connectionCount++;
-                    if (neighbor->pressure > entity->pressure) {
-                        f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
-                        entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
-                        neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                Entity* _neighbor = GetEntity(region->world, entity->p - IV3(1, 0, 0));
+                if (_neighbor->kind == EntityKind::Block) {
+                    auto neighbor = static_cast<BlockEntity*>(_neighbor);
+                    if (neighbor && neighbor->liquid == entity->liquid) {
+                        pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
+                        connectionCount++;
+                        if (neighbor->pressure > entity->pressure) {
+                            f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
+                            entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
+                            neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                        }
                     }
                 }
             }
             if (entity->pxConnected) {
-                BlockEntity* neighbor = GetBlockEntity(region->world, entity->p + IV3(1, 0, 0));
-                if (neighbor && neighbor->liquid == entity->liquid) {
-                    pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
-                    connectionCount++;
-                    if (neighbor->pressure > entity->pressure) {
-                        f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
-                        entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
-                        neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                Entity* _neighbor = GetEntity(region->world, entity->p + IV3(1, 0, 0));
+                if (_neighbor->kind == EntityKind::Block) {
+                    auto neighbor = static_cast<BlockEntity*>(_neighbor);
+                    if (neighbor && neighbor->liquid == entity->liquid) {
+                        pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
+                        connectionCount++;
+                        if (neighbor->pressure > entity->pressure) {
+                            f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
+                            entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
+                            neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                        }
                     }
                 }
             }
             if (entity->pyConnected) {
-                BlockEntity* neighbor = GetBlockEntity(region->world, entity->p + IV3(0, 1, 0));
-                if (neighbor && neighbor->liquid == entity->liquid) {
-                    pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
-                    connectionCount++;
-                    if (neighbor->pressure > entity->pressure) {
-                        f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
-                        entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
-                        neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                Entity* _neighbor = GetEntity(region->world, entity->p + IV3(0, 1, 0));
+                if (_neighbor->kind == EntityKind::Block) {
+                    auto neighbor = static_cast<BlockEntity*>(_neighbor);
+                    if (neighbor && neighbor->liquid == entity->liquid) {
+                        pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
+                        connectionCount++;
+                        if (neighbor->pressure > entity->pressure) {
+                            f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
+                            entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
+                            neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                        }
                     }
                 }
             }
             if (entity->nyConnected) {
-                BlockEntity* neighbor = GetBlockEntity(region->world, entity->p - IV3(0, 1, 0));
-                if (neighbor && neighbor->liquid == entity->liquid) {
-                    pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
-                    connectionCount++;
-                    if (neighbor->pressure > entity->pressure) {
-                        f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
-                        entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
-                        neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                Entity* _neighbor = GetEntity(region->world, entity->p - IV3(0, 1, 0));
+                if (_neighbor->kind == EntityKind::Block) {
+                    auto neighbor = static_cast<BlockEntity*>(_neighbor);
+                    if (neighbor && neighbor->liquid == entity->liquid) {
+                        pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
+                        connectionCount++;
+                        if (neighbor->pressure > entity->pressure) {
+                            f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
+                            entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
+                            neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                        }
                     }
                 }
             }
             if (entity->pzConnected) {
-                BlockEntity* neighbor = GetBlockEntity(region->world, entity->p + IV3(0, 0, 1));
-                if (neighbor && neighbor->liquid == entity->liquid) {
-                    pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
-                    connectionCount++;
-                    if (neighbor->pressure > entity->pressure) {
-                        f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
-                        entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
-                        neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                Entity* _neighbor = GetEntity(region->world, entity->p + IV3(0, 0, 1));
+                if (_neighbor->kind == EntityKind::Block) {
+                    auto neighbor = static_cast<BlockEntity*>(_neighbor);
+                    if (neighbor && neighbor->liquid == entity->liquid) {
+                        pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
+                        connectionCount++;
+                        if (neighbor->pressure > entity->pressure) {
+                            f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
+                            entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
+                            neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                        }
                     }
                 }
             }
             if (entity->nzConnected) {
-                BlockEntity* neighbor = GetBlockEntity(region->world, entity->p - IV3(0, 0, 1));
-                if (neighbor && neighbor->liquid == entity->liquid) {
-                    pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
-                    connectionCount++;
-                    if (neighbor->pressure > entity->pressure) {
-                        f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
-                        entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
-                        neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                Entity* _neighbor = GetEntity(region->world, entity->p - IV3(0, 0, 1));
+                if (_neighbor->kind == EntityKind::Block) {
+                    auto neighbor = static_cast<BlockEntity*>(_neighbor);
+                    if (neighbor && neighbor->liquid == entity->liquid) {
+                        pressureSum += Clamp(neighbor->pressure - BlockEntity::PipePressureDrop, 0.0f, 999.0f);
+                        connectionCount++;
+                        if (neighbor->pressure > entity->pressure) {
+                            f32 freeSpace = BlockEntity::MaxPipeCapacity - entity->amount;
+                            entity->amount = Clamp(neighbor->amount + entity->amount, 0.0f, BlockEntity::MaxPipeCapacity);
+                            neighbor->amount = Clamp(neighbor->amount - freeSpace, 0.0f, BlockEntity::MaxPipeCapacity);
+                        }
                     }
                 }
             }
@@ -440,7 +458,7 @@ void BlockEntityUpdate(SimRegion* region, BlockEntity* entity) {
             }
         }
     } break;
-    case BlockEntityType::Barrel: {
+    case EntityType::Barrel: {
     };
     default: {} break;
     }
@@ -449,8 +467,8 @@ void BlockEntityUpdate(SimRegion* region, BlockEntity* entity) {
 void BlockEntityDirtyNeghborhoodUpdate(SimRegion* region, BlockEntity* entity) {
     entity->dirtyNeighborhood = false;
     switch (entity->type) {
-    case BlockEntityType::Pipe: {
-        //MakeBlockEntityNeighborhoodDirty(region->world, entity);
+    case EntityType::Pipe: {
+        //MakeEntityNeighborhoodDirty(region->world, entity);
         OrientPipe(region->world->context, region->world, entity);
 
         const Voxel* downVoxel = GetVoxel(region->world, entity->p + IV3(0, -1, 0));
@@ -471,18 +489,15 @@ void BlockEntityDirtyNeghborhoodUpdate(SimRegion* region, BlockEntity* entity) {
 void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera, Context* context) {
     auto chunk = region->firstChunk;
     while (chunk) {
-        foreach (chunk->blockEntityStorage) {
-            auto entity = it;
-            if (entity->id) {
-                if (entity->entityClass == EntityClass::Spatial) {
-                    if (entity->type != BlockEntityType::Player) {
-                        v3 frameAcceleration = V3(0.0f, -20.8f, 0.0f);
-                        v3 movementDelta = 0.5f * frameAcceleration * GlobalGameDeltaTime * GlobalGameDeltaTime + entity->velocity * GlobalGameDeltaTime;
-                        entity->velocity += frameAcceleration * GlobalGameDeltaTime;
-                        MoveSpatialEntity(region->world, entity, movementDelta, nullptr, nullptr);
+        foreach (chunk->entityStorage) {
+            if (it->id) {
+                if (it->kind == EntityKind::Spatial) {
+                    auto entity = static_cast<SpatialEntity*>(it);
+                    entity->Update(GlobalGameDeltaTime);
+                    if (entity->type != EntityType::Player) {
                     } else {
                         // Player
-                        FindOverlapsFor(region->world, it);
+                        FindOverlapsFor(region->world, entity);
                     }
 
                     if (UpdateEntityResidence(region->world, entity)) {
@@ -493,30 +508,9 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
                         break;
                     }
 
-                    if (entity->type == BlockEntityType::Pickup) {
-                        RenderCommandDrawMesh command{};
-                        command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(entity->p, entity->offset)));
-                        switch (entity->pickupItem) {
-                            case Item::CoalOre: {
-                                command.mesh = context->coalOreMesh;
-                                command.material = &context->coalOreMaterial;
-                            } break;
-                            case Item::Container: {
-                                command.mesh = context->containerMesh;
-                                command.material = &context->containerMaterial;
-                                command.transform = command.transform * Scale(V3(0.2));
-                            } break;
-                            case Item::Pipe: {
-                                command.mesh = context->pipeStraightMesh;
-                                command.material = &context->pipeMaterial;
-                                command.transform = command.transform * Scale(V3(0.2));
-                            } break;
-
-                                invalid_default();
-                        }
-                        Push(renderGroup, &command);
-                    }
+                    entity->Render(renderGroup, camera);
                 } else {
+                    auto entity = static_cast<BlockEntity*>(it);
                     if (entity->dirtyNeighborhood) {
                         BlockEntityDirtyNeghborhoodUpdate(region, entity);
                     }
@@ -536,8 +530,8 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
     }
 }
 
-BlockEntity* GetEntity(SimRegion* region, EntityID id) {
-    BlockEntity* result = nullptr;
+Entity* GetEntity(SimRegion* region, EntityID id) {
+    Entity* result = nullptr;
     auto ptr = Get(&region->blockEntityTable, &id);
     if (ptr) {
         result = *ptr;
