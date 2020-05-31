@@ -1,5 +1,6 @@
 #include "ConsoleCommands.h"
 #include "Console.h"
+#include "EntityInfo.h"
 
 #define REGISTER_SET_FLOAT(name, variable)                              \
     if (StringsAreEqual(varName, name)) {                               \
@@ -228,4 +229,8 @@ void PrintPlayerInventoryCommand(Console* console, Context* context, ConsoleComm
         }
     }
     #endif
+}
+
+void PrintGameMetaInfoCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
+    EntityInfoPrint(&context->entityInfo, console->logger);
 }

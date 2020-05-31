@@ -21,7 +21,8 @@ enum struct VoxelValue : u32 {
     Stone,
     Grass,
     CoalOre,
-    Water
+    Water,
+    _Count
 };
 
 const f32 MeterScale = 1.0f;
@@ -38,6 +39,12 @@ struct Voxel {
     VoxelValue value = VoxelValue::Empty;
 };
 
+typedef void(BlockDropPickupFn)(const Voxel* voxel, GameWorld* world, WorldPos p);
+
+void BlockDropPickup(const Voxel* voxel, GameWorld* world, WorldPos p) {};
+
+void CoalOreDropPickup(const Voxel* voxel, GameWorld* world, WorldPos p);
+
 enum struct ChunkState : u32 {
     Complete = 0, Filling, Filled, Meshing, MeshingFinished, WaitsForUpload, MeshUploadingFinished, UploadingMesh
 };
@@ -52,45 +59,8 @@ enum struct SpatialEntityType : u32 {
 };
 #endif
 
-
-VoxelValue ItemToBlock(Item item) {
-    switch (item) {
-    case Item::None: { return VoxelValue::Empty; } break;
-    case Item::Container: { return VoxelValue::Empty; } break;
-    case Item::Stone: { return VoxelValue::Stone; } break;
-    case Item::Grass: { return VoxelValue::Grass; } break;
-    case Item::CoalOre: { return VoxelValue::CoalOre; } break;
-    }
-    return VoxelValue::Empty;
-}
-
-EntityType ItemToEntityType(Item item) {
-    switch (item) {
-    case Item::Container: { return EntityType::Container; } break;
-    case Item::Pipe: { return EntityType::Pipe; } break;
-    case Item::Barrel: { return EntityType::Barrel; } break;
-    case Item::Tank: { return EntityType::Tank; } break;
-    }
-    return EntityType::Unknown;
-}
-
-const char* ToString(EntityType type) {
-    switch (type) {
-    case EntityType::Container: { return "Container"; } break;
-    case EntityType::Pipe: { return "Pipe"; } break;
-    case EntityType::Barrel: { return "Barrel"; } break;
-    case EntityType::Tank: { return "Tank"; } break;
-    case EntityType::Player: { return "Player"; }
-    case EntityType::Pickup: { return "Pickup"; }
-
-    invalid_default();
-    }
-    return nullptr;
-}
-
 struct GameWorld;
 struct SimRegion;
-
 
 // NOTE: Store entities as linked list for now
 struct EntityStorage {
@@ -237,7 +207,8 @@ void DeleteSpatialEntityAfterThisFrame(GameWorld* world, SpatialEntity* entity);
 
 EntityKind ClassifyEntity(EntityID id);
 
-BlockEntity* AddBlockEntity(GameWorld* world, iv3 p);
+template <typename T>
+T* AddBlockEntity(GameWorld* world, iv3 p);
 void DeleteBlockEntity(GameWorld* world, BlockEntity* entity);
 void DeleteBlockEntityAfterThisFrame(GameWorld* world, BlockEntity* entity);
 
@@ -245,7 +216,7 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
 
 bool UpdateEntityResidence(GameWorld* world, SpatialEntity* entity);
 
-void ConvertVoxelToPickup(GameWorld* world, iv3 voxelP);
+void ConvertBlockToPickup(GameWorld* world, iv3 voxelP);
 
 void FindOverlapsFor(GameWorld* world, SpatialEntity* entity);
 

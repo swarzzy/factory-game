@@ -18,10 +18,20 @@ enum struct EntityKind {
     Block, Spatial
 };
 
+const char* ToString(EntityKind kind) {
+    switch (kind) {
+    case EntityKind::Block: { return "Block"; } break;
+    case EntityKind::Spatial: { return "Spatial"; } break;
+    invalid_default();
+    }
+    return nullptr;
+}
+
 EntityID GenEntityID(GameWorld* world, EntityKind kind);
 
 enum EntityFlags : u32 {
-    EntityFlag_Collides = (1 << 0)
+    EntityFlag_Collides = (1 << 0),
+    EntityFlag_ProcessOverlaps = (2 << 0),
 };
 
 enum struct EntityType : u32 {
@@ -32,6 +42,7 @@ enum struct EntityType : u32 {
     Tank,
     Pickup,
     Player,
+    _Count
 };
 
 struct Entity {
@@ -52,21 +63,24 @@ struct Entity {
     // TODO: just make it global variable
     GameWorld* world;
 
+    // TODO: Maybe we just use entity info instead of virtual functions.
+    // That way we will independent from C++ specific feature which will simplify C scripting API implementation,
+    // and entities will becode POD again. Further more, we could just use straight old composition instead of
+    // inheritance. By the way, it looks like inlining of virtual functions isn't a thing actually
     virtual void Render(RenderGroup* group, Camera* camera) {};
     virtual void Update(f32 deltaTime) {};
 };
 
-struct SpatialEntity : public Entity {
+struct SpatialEntity : Entity {
     WorldPos p;
     b32 grounded;
     v3 velocity;
     f32 scale;
     f32 acceleration;
     f32 friction;
-    virtual void Update(f32 deltaTime) override;
 };
 
-struct BlockEntity : public Entity {
+struct BlockEntity : Entity {
     iv3 p;
     // TODO: More data-driven architecture probably?
     b32 dirtyNeighborhood;
@@ -74,26 +88,20 @@ struct BlockEntity : public Entity {
     // TODO: Footprints
     //
     iv3* multiBlockEntityFootprint;
-
-    // Pipe stuff
-    // TODO: use these for update
-    b32 nxConnected;
-    b32 pxConnected;
-    b32 nyConnected;
-    b32 pyConnected;
-    b32 nzConnected;
-    b32 pzConnected;
-
-    inline static const f32 MaxPipeCapacity = 2.0f;
-    inline static const f32 MaxBarrelCapacity = 200.0f;
-    inline static const f32 PipePressureDrop = 0.0001f;
-    b32 source;
-    b32 filled;
-    Liquid liquid;
-    f32 amount;
-    f32 pressure;
-
 };
 
-template<typename T>
-T* AllocateEntity(Allocator allocator);
+enum struct EntityUpdateInvoke : u32 {
+    UpdateAndRender, NeighborhoodChanged,
+};
+
+void EntityDropPickup(Entity* entity, GameWorld* world, WorldPos p) {};
+void SpatialEntityUpdateAndRender(Entity* entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera);
+void SpatialEntityProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity) {};
+
+typedef Entity*(CreateEntityFn)(GameWorld* world, WorldPos p);
+
+// TODO: Make one call out of these
+typedef void(EntityDeleteFn)(Entity* entity, GameWorld* world);
+typedef void(EntityUpdateAndRenderFn)(Entity* entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera);
+typedef void(EntityDropPickupFn)(Entity* entity, GameWorld* world, WorldPos p);
+typedef void(EntityProcessOverlapFn)(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity);

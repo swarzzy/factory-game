@@ -12,9 +12,8 @@ struct Player : SpatialEntity {
     Camera* camera;
     b32 flightMode;
 
-    virtual void Render(RenderGroup* group, Camera* camera) override;
-
-    virtual void Update(f32 deltaTime) override;
 };
 
-Entity* CreatePlayerEntity(GameWorld* world, WorldPos p, SimRegion* region, Camera* camera);
+Entity* CreatePlayerEntity(GameWorld* world, WorldPos p);
+void PlayerUpdateAndRender(Entity* entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera);
+void PlayerProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity);

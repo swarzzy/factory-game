@@ -1,12 +1,24 @@
 #include "Pickup.h"
 #include "RenderGroup.h"
 
-void PickupEntity::Render(RenderGroup* renderGroup, Camera* camera) {
-    auto context = GetContext();
+Entity* CreatePickupEntity(GameWorld* world, WorldPos p) {
+    auto entity = AddSpatialEntity<Pickup>(world, p);
+    if (entity) {
+        entity->type = EntityType::Pickup;
+        entity->scale = 0.2f;
+    }
+    return entity;
+}
 
-    RenderCommandDrawMesh command{};
-    command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, this->p));
-    switch (this->item) {
+void PickupUpdateAndRender(Entity* _entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera) {
+    SpatialEntityUpdateAndRender(_entity, reason, deltaTime, group, camera);
+    if (reason == EntityUpdateInvoke::UpdateAndRender) {
+        auto entity = (Pickup*)_entity;
+        auto context = GetContext();
+
+        RenderCommandDrawMesh command{};
+        command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, entity->p));
+        switch (entity->item) {
         case Item::CoalOre: {
             command.mesh = context->coalOreMesh;
             command.material = &context->coalOreMaterial;
@@ -23,6 +35,7 @@ void PickupEntity::Render(RenderGroup* renderGroup, Camera* camera) {
         } break;
 
             invalid_default();
+        }
+        Push(group, &command);
     }
-    Push(renderGroup, &command);
 }

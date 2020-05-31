@@ -78,7 +78,7 @@ void TickEntityUI(UI* ui, Context* context, Entity* entity) {
                         }
                     } break;
                     default: {
-                        selected = ImGui::Button(ToString(it->item), ImVec2(50, 50));
+                        //selected = ImGui::Button(ToString(it->item), ImVec2(50, 50));
                     } break;
                     }
                     if (selected) {
@@ -163,7 +163,7 @@ void TickUI(UI* ui, Context* context) {
                         }
                     } break;
                     default: {
-                        selected = ImGui::Button(ToString(it->item), ImVec2(50, 50));
+                        //selected = ImGui::Button(ToString(it->item), ImVec2(50, 50));
                     } break;
                     }
                     if (selected) {
@@ -192,7 +192,9 @@ void DrawEntityInfo(UI* ui, Entity* entity) {
     ImGui::SetNextWindowBgAlpha(0.35f);
     bool open = true;
     if (ImGui::Begin("entity info", &open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
-        ImGui::Text("%s", ToString(entity->type));
+        auto context = GetContext();
+        auto entityInfo = GetEntityInfo(&context->entityInfo, entity->type);
+        ImGui::Text("%s", entityInfo->name);
         ImGui::Text("id: %llu", entity->id);
         ImGui::Text("has inventory: %s", entity->inventory ? "true" : "false");
         if (entity->kind == EntityKind::Block) {
@@ -200,20 +202,21 @@ void DrawEntityInfo(UI* ui, Entity* entity) {
             ImGui::Text("pos: (%ld, %ld, %ld)", blockEntity->p.x, blockEntity->p.y, blockEntity->p.z);
             switch (blockEntity->type) {
                 case EntityType::Pipe: {
-                    ImGui::Text("source: %s", blockEntity->source ? "true" : "false");
-                    ImGui::Text("filled: %s", blockEntity->filled ? "true" : "false");
-                    ImGui::Text("liquid: %s", ToString(blockEntity->liquid));
-                    ImGui::Text("amount: %f", blockEntity->amount);
-                    ImGui::Text("pressure: %f", blockEntity->pressure);
-                    ImGui::Text("nx connection: %s", blockEntity->nxConnected ? "true" : "false");
-                    ImGui::Text("px connection: %s", blockEntity->pxConnected ? "true" : "false");
-                    ImGui::Text("ny connection: %s", blockEntity->nyConnected ? "true" : "false");
-                    ImGui::Text("py connection: %s", blockEntity->pyConnected ? "true" : "false");
-                    ImGui::Text("nz connection: %s", blockEntity->nzConnected ? "true" : "false");
-                    ImGui::Text("pz connection: %s", blockEntity->pzConnected ? "true" : "false");
+                    auto pipe = static_cast<Pipe*>(blockEntity);
+                    ImGui::Text("source: %s", pipe->source ? "true" : "false");
+                    ImGui::Text("filled: %s", pipe->filled ? "true" : "false");
+                    ImGui::Text("liquid: %s", ToString(pipe->liquid));
+                    ImGui::Text("amount: %f", pipe->amount);
+                    ImGui::Text("pressure: %f", pipe->pressure);
+                    ImGui::Text("nx connection: %s", pipe->nxConnected ? "true" : "false");
+                    ImGui::Text("px connection: %s", pipe->pxConnected ? "true" : "false");
+                    ImGui::Text("ny connection: %s", pipe->nyConnected ? "true" : "false");
+                    ImGui::Text("py connection: %s", pipe->pyConnected ? "true" : "false");
+                    ImGui::Text("nz connection: %s", pipe->nzConnected ? "true" : "false");
+                    ImGui::Text("pz connection: %s", pipe->pzConnected ? "true" : "false");
                 } break;
                 case EntityType::Barrel: {
-                    ImGui::Text("liquid: %s", ToString(blockEntity->liquid));
+                    //ImGui::Text("liquid: %s", ToString(blockEntity->liquid));
                 } break;
             }
         }

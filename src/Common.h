@@ -89,6 +89,10 @@ namespace Uptr {
     constexpr uptr Max = UINTPTR_MAX;
 }
 
+namespace Usize {
+    constexpr usize Max = 0xffffffff;
+}
+
 namespace F32 {
     constexpr f32 Pi = 3.14159265358979323846f;
     constexpr f32 Eps = 0.000001f;

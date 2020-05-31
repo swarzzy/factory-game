@@ -4,254 +4,14 @@
 #include "Resource.h"
 
 #include "Player.h"
+#include "Container.h"
+#include "Pipe.h"
+#include "Pickup.h"
 
 #include <stdlib.h>
 
-Entity* CreateContainer(Context* context, GameWorld* world, iv3 p) {
-    auto container = AddBlockEntity(world, p);
-    if (container) {
-        container->type = EntityType::Container;
-        container->flags |= EntityFlag_Collides;
-        container->inventory = AllocateEntityInventory(64, 128);
-        container->mesh = context->containerMesh;
-        container->material = &context->containerMaterial;
-    }
-    return container;
-}
-
-
-// This proc is crazy mess for now. We need some smart algorithm for orienting pipes
-void OrientPipe(Context* context, GameWorld* world, BlockEntity* pipe) {
-    iv3 p = pipe->p;
-
-    // TODO: Be carefull with pointers in blocks
-    Entity* westNeighbour = GetVoxel(world, p + IV3(-1, 0, 0))->entity;
-    Entity* eastNeighbour = GetVoxel(world, p + IV3(1, 0, 0))->entity;
-    Entity* northNeighbour = GetVoxel(world, p + IV3(0, 0, -1))->entity;
-    Entity* southNeighbour = GetVoxel(world, p + IV3(0, 0, 1))->entity;
-    Entity* upNeighbour = GetVoxel(world, p + IV3(0, 1, 0))->entity;
-    Entity* downNeighbour = GetVoxel(world, p + IV3(0, -1, 0))->entity;
-
-    bool px = 0;
-    bool nx = 0;
-    bool py = 0;
-    bool ny = 0;
-    bool pz = 0;
-    bool nz = 0;
-    if (westNeighbour && westNeighbour->type == EntityType::Pipe) { nx = true; }
-    if (eastNeighbour && eastNeighbour->type == EntityType::Pipe) { px = true; }
-    if (northNeighbour && northNeighbour->type == EntityType::Pipe) { nz = true; }
-    if (southNeighbour && southNeighbour->type == EntityType::Pipe) { pz = true; }
-    if (upNeighbour && upNeighbour->type == EntityType::Pipe) { py = true; }
-    if (downNeighbour && downNeighbour->type == EntityType::Pipe) { ny = true; }
-
-    bool xConnected = px && nx;
-    bool yConnected = py && ny;
-    bool zConnected = pz && nz;
-
-    pipe->nxConnected = false;
-    pipe->pxConnected = false;
-    pipe->nyConnected = false;
-    pipe->pyConnected = false;
-    pipe->nzConnected = false;
-    pipe->pzConnected = false;
-
-    // Check for crossing
-    if (xConnected && zConnected) {
-        pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
-        pipe->mesh = context->pipeCrossMesh;
-        pipe->nxConnected = true;
-        pipe->pxConnected = true;
-        pipe->nzConnected = true;
-        pipe->pzConnected = true;
-    } else if (xConnected && yConnected) {
-        pipe->mesh = context->pipeCrossMesh;
-        pipe->meshRotation = V3(90.0f, 0.0f, 0.0f);
-        pipe->nxConnected = true;
-        pipe->pxConnected = true;
-        pipe->nyConnected = true;
-        pipe->pyConnected = true;
-    } else if (yConnected && zConnected) {
-        pipe->mesh = context->pipeCrossMesh;
-        pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
-        pipe->nyConnected = true;
-        pipe->pyConnected = true;
-        pipe->nzConnected = true;
-        pipe->pzConnected = true;
-    } else {
-        // Not a crossing
-        if (xConnected) {
-            pipe->nxConnected = true;
-            pipe->pxConnected = true;
-            // checking for tee
-            // TODO: Check whether side pipe as a turn. If it is then place straight pipe instead of a tee
-            if (ny) {
-                pipe->nyConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(180.0f, 0.0f, 0.0f);
-            } else if (py) {
-                pipe->pyConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
-            } else if (nz) {
-                pipe->nzConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(90.0f, 0.0f, 0.0f);
-            } else if (pz) {
-                pipe->pzConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(-90.0f, 0.0f, 0.0f);
-            } else { // Straight pipe
-                pipe->mesh = context->pipeStraightMesh;
-                pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
-            }
-        } else if (yConnected) {
-            pipe->nyConnected = true;
-            pipe->pyConnected = true;
-            // checking for tee
-            if (nx) {
-                pipe->nxConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(0.0f, 0.0f, -90.0f);
-            } else if (px) {
-                pipe->pxConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
-            } else if (nz) {
-                pipe->nzConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(90.0f, 0.0f, 90.0f);
-            } else if (pz) {
-                pipe->pzConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(-90.0f, 0.0f, 90.0f);
-            } else { // Straight pipe
-                pipe->mesh = context->pipeStraightMesh;
-                pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
-            }
-        } else if (zConnected) {
-            pipe->nzConnected = true;
-            pipe->pzConnected = true;
-            // checking for tee
-            if (nx) {
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(0.0f, 90.0f, -90.0f);
-            } else if (px) {
-                pipe->pxConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(0.0f, 90.0f, 90.0f);
-            } else if (ny) {
-                pipe->nyConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(0.0f, 90.0f, 180.0f);
-            } else if (py) {
-                pipe->pyConnected = true;
-                pipe->mesh = context->pipeTeeMesh;
-                pipe->meshRotation = V3(0.0f, 90.0f, 0.0f);
-            } else { // Straight pipe
-                pipe->mesh = context->pipeStraightMesh;
-                pipe->meshRotation = V3(0.0f, 90.0f, 0.0f);
-            }
-        } else { // Turn or staight end
-            // checking for turn
-            if (nx && nz) {
-                pipe->nzConnected = true;
-                pipe->nxConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(0.0f, -270.0f, 0.0f);
-            } else if (px && nz) {
-                pipe->nzConnected = true;
-                pipe->pxConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
-            } else if (px && pz) {
-                pipe->pzConnected = true;
-                pipe->pxConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(0.0f, -90.0f, 0.0f);
-            } else if (nx && pz) {
-                pipe->pzConnected = true;
-                pipe->nxConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(0.0f, -180.0f, 0.0f);
-            } else if (nx && py) {
-                pipe->pyConnected = true;
-                pipe->nxConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(-90.0f, 180.0f, 0.0f);
-            } else if (nz && py) {
-                pipe->pyConnected = true;
-                pipe->nzConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(0.0f, 0.0f, -90.0f);
-            } else if (px && py) {
-                pipe->pyConnected = true;
-                pipe->pxConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(-90.0f, 0.0f, 0.0f);
-            } else if (pz && py) {
-                pipe->pyConnected = true;
-                pipe->pzConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(-90.0f, -90.0f, 0.0f);
-            } else if (nx && ny) {
-                pipe->nyConnected = true;
-                pipe->nxConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(90.0f, 180.0f, 0.0f);
-            } else if (nz && ny) {
-                pipe->nyConnected = true;
-                pipe->nzConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
-            } else if (px && ny) {
-                pipe->nyConnected = true;
-                pipe->pxConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(90.0f, 0.0f, 0.0f);
-            } else if (pz && ny) {
-                pipe->nyConnected = true;
-                pipe->pzConnected = true;
-                pipe->mesh = context->pipeTurnMesh;
-                pipe->meshRotation = V3(90.0f, -90.0f, 0.0f);
-            } else { // straight end
-                if (px || nx) {
-                    pipe->pxConnected = px;
-                    pipe->nxConnected = nx;
-                    pipe->mesh = context->pipeStraightMesh;
-                    pipe->meshRotation = V3(0.0f, 0.0f, 0.0f);
-                } else if (py || ny) {
-                    pipe->pyConnected = py;
-                    pipe->nyConnected = ny;
-                    pipe->mesh = context->pipeStraightMesh;
-                    pipe->meshRotation = V3(0.0f, 0.0f, 90.0f);
-                } else if (pz || nz) {
-                    pipe->pzConnected = pz;
-                    pipe->nzConnected = nz;
-                    pipe->mesh = context->pipeStraightMesh;
-                    pipe->meshRotation = V3(0.0f, 90.0f, 0.0f);
-                }
-            }
-        }
-    }
-}
-
-Entity* CreatePipe(Context* context, GameWorld* world, iv3 p) {
-    auto pipe = AddBlockEntity(world, p);
-    if (pipe) {
-        pipe->type = EntityType::Pipe;
-        pipe->flags |= EntityFlag_Collides;
-        pipe->mesh = context->pipeStraightMesh;
-        pipe->material = &context->pipeMaterial;
-        //OrientPipe(context, world, pipe);
-    }
-
-
-    return pipe;
-}
-
 Entity* CreateBarrel(Context* context, GameWorld* world, iv3 p) {
-    auto barrel = AddBlockEntity(world, p);
+    auto barrel = AddBlockEntity<BlockEntity>(world, p);
     if (barrel) {
         barrel->type = EntityType::Barrel;
         barrel->flags |= EntityFlag_Collides;
@@ -263,9 +23,120 @@ Entity* CreateBarrel(Context* context, GameWorld* world, iv3 p) {
     return barrel;
 }
 
+void RegisterBuiltInEntities(Context* context) {
+    auto entityInfo = &context->entityInfo;
+
+    { // Entities
+        auto container = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        assert(container->typeID == (u32)EntityType::Container);
+        container->Create = CreateContainerEntity;
+        container->name = "Container";
+        container->DropPickup = ContainerDropPickup;
+        container->UpdateAndRender = ContainerUpdateAndRender;
+
+        auto pipe = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        assert(pipe->typeID == (u32)EntityType::Pipe);
+        pipe->Create = CreatePipeEntity;
+        pipe->name = "Pipe";
+        pipe->DropPickup = PipeDropPickup;
+        pipe->UpdateAndRender = PipeUpdateAndRender;
+
+        auto barrel = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        assert(barrel->typeID == (u32)EntityType::Barrel);
+        barrel->name = "Barrel";
+
+        auto tank = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        assert(tank->typeID == (u32)EntityType::Tank);
+        tank->name = "Tank";
+
+        auto pickup = EntityInfoRegisterEntity(entityInfo, EntityKind::Spatial);
+        assert(pickup->typeID == (u32)EntityType::Pickup);
+        pickup->Create = CreatePickupEntity;
+        pickup->name = "Pickup";
+        pickup->UpdateAndRender = PickupUpdateAndRender;
+
+        auto player = EntityInfoRegisterEntity(entityInfo, EntityKind::Spatial);
+        assert(player->typeID == (u32)EntityType::Player);
+        player->Create = CreatePlayerEntity;
+        player->name = "Player";
+        player->ProcessOverlap = PlayerProcessOverlap;
+        player->UpdateAndRender = PlayerUpdateAndRender;
+
+        assert(entityInfo->entityTable.count == ((u32)EntityType::_Count - 1));
+    }
+    { // Items
+        auto container = EntityInfoRegisterItem(entityInfo);
+        assert(container->id == (u32)Item::Container);
+        container->name = "Container";
+        container->convertsToBlock = false;
+        container->associatedEntityTypeID = (u32)EntityType::Container;
+
+        auto stone = EntityInfoRegisterItem(entityInfo);
+        assert(stone->id == (u32)Item::Stone);
+        stone->name = "Stone";
+        stone->convertsToBlock = true;
+        stone->associatedBlock = VoxelValue::Stone;
+
+        auto grass = EntityInfoRegisterItem(entityInfo);
+        assert(grass->id == (u32)Item::Grass);
+        grass->name = "Grass";
+        grass->convertsToBlock = true;
+        grass->associatedBlock = VoxelValue::Grass;
+
+        auto coalOre = EntityInfoRegisterItem(entityInfo);
+        assert(coalOre->id == (u32)Item::CoalOre);
+        coalOre->name = "Coal ore";
+        coalOre->convertsToBlock = true;
+        coalOre->associatedBlock = VoxelValue::CoalOre;
+
+        auto pipe = EntityInfoRegisterItem(entityInfo);
+        assert(pipe->id == (u32)Item::Pipe);
+        pipe->name = "Pipe";
+        pipe->convertsToBlock = false;
+        pipe->associatedEntityTypeID = (u32)EntityType::Pipe;
+
+        auto barrel = EntityInfoRegisterItem(entityInfo);
+        assert(barrel->id == (u32)Item::Barrel);
+        barrel->name = "Barrel";
+        barrel->convertsToBlock = false;
+        barrel->associatedEntityTypeID = (u32)EntityType::Barrel;
+
+        auto tank = EntityInfoRegisterItem(entityInfo);
+        assert(tank->id == (u32)Item::Tank);
+        tank->name = "Tank";
+        tank->convertsToBlock = false;
+        tank->associatedEntityTypeID = (u32)EntityType::Tank;
+
+        assert(entityInfo->itemTable.count == ((u32)Item::_Count - 1));
+    }
+    { // Blocks
+        auto stone = EntityInfoRegisterBlock(entityInfo);
+        assert(stone->id == (u32)VoxelValue::Stone);
+        stone->name = "Stone";
+
+        auto grass = EntityInfoRegisterBlock(entityInfo);
+        assert(grass->id == (u32)VoxelValue::Grass);
+        grass->name = "Grass";
+
+        auto coalOre = EntityInfoRegisterBlock(entityInfo);
+        assert(coalOre->id == (u32)VoxelValue::CoalOre);
+        coalOre->name = "Coal ore";
+        coalOre->DropPickup = CoalOreDropPickup;
+
+        auto water = EntityInfoRegisterBlock(entityInfo);
+        assert(water->id == (u32)VoxelValue::Water);
+        water->name = "Water";
+
+        assert(entityInfo->blockTable.count == ((u32)VoxelValue::_Count - 1));
+    }
+}
+
 void FluxInit(Context* context) {
     LogMessage(&context->logger, "Logger test %s", "message\n");
     LogMessage(&context->logger, "Logger prints string");
+
+    EntityInfoInit(&context->entityInfo);
+    RegisterBuiltInEntities(context);
 
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
@@ -420,11 +291,14 @@ void FluxInit(Context* context) {
     ResizeRegion(&context->playerRegion, GameWorld::ViewDistance, context->gameArena);
     MoveRegion(&context->playerRegion, WorldPos::ToChunk(context->camera.targetWorldPosition.block).chunk);
 
-    auto player = CreatePlayerEntity(gameWorld, WorldPos::Make(0, 30, 0), &context->playerRegion, &context->camera);
+    auto player = (Player*)CreatePlayerEntity(gameWorld, WorldPos::Make(0, 30, 0));
+    player->camera =  &context->camera;
+    player->region =  &context->playerRegion;
+
     gameWorld->playerID = player->id;
 
-    Entity* container = CreateContainer(context, gameWorld, IV3(0, 16, 0));
-    Entity* pipe = CreatePipe(context, gameWorld, IV3(2, 16, 0));
+    Entity* container = CreateContainerEntity(gameWorld, WorldPos::Make(0, 16, 0));
+    Entity* pipe = CreatePipeEntity(gameWorld, WorldPos::Make(2, 16, 0));
     Entity* barrel = CreateBarrel(context, gameWorld, IV3(4, 16, 0));
 
     InitUI(&context->ui, static_cast<Player*>(player), &context->camera);
@@ -586,7 +460,7 @@ void FluxUpdate(Context* context) {
 
         if (hitVoxel.x != GameWorld::InvalidCoord) {
             if (MouseButtonPressed(MouseButton::Left)) {
-                ConvertVoxelToPickup(&context->gameWorld, hitVoxel);
+                ConvertBlockToPickup(&context->gameWorld, hitVoxel);
             }
             if (MouseButtonPressed(MouseButton::Right)) {
                 bool buildBlock = true;
@@ -624,17 +498,6 @@ void FluxUpdate(Context* context) {
     }
 
     BucketArrayClear(&context->gameWorld.blockEntitiesToDelete);
-
-    // TODO: Move to player entity
-#if 0
-    if (camera->mode != CameraMode::Gameplay) {
-        RenderCommandDrawMesh command {};
-        command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, player->p));
-        command.mesh = context->playerMesh;
-        command.material = &context->playerMaterial;
-        Push(group, &command);
-    }
-#endif
 
     Begin(renderer, group);
     ShadowPass(renderer, group);

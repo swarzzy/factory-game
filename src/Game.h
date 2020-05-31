@@ -8,8 +8,10 @@
 #include "SimRegion.h"
 #include "Console.h"
 #include "UI.h"
+#include "EntityInfo.h"
 
 struct Context {
+    EntityInfo entityInfo;
     MemoryArena* gameArena;
     MemoryArena* tempArena;
     ChunkMesher chunkMesher;

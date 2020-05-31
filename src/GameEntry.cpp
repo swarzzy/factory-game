@@ -336,6 +336,10 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "Entity.cpp"
 #include "Pickup.cpp"
 #include "Player.cpp"
+#include "Container.cpp"
+#include "Pipe.cpp"
+#include "FlatArray.cpp"
+#include "EntityInfo.cpp"
 
 
 // NOTE: Platform specific intrinsics implementation begins here

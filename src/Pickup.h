@@ -4,20 +4,10 @@
 #include "Inventory.h"
 #include "World.h"
 
-struct PickupEntity : SpatialEntity {
+struct Pickup : SpatialEntity {
     Item item;
     u32 count;
-
-    virtual void Render(RenderGroup* group, Camera* camera) override;
 };
 
-Entity* CreatePickupEntity(GameWorld* world, WorldPos p, Item item, u32 count) {
-    auto entity = AddSpatialEntity<PickupEntity>(world, p);
-    if (entity) {
-        entity->type = EntityType::Pickup;
-        entity->scale = 0.2f;
-        entity->item = item;
-        entity->count = count;
-    }
-    return entity;
-}
+Entity* CreatePickupEntity(GameWorld* world, WorldPos p);
+void PickupUpdateAndRender(Entity* entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera);

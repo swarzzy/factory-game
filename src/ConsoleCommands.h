@@ -18,3 +18,4 @@ void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs
 void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleCommandArgs* args);
 void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs* args);
 void PrintPlayerInventoryCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void PrintGameMetaInfoCommand(Console* console, Context* context, ConsoleCommandArgs* args);
