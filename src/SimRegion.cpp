@@ -356,8 +356,13 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
     while (chunk) {
         foreach (chunk->entityStorage) {
             auto info = GetEntityInfo(it->type);
-            if (info->UpdateAndRender) {
-                info->UpdateAndRender(it, EntityUpdateInvoke::UpdateAndRender, GlobalGameDeltaTime, renderGroup, camera);
+            if (info->Behavior) {
+                it->generation = GetPlatform()->tickCount;
+                EntityUpdateAndRenderData data;
+                data.deltaTime = GlobalGameDeltaTime;
+                data.group = renderGroup;
+                data.camera = camera;
+                info->Behavior(it, EntityBehaviorInvoke::UpdateAndRender, &data);
             }
             if (it->id) {
                 if (it->kind == EntityKind::Spatial) {

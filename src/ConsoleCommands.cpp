@@ -234,3 +234,12 @@ void PrintPlayerInventoryCommand(Console* console, Context* context, ConsoleComm
 void PrintGameMetaInfoCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
     EntityInfoPrint(&context->entityInfo, console->logger);
 }
+
+void ToggleCreativeModeCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
+    CreativeModeEnabled = !CreativeModeEnabled;
+    if (CreativeModeEnabled) {
+        LogMessage(console->logger, "Creative mode enabled\n");
+    } else {
+        LogMessage(console->logger, "Creative mode disabled\n");
+    }
+}

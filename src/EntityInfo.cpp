@@ -31,11 +31,11 @@ EntityInfoEntry* EntityInfoRegisterEntity(EntityInfo* info, EntityKind kind) {
     switch (kind) {
     case EntityKind::Spatial: {
         entry->ProcessOverlap = SpatialEntityProcessOverlap;
-        entry->UpdateAndRender = SpatialEntityUpdateAndRender;
+        entry->Behavior = SpatialEntityBehavior;
     } break;
     case EntityKind::Block: {
         entry->ProcessOverlap = nullptr;
-        entry->UpdateAndRender = nullptr;
+        entry->Behavior = nullptr;
     } break;
     invalid_default();
     }
@@ -105,8 +105,8 @@ void EntityInfoPrint(EntityInfo* info, Logger* logger) {
     for (usize i = 0; i < info->entityTable.count; i++) {
         auto entry = FlatArrayAt(&info->entityTable, i);
         if (entry) {
-            LogMessage(logger, "Type ID: %lu\nKind: %s\nName: %s\nCreate: 0x%llx\nDelete: 0x%llx\nUpdateAndRender: 0x%llx\nDropPickup: 0x%llx\nProcessOverlap: 0x%llx\n\n",
-                       entry->typeID, ToString(entry->kind), entry->name, (u64)entry->Create, (u64)entry->Delete, (u64)entry->UpdateAndRender, (u64)entry->DropPickup, (u64)entry->ProcessOverlap);
+            LogMessage(logger, "Type ID: %lu\nKind: %s\nName: %s\nCreate: 0x%llx\nDelete: 0x%llx\nBehavior: 0x%llx\nDropPickup: 0x%llx\nProcessOverlap: 0x%llx\n\n",
+                       entry->typeID, ToString(entry->kind), entry->name, (u64)entry->Create, (u64)entry->Delete, (u64)entry->Behavior, (u64)entry->DropPickup, (u64)entry->ProcessOverlap);
         }
     }
     LogMessage(logger, "Items:\n\n");

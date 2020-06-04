@@ -35,3 +35,36 @@ u32 EntityInventoryPushItem(EntityInventory* inventory, Item item, u32 count) {
     }
     return count;
 }
+
+Item EntityInventoryPopItem(EntityInventory* inventory) {
+    Item item = Item::None;
+    for (usize i = 0; i < inventory->slotCount; i++) {
+        auto slot = inventory->slots + i;
+        if (slot->item != Item::None) {
+            assert(slot->count);
+            slot->count--;
+            item = slot->item;
+            if (slot->count == 0) {
+                slot->item = Item::None;
+            }
+            break;
+        }
+    }
+    return item;
+}
+
+Item EntityInventoryPopItem(EntityInventory* inventory, u32 slotIndex) {
+    Item item = Item::None;
+    if (slotIndex < inventory->slotCount) {
+        auto slot = inventory->slots + slotIndex;
+        if (slot->item != Item::None) {
+            assert(slot->count);
+            slot->count--;
+            item = slot->item;
+            if (slot->count == 0) {
+                slot->item = Item::None;
+            }
+        }
+    }
+    return item;
+}

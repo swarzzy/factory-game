@@ -1,6 +1,7 @@
 #include "Pipe.h"
 #include "World.h"
 #include "RenderGroup.h"
+#include "../ext/imgui/imgui.h"
 
 void OrientPipe(GameWorld* world, Pipe* pipe);
 
@@ -19,9 +20,10 @@ void NeighborhoodChangedUpdate(Pipe* pipe) {
     }
 }
 
-void PipeUpdateAndRender(Entity* entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera) {
-    if (reason == EntityUpdateInvoke::UpdateAndRender) {
-        auto pipe = (Pipe*)entity;
+void PipeUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _data) {
+    if (reason == EntityBehaviorInvoke::UpdateAndRender) {
+        auto data = (EntityUpdateAndRenderData*)_data;
+        auto pipe = (Pipe*)_entity;
         if (pipe->dirtyNeighborhood) {
             NeighborhoodChangedUpdate(pipe);
         }
@@ -133,10 +135,10 @@ void PipeUpdateAndRender(Entity* entity, EntityUpdateInvoke reason, f32 deltaTim
 
         auto context = GetContext();
         RenderCommandDrawMesh command {};
-        command.transform = Translate(WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(entity->p))) * Rotate(entity->rotation);
+        command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(entity->p))) * Rotate(entity->rotation);
         command.mesh = entity->mesh;
         command.material = &context->pipeMaterial;
-        Push(group, &command);
+        Push(data->group, &command);
     }
 }
 
@@ -159,6 +161,21 @@ void PipeDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
     auto pickup = (Pickup*)CreatePickupEntity(world, p);
     pickup->item = Item::Pipe;
     pickup->count = 1;
+}
+
+void PipeUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason) {
+    auto pipe = (Pipe*)entity;
+    ImGui::Text("source: %s", pipe->source ? "true" : "false");
+    ImGui::Text("filled: %s", pipe->filled ? "true" : "false");
+    ImGui::Text("liquid: %s", ToString(pipe->liquid));
+    ImGui::Text("amount: %f", pipe->amount);
+    ImGui::Text("pressure: %f", pipe->pressure);
+    ImGui::Text("nx connection: %s", pipe->nxConnected ? "true" : "false");
+    ImGui::Text("px connection: %s", pipe->pxConnected ? "true" : "false");
+    ImGui::Text("ny connection: %s", pipe->nyConnected ? "true" : "false");
+    ImGui::Text("py connection: %s", pipe->pyConnected ? "true" : "false");
+    ImGui::Text("nz connection: %s", pipe->nzConnected ? "true" : "false");
+    ImGui::Text("pz connection: %s", pipe->pzConnected ? "true" : "false");
 }
 
 // This proc is crazy mess for now. We need some smart algorithm for orienting pipes

@@ -60,7 +60,8 @@ static const ConsoleCommand GlobalConsoleCommands[] = {
     { "toggle_dbg_overlay", ToggleDebugOverlayCommand },
     { "pos",                SetEntityPosCommand },
     { "inventory",          PrintPlayerInventoryCommand },
-    { "meta_info",          PrintGameMetaInfoCommand }
+    { "meta_info",          PrintGameMetaInfoCommand },
+    { "creative_mode",      ToggleCreativeModeCommand }
 };
 
 struct ConsoleCommandRecord {

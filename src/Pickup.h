@@ -7,7 +7,8 @@
 struct Pickup : SpatialEntity {
     Item item;
     u32 count;
+    v3 meshScale;
 };
 
 Entity* CreatePickupEntity(GameWorld* world, WorldPos p);
-void PickupUpdateAndRender(Entity* entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera);
+void PickupUpdateAndRender(Entity* entity, EntityBehaviorInvoke reason, void* data);

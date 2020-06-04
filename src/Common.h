@@ -26,6 +26,7 @@
 #define WriteFence() (_WriteBarrier(), _mm_sfence())
 #define ReadFence() (_ReadBarrier(), _mm_lfence())
 
+#define constant static inline const
 #define array_count(arr) ((uint)(sizeof(arr) / sizeof(arr[0])))
 #define typedecl(type, member) (((type*)0)->member)
 #define offset_of(type, member) ((uptr)(&(((type*)0)->member)))

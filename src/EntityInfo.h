@@ -5,15 +5,19 @@
 #include "World.h"
 
 struct Logger;
+struct Mesh;
+struct Material;
 
 struct EntityInfoEntry {
     CreateEntityFn* Create;
     EntityDeleteFn* Delete;
-    EntityUpdateAndRenderFn* UpdateAndRender;
+    EntityBehaviorFn* Behavior;
     EntityDropPickupFn* DropPickup;
     EntityProcessOverlapFn* ProcessOverlap;
+    EntityUpdateAndRenderUIFn* UpdateAndRenderUI;
     const char* name;
     EntityKind kind;
+    bool hasUI;
     u32 typeID;
 };
 
@@ -26,6 +30,9 @@ struct ItemInfoEntry {
         VoxelValue associatedBlock;
     };
     const char* name;
+    Mesh* mesh;
+    Material* material;
+    Texture* icon;
 };
 
 struct BlockInfoEntry {

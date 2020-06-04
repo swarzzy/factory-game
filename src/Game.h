@@ -44,6 +44,16 @@ struct Context {
     Mesh* pipeCrossMesh;
     Mesh* pipeTeeMesh;
     Mesh* barrelMesh;
+    Mesh* beltStraightMesh;
+    Material beltMaterial;
+    Texture beltIcon;
+    Texture beltDiffuse;
+    Texture coalIcon;
+    Texture containerIcon;
+    Texture extractorIcon;
+    Mesh* extractorMesh;
+    Material extractorMaterial;
+    Texture extractorDiffuse;
     Camera camera;
     Renderer* renderer;
     RenderGroup renderGroup;

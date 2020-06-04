@@ -38,6 +38,8 @@ enum struct EntityType : u32 {
     Unknown = 0,
     Container,
     Pipe,
+    Belt,
+    Extractor,
     Barrel,
     Tank,
     Pickup,
@@ -47,15 +49,13 @@ enum struct EntityType : u32 {
 
 struct Entity {
     EntityID id;
+    u64 generation; // UpdateAndRender call count
     EntityKind kind;
     EntityType type;
     u32 flags;
     EntityInventory* inventory;
     b32 deleted;
-    //iv3 p; // should be moved only through SetBlockEntityPos
     v3 meshRotation;
-    Mesh* mesh;
-    Material* material;
 
     Entity* nextInStorage;
     Entity* prevInStorage;
@@ -90,18 +90,34 @@ struct BlockEntity : Entity {
     iv3* multiBlockEntityFootprint;
 };
 
-enum struct EntityUpdateInvoke : u32 {
-    UpdateAndRender, NeighborhoodChanged,
+enum struct EntityUIInvoke: u32 {
+    Info, Inventory
 };
 
+enum struct EntityBehaviorInvoke : u32 {
+    UpdateAndRender, NeighborhoodChanged, Rotate
+};
+
+struct EntityUpdateAndRenderData {
+    f32 deltaTime;
+    RenderGroup* group;
+    Camera* camera;
+};
+
+struct EntityRotateData {
+    enum Direction { CW, CCW } direction;
+};
+
+typedef void(EntityBehaviorFn)(Entity* entity, EntityBehaviorInvoke reason, void* data);
+
 void EntityDropPickup(Entity* entity, GameWorld* world, WorldPos p) {};
-void SpatialEntityUpdateAndRender(Entity* entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera);
+void SpatialEntityBehavior(Entity* entity, EntityBehaviorInvoke reason, void* data);
 void SpatialEntityProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity) {};
 
 typedef Entity*(CreateEntityFn)(GameWorld* world, WorldPos p);
 
 // TODO: Make one call out of these
 typedef void(EntityDeleteFn)(Entity* entity, GameWorld* world);
-typedef void(EntityUpdateAndRenderFn)(Entity* entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera);
 typedef void(EntityDropPickupFn)(Entity* entity, GameWorld* world, WorldPos p);
 typedef void(EntityProcessOverlapFn)(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity);
+typedef void(EntityUpdateAndRenderUIFn)(Entity* entity, EntityUIInvoke reason);

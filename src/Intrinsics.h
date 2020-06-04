@@ -21,6 +21,17 @@ constexpr bool IsPowerOfTwo(u32 n) {
     return result;
 }
 
+bool IsNegative(f32 value) {
+    bool result;
+    auto sign = signbit(value);
+    if (sign) {
+        result = true;
+    } else {
+        result = false;
+    }
+    return result;
+}
+
 f32 Pow(f32 base, f32 exp) {
     return powf(base, exp);
 }

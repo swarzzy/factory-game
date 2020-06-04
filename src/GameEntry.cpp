@@ -21,7 +21,10 @@ inline Context* GetContext() { return _GlobalContext; }
 
 // NOTE: Platforn globals
 static PlatformState* _GlobalPlatform = 0;
+// TODO remove define
 #define GlobalPlatform (*((_GlobalPlatform)))
+inline const PlatformState* GetPlatform() { return _GlobalPlatform; }
+
 // NOTE: Actual frame time
 #define GlobalAbsDeltaTime GlobalPlatform.absDeltaTime
 // NOTE: Frame time corrected by game speed
@@ -338,8 +341,10 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "Player.cpp"
 #include "Container.cpp"
 #include "Pipe.cpp"
+#include "Belt.cpp"
 #include "FlatArray.cpp"
 #include "EntityInfo.cpp"
+#include "Extractor.cpp"
 
 
 // NOTE: Platform specific intrinsics implementation begins here

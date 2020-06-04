@@ -24,5 +24,6 @@ struct Pipe : BlockEntity {
 
 Entity* CreatePipeEntity(GameWorld* world, WorldPos p);
 void PipeDelete(Entity* entity, GameWorld* world);
-void PipeUpdateAndRender(Entity* entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera);
+void PipeUpdateAndRender(Entity* entity, EntityBehaviorInvoke reason, void* data);
 void PipeDropPickup(Entity* entity, GameWorld* world, WorldPos p);
+void PipeUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason);

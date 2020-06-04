@@ -9,6 +9,8 @@ enum struct Item : u32 {
     Grass,
     CoalOre,
     Pipe,
+    Belt,
+    Extractor,
     Barrel,
     Tank,
     _Count

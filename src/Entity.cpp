@@ -9,12 +9,15 @@ EntityID GenEntityID(GameWorld* world, EntityKind kind) {
     return result;
 }
 
-void SpatialEntityUpdateAndRender(Entity* _entity, EntityUpdateInvoke reason, f32 deltaTime, RenderGroup* group, Camera* camera) {
-    if (reason == EntityUpdateInvoke::UpdateAndRender) {
+void SpatialEntityBehavior(Entity* _entity, EntityBehaviorInvoke reason, void* _data) {
+    if (reason == EntityBehaviorInvoke::UpdateAndRender) {
+        auto data = (EntityUpdateAndRenderData*)_data;
         auto entity = (SpatialEntity*)_entity;
         v3 frameAcceleration = V3(0.0f, -20.8f, 0.0f);
-        v3 movementDelta = 0.5f * frameAcceleration * deltaTime * deltaTime + entity->velocity * deltaTime;
-        entity->velocity += frameAcceleration * deltaTime;
+        v3 drag = entity->velocity * entity->friction;
+        frameAcceleration -= drag;
+        v3 movementDelta = 0.5f * frameAcceleration * data->deltaTime * data->deltaTime + entity->velocity * data->deltaTime;
+        entity->velocity += frameAcceleration * data->deltaTime;
         MoveSpatialEntity(entity->world, entity, movementDelta, nullptr, nullptr);
     }
 }

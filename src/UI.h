@@ -7,49 +7,28 @@
 struct Context;
 struct Player;
 struct Camera;
+struct EntityInventory;
 
 struct UI {
-    Camera* camera; // Only for input mode
-    EntityID player;
-    bool openPlayerInventory;
-    Texture coalIcon;
-    Texture containerIcon;
-    EntityID entityToOpenInventoryFor;
-    bool itemSelected;
-    bool selectedInPlayer;
-    u32 selectedItemSlotIndex;
-    SimRegion* region;
+    EntityID entityList[2];
+    EntityID dragEntityID;
+    EntityInventory* dragEntityInventory;
+    u32 dragItemIndex;
 };
 
-void UISelectItem(UI* ui, bool inPlayerInventory, u32 slotIndex) {
-    ui->itemSelected = true;
-    ui->selectedInPlayer = inPlayerInventory;
-    ui->selectedItemSlotIndex =  slotIndex;
-}
+void UIDragItem(UI* ui, EntityID id, EntityInventory* inventory, u32 index);
+void UIDropItem(UI* ui, EntityInventory* dropInventory, u32 index);
+void UIClearDragAndDrop(UI* ui);
 
+void UIDrawEntityInfo(UI* ui, Entity* entity);
+void UIDrawBlockInfo(UI* ui, const Voxel* block);
 
-void InitUI(UI* ui, Player* player, Camera* camera);
-void OpenPlayerInventory(UI* ui) {
-    ui->openPlayerInventory = true;
-}
+bool UIOpenForEntity(UI* ui, EntityID id);
+void UICloseAll(UI* ui);
+bool UIHasOpen(UI* ui);
 
-void ClosePlayerInventory(UI* ui) {
-    ui->openPlayerInventory = false;
-    if (ui->itemSelected && ui->selectedInPlayer) {
-        ui->itemSelected = false;
-    }
-}
+void UIDrawInventory(UI* ui, Entity* entity, EntityInventory* inventory);
 
-bool OpenInventoryForEntity(UI* ui, Context* context, EntityID id);
+void UIUpdateAndRender(UI* ui);
 
-void CloseEntityInventory(UI* ui) {
-    ui->entityToOpenInventoryFor = {};
-    if (ui->itemSelected && !ui->selectedInPlayer) {
-        ui->itemSelected = false;
-    }
-}
-
-void TickUI(UI* ui, Context* context);
-
-// TODO: Both entity classes
-void DrawEntityInfo(UI* ui, Entity* blockEntity);
+void UIInit(UI* ui);

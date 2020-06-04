@@ -7,21 +7,12 @@
 #include "Container.h"
 #include "Pipe.h"
 #include "Pickup.h"
+#include "Belt.h"
+#include "Extractor.h"
+
+#include "Globals.h"
 
 #include <stdlib.h>
-
-Entity* CreateBarrel(Context* context, GameWorld* world, iv3 p) {
-    auto barrel = AddBlockEntity<BlockEntity>(world, p);
-    if (barrel) {
-        barrel->type = EntityType::Barrel;
-        barrel->flags |= EntityFlag_Collides;
-        barrel->mesh = context->barrelMesh;
-        barrel->material = &context->barrelMaterial;
-    }
-
-
-    return barrel;
-}
 
 void RegisterBuiltInEntities(Context* context) {
     auto entityInfo = &context->entityInfo;
@@ -32,14 +23,32 @@ void RegisterBuiltInEntities(Context* context) {
         container->Create = CreateContainerEntity;
         container->name = "Container";
         container->DropPickup = ContainerDropPickup;
-        container->UpdateAndRender = ContainerUpdateAndRender;
+        container->Behavior = ContainerUpdateAndRender;
+        container->UpdateAndRenderUI = ContainerUpdateAndRenderUI;
+        container->hasUI = true;
 
         auto pipe = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
         assert(pipe->typeID == (u32)EntityType::Pipe);
         pipe->Create = CreatePipeEntity;
         pipe->name = "Pipe";
         pipe->DropPickup = PipeDropPickup;
-        pipe->UpdateAndRender = PipeUpdateAndRender;
+        pipe->Behavior = PipeUpdateAndRender;
+        pipe->UpdateAndRenderUI = PipeUpdateAndRenderUI;
+
+        auto belt = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        assert(belt->typeID == (u32)EntityType::Belt);
+        belt->Create = CreateBelt;
+        belt->name = "Belt";
+        belt->DropPickup = BeltDropPickup;
+        belt->Behavior = BeltBehavior;
+
+        auto extractor = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        assert(extractor->typeID == (u32)EntityType::Extractor);
+        extractor->Create = CreateExtractor;
+        extractor->name = "Extractor";
+        extractor->DropPickup = ExtractorDropPickup;
+        extractor->Behavior = ExtractorBehavior;
+        extractor->UpdateAndRenderUI = ExtractorUpdateAndRenderUI;
 
         auto barrel = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
         assert(barrel->typeID == (u32)EntityType::Barrel);
@@ -53,14 +62,16 @@ void RegisterBuiltInEntities(Context* context) {
         assert(pickup->typeID == (u32)EntityType::Pickup);
         pickup->Create = CreatePickupEntity;
         pickup->name = "Pickup";
-        pickup->UpdateAndRender = PickupUpdateAndRender;
+        pickup->Behavior = PickupUpdateAndRender;
 
         auto player = EntityInfoRegisterEntity(entityInfo, EntityKind::Spatial);
         assert(player->typeID == (u32)EntityType::Player);
         player->Create = CreatePlayerEntity;
         player->name = "Player";
         player->ProcessOverlap = PlayerProcessOverlap;
-        player->UpdateAndRender = PlayerUpdateAndRender;
+        player->Behavior = PlayerUpdateAndRender;
+        player->UpdateAndRenderUI = PlayerUpdateAndRenderUI;
+        player->hasUI = true;
 
         assert(entityInfo->entityTable.count == ((u32)EntityType::_Count - 1));
     }
@@ -70,6 +81,9 @@ void RegisterBuiltInEntities(Context* context) {
         container->name = "Container";
         container->convertsToBlock = false;
         container->associatedEntityTypeID = (u32)EntityType::Container;
+        container->mesh = context->containerMesh;
+        container->material = &context->containerMaterial;
+        container->icon = &context->containerIcon;
 
         auto stone = EntityInfoRegisterItem(entityInfo);
         assert(stone->id == (u32)Item::Stone);
@@ -88,12 +102,35 @@ void RegisterBuiltInEntities(Context* context) {
         coalOre->name = "Coal ore";
         coalOre->convertsToBlock = true;
         coalOre->associatedBlock = VoxelValue::CoalOre;
+        coalOre->mesh = context->coalOreMesh;
+        coalOre->material = &context->coalOreMaterial;
+        coalOre->icon = &context->coalIcon;
 
         auto pipe = EntityInfoRegisterItem(entityInfo);
         assert(pipe->id == (u32)Item::Pipe);
         pipe->name = "Pipe";
         pipe->convertsToBlock = false;
         pipe->associatedEntityTypeID = (u32)EntityType::Pipe;
+        pipe->mesh = context->pipeStraightMesh;
+        pipe->material = &context->pipeMaterial;
+
+        auto belt = EntityInfoRegisterItem(entityInfo);
+        assert(belt->id == (u32)Item::Belt);
+        belt->name = "Belt";
+        belt->convertsToBlock = false;
+        belt->associatedEntityTypeID = (u32)EntityType::Belt;
+        belt->mesh = context->beltStraightMesh;
+        belt->material = &context->beltMaterial;
+        belt->icon = &context->beltIcon;
+
+        auto extractor = EntityInfoRegisterItem(entityInfo);
+        assert(extractor->id == (u32)Item::Extractor);
+        extractor->name = "Extractor";
+        extractor->convertsToBlock = false;
+        extractor->associatedEntityTypeID = (u32)EntityType::Extractor;
+        extractor->mesh = context->extractorMesh;
+        extractor->material = &context->extractorMaterial;
+        extractor->icon = &context->extractorIcon;
 
         auto barrel = EntityInfoRegisterItem(entityInfo);
         assert(barrel->id == (u32)Item::Barrel);
@@ -135,9 +172,6 @@ void FluxInit(Context* context) {
     LogMessage(&context->logger, "Logger test %s", "message\n");
     LogMessage(&context->logger, "Logger prints string");
 
-    EntityInfoInit(&context->entityInfo);
-    RegisterBuiltInEntities(context);
-
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
@@ -166,6 +200,22 @@ void FluxInit(Context* context) {
     SetVoxelTexture(context->renderer, VoxelValue::CoalOre, coalOre->bits);
     auto water = ResourceLoaderLoadImage("../res/tile_water.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     SetVoxelTexture(context->renderer, VoxelValue::Water, water->bits);
+
+    context->coalIcon = LoadTextureFromFile("../res/coal_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
+    assert(context->coalIcon.base);
+    UploadToGPU(&context->coalIcon);
+
+    context->containerIcon = LoadTextureFromFile("../res/chest_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
+    assert(context->containerIcon.base);
+    UploadToGPU(&context->containerIcon);
+
+    context->beltIcon = LoadTextureFromFile("../res/belt_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
+    assert(context->beltIcon.base);
+    UploadToGPU(&context->beltIcon);
+
+    context->extractorIcon = LoadTextureFromFile("../res/extractor_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
+    assert(context->extractorIcon.base);
+    UploadToGPU(&context->extractorIcon);
 
     context->playerMesh = LoadMeshFlux("../res/cube.mesh");
     assert(context->playerMesh);
@@ -198,6 +248,14 @@ void FluxInit(Context* context) {
     context->barrelMesh = LoadMeshFlux("../res/barrel/barrel.mesh");
     assert(context->barrelMesh);
     UploadToGPU(context->barrelMesh);
+
+    context->beltStraightMesh = LoadMeshFlux("../res/belt/belt_straight.mesh");
+    assert(context->beltStraightMesh);
+    UploadToGPU(context->beltStraightMesh);
+
+    context->extractorMesh = LoadMeshFlux("../res/extractor/extractor.mesh");
+    assert(context->extractorMesh);
+    UploadToGPU(context->extractorMesh);
 
     context->playerMaterial.workflow = Material::Workflow::PBR;
     context->playerMaterial.pbr.albedoValue = V3(0.8f, 0.0f, 0.0f);
@@ -283,6 +341,27 @@ void FluxInit(Context* context) {
     context->barrelMaterial.pbr.normalMap = &context->barrelNormal;
     context->barrelMaterial.pbr.AOMap = &context->barrelAO;
 
+    context->beltDiffuse = LoadTextureFromFile("../res/belt/diffuse.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->beltDiffuse.base);
+    UploadToGPU(&context->beltDiffuse);
+    context->beltMaterial.workflow = Material::Workflow::PBR;
+    context->beltMaterial.pbr.useAlbedoMap = true;
+    context->beltMaterial.pbr.albedoMap = &context->beltDiffuse;
+    context->beltMaterial.pbr.roughnessValue = 1.0f;
+    context->beltMaterial.pbr.metallicValue = 0.0f;
+
+    context->extractorDiffuse = LoadTextureFromFile("../res/extractor/diffuse.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->extractorDiffuse.base);
+    UploadToGPU(&context->extractorDiffuse);
+    context->extractorMaterial.workflow = Material::Workflow::PBR;
+    context->extractorMaterial.pbr.useAlbedoMap = true;
+    context->extractorMaterial.pbr.albedoMap = &context->extractorDiffuse;
+    context->extractorMaterial.pbr.roughnessValue = 1.0f;
+    context->extractorMaterial.pbr.metallicValue = 0.0f;
+
+    EntityInfoInit(&context->entityInfo);
+    RegisterBuiltInEntities(context);
+
     context->camera.targetWorldPosition = WorldPos::Make(IV3(0, 15, 0));
 
     context->playerRegion.world = &context->gameWorld;
@@ -299,13 +378,20 @@ void FluxInit(Context* context) {
 
     Entity* container = CreateContainerEntity(gameWorld, WorldPos::Make(0, 16, 0));
     Entity* pipe = CreatePipeEntity(gameWorld, WorldPos::Make(2, 16, 0));
-    Entity* barrel = CreateBarrel(context, gameWorld, IV3(4, 16, 0));
+    //Entity* barrel = CreateBarrel(context, gameWorld, IV3(4, 16, 0));
 
-    InitUI(&context->ui, static_cast<Player*>(player), &context->camera);
+    UIInit(&context->ui);
 
     context->camera.mode = CameraMode::Gameplay;
     GlobalPlatform.inputMode = InputMode::FreeCursor;
     context->camera.inputMode = GameInputMode::Game;
+
+    EntityInventoryPushItem(player->toolbelt, Item::Pipe, 128);
+    EntityInventoryPushItem(player->toolbelt, Item::Belt, 128);
+    EntityInventoryPushItem(player->toolbelt, Item::CoalOre, 128);
+    EntityInventoryPushItem(player->toolbelt, Item::Container, 128);
+    EntityInventoryPushItem(player->toolbelt, Item::Stone, 128);
+    EntityInventoryPushItem(player->toolbelt, Item::Extractor, 128);
 }
 
 void FluxReload(Context* context) {
@@ -351,22 +437,21 @@ void FluxUpdate(Context* context) {
         ChangeRenderResolution(renderer, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), GetRenderSampleCount(renderer));
     }
 
+    auto ui = &context->ui;
+
     if (KeyPressed(Key::E)) {
-        // TODO: If entity inventory open then close else open player inventory
-        //CloseEntityInventory(&context->ui);
-        if (!context->ui.openPlayerInventory) {
-            OpenPlayerInventory(&context->ui);
+        if (UIHasOpen(ui)) {
+            UICloseAll(ui);
         } else {
-            ClosePlayerInventory(&context->ui);
+            UIOpenForEntity(ui, context->gameWorld.playerID);
         }
     }
 
     if (KeyPressed(Key::Escape)) {
-        CloseEntityInventory(&context->ui);
-        context->ui.openPlayerInventory = !context->ui.openPlayerInventory;
+        UICloseAll(ui);
     }
 
-    TickUI(&context->ui, context);
+    UIUpdateAndRender(ui);
 
     Update(&context->camera, player, 1.0f / 60.0f);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -450,11 +535,25 @@ void FluxUpdate(Context* context) {
         player->selectedVoxel = hitVoxel;
         player->selectedEntity = hitEntity;
 
-        if (hitEntity != EntityID {0}) {
+        if (hitEntity != 0) {
+            if (KeyPressed(Key::R)) {
+                auto entity = GetEntity(&context->playerRegion, hitEntity);
+                if (entity) {
+                    auto info = GetEntityInfo(entity->type);
+                    EntityRotateData data {};
+                    data.direction = EntityRotateData::Direction::CW;
+                    info->Behavior(entity, EntityBehaviorInvoke::Rotate, &data);
+                }
+            }
             Entity* entity = GetEntity(&context->playerRegion, hitEntity); {
                 if (entity) {
-                    DrawEntityInfo(&context->ui, entity);
+                    UIDrawEntityInfo(&context->ui, entity);
                 }
+            }
+        } else if (hitVoxel.x != GameWorld::InvalidCoord) {
+            auto voxel = GetVoxel(&context->gameWorld, hitVoxel);
+            if (voxel) {
+                UIDrawBlockInfo(&context->ui, voxel);
             }
         }
 
@@ -464,14 +563,29 @@ void FluxUpdate(Context* context) {
             }
             if (MouseButtonPressed(MouseButton::Right)) {
                 bool buildBlock = true;
-                if (hitEntity != EntityID {0}) {
-                    if (OpenInventoryForEntity(&context->ui, context, hitEntity)) {
-                        buildBlock = false;
+                if (hitEntity != 0) {
+                    auto entity = GetEntity(&context->playerRegion, hitEntity);
+                    if (entity) {
+                        auto info = GetEntityInfo(entity->type);
+                        if (info->hasUI) {
+                            if (UIOpenForEntity(&context->ui, hitEntity)) {
+                                UIOpenForEntity(ui, context->gameWorld.playerID);
+                                buildBlock = false;
+                            }
+                        }
                     }
                 }
                 if (buildBlock) {
-                    auto result = BuildBlock(context, &context->gameWorld, hitVoxel + hitNormalInt, Item::Pipe);
-                    assert(result);
+                    auto blockToBuild = player->toolbelt->slots[player->toolbeltSelectIndex].item;
+                    if (blockToBuild != Item::None) {
+                        auto result = BuildBlock(context, &context->gameWorld, hitVoxel + hitNormalInt, blockToBuild);
+                        if (!CreativeModeEnabled) {
+                            if (result) {
+                                EntityInventoryPopItem(player->toolbelt, player->toolbeltSelectIndex);
+                            }
+                        }
+                        assert(result);
+                    }
                 }
             }
 

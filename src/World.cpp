@@ -11,6 +11,7 @@ void CoalOreDropPickup(const Voxel* voxel, GameWorld* world, WorldPos p) {
         if (entity) {
             entity->item = Item::CoalOre;
             entity->count = 1;
+            entity->meshScale = V3(1.0f);
             auto spatial = static_cast<SpatialEntity*>(entity);
             v3 randomOffset = V3(RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f);
             spatial->p = WorldPos::Make(p.block, randomOffset);
@@ -137,6 +138,7 @@ T* AddSpatialEntity(GameWorld* world, WorldPos p) {
             entity->kind = EntityKind::Spatial;
             entity->p = worldPos;
             entity->world = world;
+            entity->friction = 10.0f;
             if (chunk->region) {
                 RegisterEntity(chunk->region, entity);
             }

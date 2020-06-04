@@ -26,5 +26,7 @@ struct EntityInventory {
 
 // NOTE: Returns a count of items that isn't fitted
 u32 EntityInventoryPushItem(EntityInventory* inventory, Item item, u32 count);
+Item EntityInventoryPopItem(EntityInventory* inventory);
+Item EntityInventoryPopItem(EntityInventory* inventory, u32 slot);
 EntityInventory* AllocateEntityInventory(u32 slotCount, u32 slotCapacity);
 void DeleteEntityInventory(EntityInventory* inventory);

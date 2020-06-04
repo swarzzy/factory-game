@@ -19,3 +19,4 @@ void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleComman
 void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs* args);
 void PrintPlayerInventoryCommand(Console* console, Context* context, ConsoleCommandArgs* args);
 void PrintGameMetaInfoCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void ToggleCreativeModeCommand(Console* console, Context* context, ConsoleCommandArgs* args);
