@@ -11,14 +11,19 @@ void EntityInfoInit(EntityInfo* info) {
     FlatArrayInit(&info->entityTable, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
     FlatArrayInit(&info->itemTable, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
     FlatArrayInit(&info->blockTable, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+    FlatArrayInit(&info->traitTable, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
     info->nullEntity.name = "null";
     info->nullEntity.Create = CreateNullEntity;
     info->nullEntity.kind = EntityKind::Block;
+
     info->nullItem.name = "null";
     info->nullItem.convertsToBlock = true;
     info->nullItem.associatedBlock = VoxelValue::Empty;
+
     info->nullBlock.DropPickup = BlockDropPickup;
     info->nullBlock.name = "null";
+
+    info->nullTrait.name = "null";
 };
 
 EntityInfoEntry* EntityInfoRegisterEntity(EntityInfo* info, EntityKind kind) {
@@ -57,6 +62,24 @@ BlockInfoEntry* EntityInfoRegisterBlock(EntityInfo* info) {
     return entry;
 }
 
+EntityTraitInfoEntry* EntityInfoRegisterTrait(EntityInfo* info) {
+    EntityTraitInfoEntry* entry = FlatArrayPush(&info->traitTable);
+    ClearMemory(entry);
+    entry->id = info->traitTable.count;
+    return entry;
+}
+
+bool EntityInfoAddTrait(EntityInfoEntry* info, TraitID traitID, u16 offset) {
+    bool result = false;
+    if (info->traitCount < array_count(info->traits)) {
+        info->traits[info->traitCount] = traitID;
+        info->traitOffsets[info->traitCount] = offset;
+        info->traitCount++;
+        result = true;
+    }
+    return result;
+}
+
 const EntityInfoEntry* GetEntityInfo(EntityInfo* info, u32 typeID) {
     const EntityInfoEntry* result;
     if (typeID > 0 && typeID <= info->entityTable.count) {
@@ -87,16 +110,45 @@ const BlockInfoEntry* GetBlockInfo(EntityInfo* info, u32 typeID) {
     return result;
 }
 
-const EntityInfoEntry* GetEntityInfo(EntityType type) {
+const EntityTraitInfoEntry* GetTraitInfo(EntityInfo* info, TraitID id) {
+    const EntityTraitInfoEntry* result;
+    if (id > 0 && id <= info->traitTable.count) {
+        result = FlatArrayAtUnchecked(&info->traitTable, id - 1);
+    } else {
+        result = &info->nullTrait;
+    }
+    return result;
+}
+
+const EntityInfoEntry* GetEntityInfo(u32 type) {
     return GetEntityInfo(&(GetContext()->entityInfo), type);
 }
 
-const ItemInfoEntry* GetItemInfo(Item item) {
+const ItemInfoEntry* GetItemInfo(u32 item) {
     return GetItemInfo(&(GetContext()->entityInfo), item);
 }
 
-const BlockInfoEntry* GetBlockInfo(VoxelValue block) {
+const BlockInfoEntry* GetBlockInfo(u32 block) {
     return GetBlockInfo(&(GetContext()->entityInfo), block);
+}
+
+const EntityTraitInfoEntry* GetTraitInfo(TraitID id) {
+    return GetTraitInfo(&(GetContext()->entityInfo), id);
+}
+
+void* FindEntityTrait(Entity* entity, TraitID traitID) {
+    void* result = nullptr;
+    auto info = GetEntityInfo(entity->type);
+    if (info) {
+        // TODO: SIMD probing
+        for (usize i = 0; i < array_count(info->traits); i++) {
+            if (info->traits[i] == traitID) {
+                result = (void*)((uptr)entity + (uptr)info->traitOffsets[i]);
+                break;
+            }
+        }
+    }
+    return result;
 }
 
 void EntityInfoPrint(EntityInfo* info, Logger* logger) {
@@ -105,8 +157,16 @@ void EntityInfoPrint(EntityInfo* info, Logger* logger) {
     for (usize i = 0; i < info->entityTable.count; i++) {
         auto entry = FlatArrayAt(&info->entityTable, i);
         if (entry) {
-            LogMessage(logger, "Type ID: %lu\nKind: %s\nName: %s\nCreate: 0x%llx\nDelete: 0x%llx\nBehavior: 0x%llx\nDropPickup: 0x%llx\nProcessOverlap: 0x%llx\n\n",
+            LogMessage(logger, "Type ID: %lu\nKind: %s\nName: %s\nCreate: 0x%llx\nDelete: 0x%llx\nBehavior: 0x%llx\nDropPickup: 0x%llx\nProcessOverlap: 0x%llx\n",
                        entry->typeID, ToString(entry->kind), entry->name, (u64)entry->Create, (u64)entry->Delete, (u64)entry->Behavior, (u64)entry->DropPickup, (u64)entry->ProcessOverlap);
+            if (entry->traitCount) {
+                LogMessage(logger, "Traits (count: %lu):\n", (u32)entry->traitCount);
+                for (usize i = 0; i < entry->traitCount; i++) {
+                    auto traitInfo = GetTraitInfo(entry->traits[i]);
+                    LogMessage(logger, "[%lu] %s (offset: %lu)\n", (u32)traitInfo->id, traitInfo->name, entry->traitOffsets[i]);
+                }
+            }
+            LogMessage(logger, "\n");
         }
     }
     LogMessage(logger, "Items:\n\n");

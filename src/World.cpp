@@ -139,6 +139,7 @@ T* AddSpatialEntity(GameWorld* world, WorldPos p) {
             entity->p = worldPos;
             entity->world = world;
             entity->friction = 10.0f;
+            entity->currentChunk = chunk->p;
             if (chunk->region) {
                 RegisterEntity(chunk->region, entity);
             }
@@ -245,7 +246,7 @@ bool UpdateEntityResidence(GameWorld* world, SpatialEntity* entity) {
     // TODO: Maybe it's not so fast to go through chunk pointer for every entity
     // Maybe we could just have a position from frame start and a position at frame end
     // and compare them?
-    auto residenceChunkP = WorldPos::ToChunk(entity->p).chunk;
+    auto residenceChunkP = WorldPos::ToChunk(entity->currentChunk).chunk;
     auto currentP = WorldPos::ToChunk(entity->p).chunk;
     if (residenceChunkP != currentP) {
         // TODO: Just pass these pointers as agrs?
@@ -265,6 +266,9 @@ bool UpdateEntityResidence(GameWorld* world, SpatialEntity* entity) {
         newChunk->entityStorage.Insert(entity);
         //RegisterSpatialEntity(region, newEntity);
         changedResidence = true;
+        if (changedResidence) {
+            entity->currentChunk = newChunk->p;
+        }
         log_print("[World] Entity %lu changed it's residence (%ld, %ld, %ld) -> (%ld, %ld, %ld)\n", entity->id, oldChunk->p.x, oldChunk->p.y, oldChunk->p.z, newChunk->p.x, newChunk->p.y, newChunk->p.z);
     }
     return changedResidence;
@@ -319,7 +323,7 @@ void FindOverlapsFor(GameWorld* world, SpatialEntity* entity) {
                                 if ((bary.x > 0.0f && bary.x <= 1.0f) &&
                                     (bary.y > 0.0f && bary.y <= 1.0f) &&
                                     (bary.z > 0.0f && bary.z <= 1.0f)) {
-                                    auto entityInfo = GetEntityInfo(&context->entityInfo, entity->type);
+                                    auto entityInfo = GetEntityInfo(entity->type);
                                     assert(entityInfo->kind == EntityKind::Spatial);
                                     entityInfo->ProcessOverlap(world, entity, overlapped);
                                 }
@@ -527,14 +531,14 @@ void ConvertBlockToPickup(GameWorld* world, iv3 voxelP) {
     auto context = GetContext();
 
     if (voxel->value != VoxelValue::Empty) {
-        auto blockInfo = GetBlockInfo(&context->entityInfo, voxel->value);
+        auto blockInfo = GetBlockInfo(voxel->value);
         blockInfo->DropPickup(voxel, world, WorldPos::Make(voxelP));
         auto voxelToModify = GetVoxelForModification(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
         voxelToModify->value = VoxelValue::Empty;
     }
 
     if (voxel->entity) {
-        auto entityInfo = GetEntityInfo(&context->entityInfo, voxel->entity->type);
+        auto entityInfo = GetEntityInfo(voxel->entity->type);
         entityInfo->DropPickup(voxel->entity, world, WorldPos::Make(voxelP));
         DeleteBlockEntityAfterThisFrame(world, voxel->entity);
     }
@@ -576,7 +580,7 @@ bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP) {
 
 bool BuildBlock(Context* context, GameWorld* world, iv3 p, Item item) {
     bool result = false;
-    auto itemInfo = GetItemInfo(&context->entityInfo, item);
+    auto itemInfo = GetItemInfo(&context->entityInfo, (u32)item);
     if (itemInfo->convertsToBlock) {
         auto blockValue = itemInfo->associatedBlock;
         auto chunkPos = WorldPos::ToChunk(p);

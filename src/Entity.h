@@ -78,6 +78,7 @@ struct SpatialEntity : Entity {
     f32 scale;
     f32 acceleration;
     f32 friction;
+    iv3 currentChunk;
 };
 
 struct BlockEntity : Entity {

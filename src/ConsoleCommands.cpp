@@ -193,11 +193,12 @@ void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs*
 
 void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
     // TODO: Enable this
-#if 0
+    #if 0
     auto region = &context->playerRegion;
     LogMessage(console->logger, "\nSpatial entities in region:\n");
-    for (auto entity : region->blockEntityTable) {
-        if (entity->type == EntityType::Pickup) {
+    for (auto entity : region->entityTable) {
+        if (entity->kind == EntityKind::Block) {
+            auto block = (BlockEntity*)entity;
             LogMessage(console->logger, "%llu: %s:%s at position (%d, %d, %d)\n", entity->id, ToString(entity->type), ToString(entity->pickupItem), entity->p.x, entity->p.y, entity->p.z);
         } else {
             LogMessage(console->logger, "%llu: %s at position (%d, %d, %d)\n", entity->id, ToString(entity->type), entity->p.x, entity->p.y, entity->p.z);
@@ -207,7 +208,7 @@ void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs
     for (auto entity : region->blockEntityTable) {
         LogMessage(console->logger, "%llu: %s at position (%d, %d, %d)\n", entity->id, ToString(entity->type), entity->p.x, entity->p.y, entity->p.z);
     }
-#endif
+    #endif
 }
 
 void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleCommandArgs* args) {

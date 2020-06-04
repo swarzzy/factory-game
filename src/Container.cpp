@@ -7,6 +7,8 @@ Entity* CreateContainerEntity(GameWorld* world, WorldPos p) {
         entity->type = EntityType::Container;
         entity->inventory = AllocateEntityInventory(64, 128);
         entity->flags |= EntityFlag_Collides;
+        entity->itemExchangeTrait.PushItem = ContainerPushItem;
+        entity->itemExchangeTrait.PopItem = ContainerPopItem;
     }
     return entity;
 }
@@ -36,4 +38,19 @@ void ContainerUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason) {
         auto context = GetContext();
         UIDrawInventory(&context->ui, entity, entity->inventory);
     }
+}
+
+EntityPopItemResult ContainerPopItem(Entity* entity, Direction dir, u32 itemID, u32 count) {
+    auto container = (Container*)entity;
+    EntityPopItemResult result {};
+    auto popResult = EntityInventoryPopItem(container->inventory, (Item)itemID, count);
+    result.itemID = (u32)popResult.item;
+    result.count = popResult.count;
+    return result;
+}
+
+u32 ContainerPushItem(Entity* entity, Direction dir, u32 itemID, u32 count) {
+    auto container = (Container*)entity;
+    u32 result = EntityInventoryPushItem(container->inventory, (Item)itemID, count);
+    return result;
 }

@@ -1,5 +1,6 @@
 #include "Belt.h"
 
+
 Entity* CreateBelt(GameWorld* world, WorldPos p) {
     Belt* belt = AddBlockEntity<Belt>(world, p.block);
     if (belt) {
@@ -7,6 +8,8 @@ Entity* CreateBelt(GameWorld* world, WorldPos p) {
         MakeEntityNeighborhoodDirty(world, belt);
         belt->dirtyNeighborhood = true;
         belt->direction = Direction::North;
+        belt->beltTrait.InsertItem = BeltInsertItem;
+        belt->beltTrait.GrabItem = BeltGrabItem;
     }
     return belt;
 }
@@ -21,9 +24,9 @@ void BeltDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
     pickup->item = Item::Belt;
     pickup->count = 1;
     for (usize i = 0; i < array_count(belt->items); i++) {
-        if (belt->items[i] != Item::None) {
+        if (belt->items[i] != 0) {
             auto pickup = (Pickup*)CreatePickupEntity(world, p);
-            pickup->item = belt->items[i];
+            pickup->item = (Item)belt->items[i];
             pickup->count = 1;
         }
     }
@@ -32,10 +35,9 @@ void BeltDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
 void BeltUpdateAndRender(Belt* belt, void* _data) {
     auto data = (EntityUpdateAndRenderData*)_data;
 
-    bool passedToNeighbor = false;
     bool lateClearLastItemSlot = false;
     for (usize i = 0; i < Belt::Capacity; i++) {
-        if (belt->items[i] != Item::None) {
+        if (belt->items[i] != 0) {
             f32 max = (i + 1) * (1.0f / array_count(belt->items));
             f32 maxPrev = (i) * (1.0f / array_count(belt->items));
             belt->itemPositions[i] = belt->itemPositions[i] + data->deltaTime * Belt::Speed;
@@ -46,52 +48,36 @@ void BeltUpdateAndRender(Belt* belt, void* _data) {
                 }
             }
             if (belt->itemPositions[i] > max) {
+                bool passedForward = false;
                 if (i < Belt::Capacity - 1) {
-                    if (belt->items[i + 1] == Item::None) {
+                    if (belt->items[i + 1] == 0) {
                         belt->itemPositions[i + 1] = belt->itemPositions[i];
                         belt->items[i + 1] = belt->items[i];
-                        belt->items[i] = Item::None;
+                        belt->items[i] = 0;
                         i++;
                     } else {
                         belt->itemPositions[i] = max;
                     }
                 } else {
-                    auto to = belt->p + DirectionToIV3(belt->direction);
+                    auto to = belt->p + Dir::ToIV3(belt->direction);
                     auto toEntity = GetEntity(belt->world, to);
-                    if (toEntity && toEntity->type == EntityType::Belt) {
-                        auto neighborBelt = (Belt*)toEntity;
-                        bool neighborHasFreeSlot = false;
-                        u32 slot = 0;
-                        f32 horzPos = 0.0f;
-                        Direction turnDir = belt->direction;
-                        if (neighborBelt->direction == belt->direction) {
-                            if (neighborBelt->items[Belt::FirstSlot] == Item::None) {
-                                neighborHasFreeSlot = true;
+                    if (toEntity) {
+                        auto beltTrait = FindEntityTrait<BeltTrait>(toEntity);
+                        if (beltTrait) {
+                            assert(beltTrait->InsertItem);
+                            bool passed = beltTrait->InsertItem(toEntity, belt->direction, belt->items[i], belt->itemPositions[i]);
+                            if (passed) {
+                                passedForward = true;
+                                if (belt->generation > toEntity->generation) {
+                                    belt->items[Belt::LastSlot] = 0;
+                                } else {
+                                    lateClearLastItemSlot = true;
+                                }
                             }
-                        } else if (neighborBelt->direction != OppositeDirection(belt->direction)) {
-                            u32 midSlot = Belt::Capacity / 2 + 1;
-                            if (neighborBelt->items[midSlot] == Item::None) {
-                                neighborHasFreeSlot = true;
-                                slot = midSlot;
-                                horzPos = 1.0f;
-                                turnDir = OppositeDirection(belt->direction);
-                            }
-                        }
-                        if (neighborHasFreeSlot) {
-                            neighborBelt->items[slot] = belt->items[i];
-                            neighborBelt->itemPositions[slot] = belt->itemPositions[i] - max + (slot * (1.0f / Belt::Capacity));
-                            neighborBelt->itemHorzPositions[slot] = horzPos;
-                            neighborBelt->itemTurnDirections[slot] = turnDir;
-                            if (belt->generation > neighborBelt->generation) {
-                                belt->items[Belt::LastSlot] = Item::None;
-                            } else {
-                                lateClearLastItemSlot = true;
-                            }
-                            passedToNeighbor = true;
                         }
                     }
                 }
-                if (!passedToNeighbor) {
+                if (!passedForward) {
                     belt->itemPositions[i] = max;
                 }
             }
@@ -100,16 +86,16 @@ void BeltUpdateAndRender(Belt* belt, void* _data) {
 
     auto context = GetContext();
     RenderCommandDrawMesh command {};
-    command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(belt->p))) * M4x4(RotateY(AngleY(Direction::North, belt->direction)));
+    command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(belt->p))) * M4x4(RotateY(Dir::AngleDegY(Direction::North, belt->direction)));
     command.mesh = context->beltStraightMesh;
     command.material = &context->beltMaterial;
     Push(data->group, &command);
 
     for (usize i = 0; i < Belt::Capacity; i++) {
-        if (belt->items[i] != Item::None) {
-            v3 dir = V3(DirectionToIV3(belt->direction));
-            v3 horzDir = V3(DirectionToIV3(belt->itemTurnDirections[i]));
-            v3 itemBegin = V3(DirectionToIV3(OppositeDirection(belt->direction))) * 0.5f;
+        if (belt->items[i] != 0) {
+            v3 dir = V3(Dir::ToIV3(belt->direction));
+            v3 horzDir = V3(Dir::ToIV3(belt->itemTurnDirections[i]));
+            v3 itemBegin = V3(Dir::ToIV3(Dir::Opposite(belt->direction))) * 0.5f;
             v3 itemOffset = itemBegin + dir * belt->itemPositions[i] - V3(0.0f, Belt::ItemSink, 0.0f) + horzDir * belt->itemHorzPositions[i] * 0.5f;
             auto info = GetItemInfo(belt->items[i]);
             RenderCommandDrawMesh command {};
@@ -121,7 +107,7 @@ void BeltUpdateAndRender(Belt* belt, void* _data) {
     }
 
     if (lateClearLastItemSlot) {
-        belt->items[Belt::Capacity - 1] = Item::None;
+        belt->items[Belt::Capacity - 1] = 0;
     }
 
 }
@@ -131,7 +117,7 @@ void BeltNeighborhoodUpdate(Belt* belt) {
 
 void BeltRotate(Belt* belt, void* _data) {
     auto data = (EntityRotateData*)_data;
-    belt->direction = RotateYCW(belt->direction);
+    belt->direction = Dir::RotateYCW(belt->direction);
     MakeEntityNeighborhoodDirty(belt->world, belt);
     BeltNeighborhoodUpdate(belt);
 }
@@ -143,4 +129,45 @@ void BeltBehavior(Entity* entity, EntityBehaviorInvoke reason, void* data) {
     case EntityBehaviorInvoke::Rotate: { BeltRotate(belt, data); } break;
     default: {} break;
     }
+}
+
+bool BeltInsertItem(Entity* entity, Direction dir, u32 itemID, f32 callerItemPos) {
+    bool result = false;
+    auto belt = (Belt*)entity;
+
+    u32 index = U32::Max;
+    f32 horzPos = 0.0f;
+    Direction turnDir = dir;
+    if (dir == belt->direction) {
+        if (belt->items[Belt::FirstSlot] == 0) {
+            index = Belt::FirstSlot;
+        }
+    } else if (dir != Dir::Opposite(belt->direction)) {
+        u32 midSlot = Belt::Capacity / 2 + 1;
+        if (belt->items[midSlot] == 0) {
+            index = midSlot;
+            horzPos = 1.0f;
+            turnDir = Dir::Opposite(dir);
+        }
+    }
+    if (index != U32::Max) {
+        belt->items[index] = itemID;
+        belt->itemPositions[index] = callerItemPos - 1.0f + (index * (1.0f / Belt::Capacity));
+        belt->itemHorzPositions[index] = horzPos;
+        belt->itemTurnDirections[index] = turnDir;
+        result = true;
+    }
+    return result;
+}
+
+u32 BeltGrabItem(Entity* entity, Direction dir) {
+    u32 result = 0;
+    auto belt = (Belt*)entity;
+    if (belt->direction == dir) {
+        if (belt->items[Belt::LastSlot] && belt->itemPositions[Belt::LastSlot] == 1.0f) {
+            result = belt->items[Belt::LastSlot];
+            belt->items[Belt::LastSlot] = 0;
+        }
+    }
+    return result;
 }

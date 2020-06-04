@@ -9,6 +9,8 @@
 #include "Pickup.h"
 #include "Belt.h"
 #include "Extractor.h"
+#include "EntityTraits.h"
+
 
 #include "Globals.h"
 
@@ -16,6 +18,16 @@
 
 void RegisterBuiltInEntities(Context* context) {
     auto entityInfo = &context->entityInfo;
+
+    { // Traits
+        auto belt = EntityInfoRegisterTrait(entityInfo);
+        assert(belt->id == (u32)Trait::Belt);
+        belt->name = "Belt";
+
+        auto itemExchange = EntityInfoRegisterTrait(entityInfo);
+        assert(itemExchange->id == (u32)Trait::ItemExchange);
+        itemExchange->name = "Item exchange";
+    }
 
     { // Entities
         auto container = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
@@ -26,6 +38,7 @@ void RegisterBuiltInEntities(Context* context) {
         container->Behavior = ContainerUpdateAndRender;
         container->UpdateAndRenderUI = ContainerUpdateAndRenderUI;
         container->hasUI = true;
+        REGISTER_ENTITY_TRAIT(container, Container, itemExchangeTrait, Trait::ItemExchange);
 
         auto pipe = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
         assert(pipe->typeID == (u32)EntityType::Pipe);
@@ -41,6 +54,7 @@ void RegisterBuiltInEntities(Context* context) {
         belt->name = "Belt";
         belt->DropPickup = BeltDropPickup;
         belt->Behavior = BeltBehavior;
+        REGISTER_ENTITY_TRAIT(belt, Belt, beltTrait, Trait::Belt);
 
         auto extractor = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
         assert(extractor->typeID == (u32)EntityType::Extractor);
@@ -49,6 +63,8 @@ void RegisterBuiltInEntities(Context* context) {
         extractor->DropPickup = ExtractorDropPickup;
         extractor->Behavior = ExtractorBehavior;
         extractor->UpdateAndRenderUI = ExtractorUpdateAndRenderUI;
+        REGISTER_ENTITY_TRAIT(extractor, Container, itemExchangeTrait, Trait::ItemExchange);
+        //REGISTER_ENTITY_TRAIT(extractor, Extractor, testTrait, Trait::Test);
 
         auto barrel = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
         assert(barrel->typeID == (u32)EntityType::Barrel);
@@ -578,6 +594,7 @@ void FluxUpdate(Context* context) {
                 if (buildBlock) {
                     auto blockToBuild = player->toolbelt->slots[player->toolbeltSelectIndex].item;
                     if (blockToBuild != Item::None) {
+                        // TODO: Check is item exist in inventory before build?
                         auto result = BuildBlock(context, &context->gameWorld, hitVoxel + hitNormalInt, blockToBuild);
                         if (!CreativeModeEnabled) {
                             if (result) {

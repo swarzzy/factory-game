@@ -76,6 +76,48 @@ WorldPos ChunkPos::ToWorld(ChunkPos p) {
     return result;
 }
 
+Direction Dir::Opposite(Direction dir) {
+    switch (dir) {
+    case Direction::North: { return Direction::South; } break;
+    case Direction::South: { return Direction::North; } break;
+    case Direction::West: { return Direction::East; } break;
+    case Direction::East: { return Direction::West; } break;
+    case Direction::Up: { return Direction::Down; } break;
+    case Direction::Down: { return Direction::Up; } break;
+        invalid_default();
+    }
+    return Direction::North;
+}
 
+iv3 Dir::ToIV3(Direction dir) {
+    switch (dir) {
+    case Direction::North: { return IV3(0, 0, -1); } break;
+    case Direction::South: { return IV3(0, 0, 1); } break;
+    case Direction::West: { return IV3(-1, 0, 0); } break;
+    case Direction::East: { return IV3(1, 0, 0); } break;
+    case Direction::Up: { return IV3(0, 1, 0); } break;
+    case Direction::Down: { return IV3(0, -1, 0); } break;
+        invalid_default();
+    }
+    return IV3(0);
+}
 
+Winding Dir::ClassifyTurnY(Direction from, Direction to) {
+    Winding result = Winding::CW;
+    i32 diff = (i32)to - (i32)from;
+    result = diff > 0 ? Winding::CW : Winding::CCW;
+    return result;
+}
 
+Direction Dir::RotateYCW(Direction from) {
+    assert((u32)from < 4);
+    u32 result = (u32)from + 1;
+    if (result > (u32)Direction::West) result = 0;
+    return (Direction)result;
+}
+
+f32 Dir::AngleDegY(Direction from, Direction to) {
+    i32 i = (i32)to - (i32)from;
+    f32 angle = -90.0f * i;
+    return angle;
+}

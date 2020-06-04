@@ -31,3 +31,24 @@ struct ChunkPos {
     static inline ChunkPos Make(iv3 chunk, uv3 voxel) { return ChunkPos{chunk, voxel}; }
     static WorldPos ChunkPos::ToWorld(ChunkPos p);
 };
+
+enum struct Winding {
+    CW, CCW
+};
+
+enum struct Direction : u32 {
+    North = 0,
+    East = 1,
+    South = 2,
+    West = 3,
+    Down = 4,
+    Up = 5
+};
+
+struct Dir {
+    inline static Direction Opposite(Direction dir);
+    inline static iv3 ToIV3(Direction dir);
+    inline static Winding ClassifyTurnY(Direction from, Direction to);
+    inline static Direction RotateYCW(Direction from);
+    inline static f32 AngleDegY(Direction from, Direction to);
+};

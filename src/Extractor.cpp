@@ -8,6 +8,8 @@ Entity* CreateExtractor(GameWorld* world, WorldPos p) {
         MakeEntityNeighborhoodDirty(world, extractor);
         extractor->dirtyNeighborhood = true;
         extractor->direction = Direction::North;
+        extractor->itemExchangeTrait.PushItem = ExtractorPushItem;
+        extractor->itemExchangeTrait.PopItem = ExtractorPopItem;
     }
     return extractor;
 }
@@ -28,53 +30,50 @@ void ExtractorUpdateAndRender(Extractor* extractor, void* _data) {
     auto context = GetContext();
 
     extractor->extractTimeout = Clamp(extractor->extractTimeout - data->deltaTime, 0.0f, Extractor::ExtractTimeout);
-    if (extractor->buffer == Item::None) {
-        auto from = extractor->p + DirectionToIV3(OppositeDirection(extractor->direction));
+    if (extractor->bufferItemID == 0) {
+        auto from = extractor->p + Dir::ToIV3(Dir::Opposite(extractor->direction));
         auto fromEntity = GetEntity(extractor->world, from);
-        // TODO: Some _extractable_ trait instead of checking inventory
         if (extractor->extractTimeout <= 0.0f) {
-            if (fromEntity && fromEntity->inventory) {
-                Item item = EntityInventoryPopItem(fromEntity->inventory);
-                if (item != Item::None) {
-                    extractor->buffer = item;
+            if (fromEntity) {
+                auto beltTrait = FindEntityTrait<BeltTrait>(fromEntity);
+                if (beltTrait) {
+                    auto item = beltTrait->GrabItem(fromEntity, extractor->direction);
+                    extractor->bufferItemID = item;
+                }
+                auto exchangeTrait = FindEntityTrait<ItemExchangeTrait>(fromEntity);
+                if (exchangeTrait) {
+                    auto popResult = exchangeTrait->PopItem(fromEntity, extractor->direction, 0, 1);
+                    if (popResult.itemID != 0) {
+                        extractor->bufferItemID = popResult.itemID;
+                    }
                 }
                 extractor->extractTimeout = Extractor::ExtractTimeout;
-            } else if (fromEntity && fromEntity->type == EntityType::Belt) {
-                auto belt = (Belt*)fromEntity;
-                if (belt->direction == extractor->direction) {
-                    if (belt->items[Belt::Capacity - 1] != Item::None) {
-                        extractor->buffer = belt->items[Belt::Capacity - 1];
-                        belt->items[Belt::Capacity - 1] = Item::None;
-                        belt->itemPositions[Belt::Capacity - 1] = 0.0f;
+            }
+        }
+    }
+
+    if (extractor->bufferItemID != 0) {
+        auto to = extractor->p + Dir::ToIV3(extractor->direction);
+        auto toEntity = GetEntity(extractor->world, to);
+        if (toEntity) {
+            auto beltTrait = FindEntityTrait<BeltTrait>(toEntity);
+            if (beltTrait) {
+                if (beltTrait->InsertItem(toEntity, extractor->direction, extractor->bufferItemID, 1.0f)) {
+                    extractor->bufferItemID = 0;
+                }
+            } else {
+                auto itemExchangeTrait = FindEntityTrait<ItemExchangeTrait>(toEntity);
+                if (itemExchangeTrait) {
+                    if(itemExchangeTrait->PushItem(toEntity, extractor->direction, extractor->bufferItemID, 1) == 0) {
+                        extractor->bufferItemID = 0;
                     }
                 }
             }
         }
     }
 
-    if (extractor->buffer != Item::None) {
-        auto to = extractor->p + DirectionToIV3(extractor->direction);
-        auto toEntity = GetEntity(extractor->world, to);
-        // TODO: Some kind if _accept_inserts_ trait so we can insert not only to belts?
-        if (toEntity && toEntity->type == EntityType::Belt) {
-            auto belt = (Belt*)toEntity;
-            if (belt->direction == extractor->direction) {
-                if (belt->items[0] == Item::None) {
-                    belt->items[0] = extractor->buffer;
-                    belt->itemPositions[0] = 0.0f;
-                    extractor->buffer = Item::None;
-                }
-            }
-        } else if (toEntity && toEntity->inventory) {
-            u32 remainder = EntityInventoryPushItem(toEntity->inventory, extractor->buffer, 1);
-            if (!remainder) {
-                extractor->buffer = Item::None;
-            }
-        }
-    }
-
     RenderCommandDrawMesh command {};
-    command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(extractor->p))) * M4x4(RotateY(AngleY(Direction::North, extractor->direction)));
+    command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(extractor->p))) * M4x4(RotateY(Dir::AngleDegY(Direction::North, extractor->direction)));
     command.mesh = context->extractorMesh;
     command.material = &context->extractorMaterial;
     Push(data->group, &command);
@@ -82,7 +81,7 @@ void ExtractorUpdateAndRender(Extractor* extractor, void* _data) {
 
 void ExtractorRotate(Extractor* belt, void* _data) {
     auto data = (EntityRotateData*)_data;
-    belt->direction = RotateYCW(belt->direction);
+    belt->direction = Dir::RotateYCW(belt->direction);
     MakeEntityNeighborhoodDirty(belt->world, belt);
 }
 
@@ -97,6 +96,34 @@ void ExtractorBehavior(Entity* entity, EntityBehaviorInvoke reason, void* data) 
 
 void ExtractorUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason) {
     auto extractor = (Extractor*)entity;
-    auto itemInfo = GetItemInfo(extractor->buffer);
+    auto itemInfo = GetItemInfo(extractor->bufferItemID);
     ImGui::Text("buffer: %s", itemInfo->name);
+}
+
+EntityPopItemResult ExtractorPopItem(Entity* entity, Direction dir, u32 itemID, u32 count) {
+    auto extractor = (Extractor*)entity;
+    EntityPopItemResult result {};
+    if (dir == extractor->direction) {
+        if (extractor->bufferItemID) {
+            if (itemID == 0 || extractor->bufferItemID == itemID) {
+                result.itemID = extractor->bufferItemID;
+                result.count = 1;
+                extractor->bufferItemID = 0;
+            }
+        }
+    }
+    return result;
+}
+
+u32 ExtractorPushItem(Entity* entity, Direction dir, u32 itemID, u32 count) {
+    auto extractor = (Extractor*)entity;
+    if (dir == Dir::Opposite(extractor->direction)) {
+        if (count > 0) {
+            if (!extractor->bufferItemID) {
+                extractor->bufferItemID = itemID;
+                count--;
+            }
+        }
+    }
+    return count;
 }
