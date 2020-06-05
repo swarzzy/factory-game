@@ -75,6 +75,9 @@ struct EntityStorage {
     }
 
     void Insert(Entity* entity) {
+        if (this->first) {
+            assert(entity->id != this->first->id);
+        }
         entity->nextInStorage = this->first;
         if (this->first) this->first->prevInStorage = entity;
         this->first = entity;
@@ -138,6 +141,7 @@ struct Chunk {
 
     GameWorld* world;
     Voxel voxels[Size * Size * Size];
+    Voxel nullVoxel;
 };
 
 // TODO: We need more complicated structure of chunk hash table
@@ -177,15 +181,21 @@ struct GameWorld {
 
     // Be carefull with pointers
     // Be carefull with pointers
-    BucketArray<Entity*, 16> blockEntitiesToDelete;
+    BucketArray<Entity*, 16> entitiesToDelete;
+    // TODO: Is nullVoxel actually good idea?
+    Voxel nullVoxel;
 };
 
 void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed);
+
 Voxel* GetVoxelRaw(Chunk* chunk, u32 x, u32 y, u32 z);
+
+// These getters always return a valid pointer (pointer to null voxel if actual voxel isn't found)
 const Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z);
 inline const Voxel* GetVoxel(Chunk* chunk, uv3 p) { return GetVoxel(chunk, p.x, p.y, p.z); }
 const Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z);
 inline const Voxel* GetVoxel(GameWorld* world, iv3 p) { return GetVoxel(world, p.x, p.y, p.z); }
+
 Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z);
 Voxel* GetVoxelForModification(Chunk* chunk, u32 x, u32 y, u32 z);
 
@@ -200,18 +210,18 @@ Chunk* AddChunk(GameWorld* world, iv3 coord);
 Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z);
 inline Chunk* GetChunk(GameWorld* world, iv3 chunkP) { return GetChunk(world, chunkP.x, chunkP.y, chunkP.z); }
 
+bool CheckWorldBounds(WorldPos p);
 
 template <typename T>
 T* AddSpatialEntity(GameWorld* world, WorldPos p);
-void DeleteSpatialEntity(GameWorld* world, SpatialEntity* entity);
-void DeleteSpatialEntityAfterThisFrame(GameWorld* world, SpatialEntity* entity);
-
-EntityKind ClassifyEntity(EntityID id);
 
 template <typename T>
 T* AddBlockEntity(GameWorld* world, iv3 p);
-void DeleteBlockEntity(GameWorld* world, BlockEntity* entity);
-void DeleteBlockEntityAfterThisFrame(GameWorld* world, BlockEntity* entity);
+
+void DeleteEntity(GameWorld* world, Entity* entity);
+void ScheduleEntityForDelete(GameWorld* world, Entity* entity);
+
+void PostEntityNeighborhoodUpdate(GameWorld* world, BlockEntity* entity);
 
 void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup);
 

@@ -29,6 +29,8 @@ const Voxel* GetVoxel(Chunk* chunk, u32 x, u32 y, u32 z) {
     const Voxel* result = nullptr;
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
         result = GetVoxelRaw(chunk, x, y, z);
+    } else {
+        result = &chunk->nullVoxel;
     }
     return result;
 }
@@ -39,6 +41,8 @@ const Voxel* GetVoxel(GameWorld* world, i32 x, i32 y, i32 z) {
     Chunk* chunk = GetChunk(world, chunkP.chunk.x, chunkP.chunk.y, chunkP.chunk.z);
     if (chunk) {
         result = GetVoxel(chunk, chunkP.block.x, chunkP.block.y, chunkP.block.z);
+    } else {
+        result = &world->nullVoxel;
     }
     return result;
 }
@@ -108,17 +112,7 @@ void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed
     world->context = context;
     world->mesher = mesher;
     world->worldGen.Init(seed);
-    BucketArrayInit(&world->blockEntitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
-}
-
-// TODO: Are 64 bit literals supported on all compilers?
-EntityKind ClassifyEntity(EntityID id) {
-    bool spatial = id & 0x8000000000000000ull;
-    if (spatial) {
-        return EntityKind::Spatial;
-    } else {
-        return EntityKind::Block;
-    }
+    BucketArrayInit(&world->entitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
 }
 
 template <typename T>
@@ -148,27 +142,20 @@ T* AddSpatialEntity(GameWorld* world, WorldPos p) {
     return entity;
 }
 
-void DeleteSpatialEntity(GameWorld* world, SpatialEntity* entity) {
-    auto entityInfo = GetEntityInfo(entity->type);
-    if (entityInfo->Delete) {
-        entityInfo->Delete(entity, world);
-    }
-    auto chunk = GetChunk(world, WorldPos::ToChunk(entity->p).chunk);
-    assert(chunk);
-    UnregisterEntity(chunk->region, entity->id);
-    if (entity->inventory) {
-        DeleteEntityInventory(entity->inventory);
-    }
-    chunk->entityStorage.Unlink(entity);
-    PlatformFree(entity, nullptr);
-}
-
 Entity* GetEntity(GameWorld* world, iv3 p) {
+    Entity* result = nullptr;
     const Voxel* voxel = GetVoxel(world, p);
-    return voxel->entity;
+    if (voxel) {
+        result = voxel->entity;
+    }
+    return result;
 }
 
-void MakeEntityNeighborhoodDirty(GameWorld* world, BlockEntity* entity) {
+// TODO: There is no way now for dirty entities to figure out who caused an neighbor update
+// So an entity which if set to dirty can not post neighborhood update itself because it will cause
+// spinlock. We probably need to neighborhood update to be event-based or smth if we need dirty entities to
+// post neighborhood updates
+void PostEntityNeighborhoodUpdate(GameWorld* world, BlockEntity* entity) {
     iv3 min = entity->p - IV3(1);
     iv3 max = entity->p + IV3(1);
 
@@ -176,7 +163,7 @@ void MakeEntityNeighborhoodDirty(GameWorld* world, BlockEntity* entity) {
         for (i32 y = min.y; y <= max.y; y++) {
             for (i32 x = min.x; x <= max.x; x++) {
                 Entity* neighbor = GetEntity(world, IV3(x, y, z));
-                if (neighbor && neighbor->kind == EntityKind::Block) {
+                if (neighbor && (neighbor != entity) && (neighbor->kind == EntityKind::Block)) {
                     auto e = static_cast<BlockEntity*>(neighbor);
                     e->dirtyNeighborhood = true;
                 }
@@ -207,6 +194,7 @@ T* AddBlockEntity(GameWorld* world, iv3 p) {
                     if (chunk->region) {
                         RegisterEntity(chunk->region, entity);
                     }
+                    PostEntityNeighborhoodUpdate(world, entity);
                 }
             }
         }
@@ -214,17 +202,37 @@ T* AddBlockEntity(GameWorld* world, iv3 p) {
     return entity;
 }
 
-void DeleteBlockEntity(GameWorld* world, BlockEntity* entity) {
+void DeleteEntity(GameWorld* world, Entity* entity) {
     auto entityInfo = GetEntityInfo(entity->type);
     if (entityInfo->Delete) {
         entityInfo->Delete(entity, world);
     }
-    // TODO: Get chunk from region for speed?
-    auto chunkP = WorldPos::ToChunk(entity->p);
-    auto chunk = GetChunk(world, chunkP.chunk);
-    assert(chunk);
-    auto released = ReleaseVoxel(chunk, entity, chunkP.block);
-    assert(released);
+
+    Chunk* chunk;
+    switch (entity->kind) {
+    case EntityKind::Block: {
+        auto blockEntity = (BlockEntity*)entity;
+        PostEntityNeighborhoodUpdate(world, blockEntity);
+        auto chunkP = WorldPos::ToChunk(blockEntity->p);
+        chunk = GetChunk(world, chunkP.chunk);
+        assert(chunk);
+        auto released = ReleaseVoxel(chunk, blockEntity, chunkP.block);
+        assert(released);
+    } break;
+    case EntityKind::Spatial: {
+        auto spatialEntity = (SpatialEntity*)entity;
+        iv3 chunkP;
+        if (spatialEntity->outsideOfTheWorld) {
+            chunkP = spatialEntity->currentChunk;
+        } else {
+            chunkP = WorldPos::ToChunk(spatialEntity->p).chunk;
+        }
+        chunk = GetChunk(world, chunkP);
+        assert(chunk);
+    } break;
+    invalid_default();
+    }
+
     UnregisterEntity(chunk->region, entity->id);
     if (entity->inventory) {
         DeleteEntityInventory(entity->inventory);
@@ -233,44 +241,57 @@ void DeleteBlockEntity(GameWorld* world, BlockEntity* entity) {
     PlatformFree(entity, nullptr);
 }
 
-void DeleteBlockEntityAfterThisFrame(GameWorld* world, Entity* entity) {
-    auto entry = BucketArrayPush(&world->blockEntitiesToDelete);
+void ScheduleEntityForDelete(GameWorld* world, Entity* entity) {
+    auto entry = BucketArrayPush(&world->entitiesToDelete);
     assert(entry);
     *entry = entity;
     entity->deleted = true;
 }
 
+bool CheckWorldBounds(WorldPos p) {
+    bool result = false;
+    if (p.block.y <= GameWorld::MaxHeight && p.block.y >= GameWorld::MinHeight) {
+        result = true;
+    }
+    return result;
+}
 
 bool UpdateEntityResidence(GameWorld* world, SpatialEntity* entity) {
     bool changedResidence = false;
-    // TODO: Maybe it's not so fast to go through chunk pointer for every entity
-    // Maybe we could just have a position from frame start and a position at frame end
-    // and compare them?
-    auto residenceChunkP = WorldPos::ToChunk(entity->currentChunk).chunk;
-    auto currentP = WorldPos::ToChunk(entity->p).chunk;
-    if (residenceChunkP != currentP) {
-        // TODO: Just pass these pointers as agrs?
-        auto oldChunk = GetChunk(world, residenceChunkP);
-        assert(oldChunk);
-        auto newChunk = GetChunk(world, currentP.x, currentP.y, currentP.z);
-        // TODO: Just asserting for now. Should do something smart here.
-        // Entity may move to the chunk which is generated yet (i.e. outside of a region).
-        // So we need handle this situation somehow. Just scheduling chunk gen will not solve this problem
-        // because we will need to wait somehow them. Maybe just discard whole frame movement for entity
-        // is actually ok since spatial entities won't have complicated behavior and movements. Of the will?
-        assert(newChunk);
 
-        // Don't need to update hash map entry since pointer isn't changed
-        //UnregisterSpatialEntity(region, entity->id);
-        oldChunk->entityStorage.Unlink(entity);
-        newChunk->entityStorage.Insert(entity);
-        //RegisterSpatialEntity(region, newEntity);
-        changedResidence = true;
-        if (changedResidence) {
-            entity->currentChunk = newChunk->p;
+    auto inWorldBounds = CheckWorldBounds(entity->p);
+    if (!inWorldBounds) {
+        entity->outsideOfTheWorld = true;
+        auto info = GetEntityInfo(entity->type);
+        if (!(entity->flags & EntityFlag_DisableDeleteWhenOutsideOfWorldBounds)) {
+            ScheduleEntityForDelete(world, entity);
+            log_print("[World] Entity %llu of type %s was moved outside of world bounds and will be deleted\n", entity->id, info->name);
+        } else {
+            log_print("[World] Entity %llu of type %s was moved outside of world bounds and won't be deleted because DisableDeleteWhenOutsideOfWorldBounds flag is set\n", entity->id, info->name);
         }
-        log_print("[World] Entity %lu changed it's residence (%ld, %ld, %ld) -> (%ld, %ld, %ld)\n", entity->id, oldChunk->p.x, oldChunk->p.y, oldChunk->p.z, newChunk->p.x, newChunk->p.y, newChunk->p.z);
+    } else {
+        entity->outsideOfTheWorld = false;
+        auto residenceChunkP = entity->currentChunk;
+        auto currentP = WorldPos::ToChunk(entity->p).chunk;
+        if (residenceChunkP != currentP) {
+            auto oldChunk = GetChunk(world, residenceChunkP);
+            assert(oldChunk);
+            auto newChunk = GetChunk(world, currentP.x, currentP.y, currentP.z);
+            // TODO: Just asserting for now. Should do something smart here.
+            // Entity may move to the chunk which is generated yet (i.e. outside of a region).
+            // So we need handle this situation somehow. Just scheduling chunk gen will not solve this problem
+            // because we will need to wait somehow them. Maybe just discard whole frame movement for entity
+            // is actually ok since spatial entities won't have complicated behavior and movements. Of the will?
+            assert(newChunk);
+
+            oldChunk->entityStorage.Unlink(entity);
+            newChunk->entityStorage.Insert(entity);
+            changedResidence = true;
+            entity->currentChunk = newChunk->p;
+            log_print("[World] Entity %lu changed it's residence (%ld, %ld, %ld) -> (%ld, %ld, %ld)\n", entity->id, oldChunk->p.x, oldChunk->p.y, oldChunk->p.z, newChunk->p.x, newChunk->p.y, newChunk->p.z);
+        }
     }
+
     return changedResidence;
 }
 
@@ -540,39 +561,44 @@ void ConvertBlockToPickup(GameWorld* world, iv3 voxelP) {
     if (voxel->entity) {
         auto entityInfo = GetEntityInfo(voxel->entity->type);
         entityInfo->DropPickup(voxel->entity, world, WorldPos::Make(voxelP));
-        DeleteBlockEntityAfterThisFrame(world, voxel->entity);
+        ScheduleEntityForDelete(world, voxel->entity);
     }
 }
 
 
-// TODO: Store world poninter in entity or smth?
 bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP) {
     bool moved = false;
-    // TODO validate coords
-    //assert(newP)
-    if (newP != entity->p) {
-        auto newChunkP = WorldPos::ToChunk(newP);
-        auto oldChunkP = WorldPos::ToChunk(entity->p);
-        auto oldChunk = GetChunk(world, oldChunkP.chunk);
-        auto newChunk = GetChunk(world, newChunkP.chunk);
-        assert(oldChunk);
-        // TODO: Just asserting for now. Should do something smart here.
-        // Entity may move to the chunk which is generated yet (i.e. outside of a region).
-        // So we need handle this situation somehow. Just scheduling chunk gen will not solve this problem
-        // because we will need to wait somehow them. Maybe just discard whole frame movement for entity
-        // is actually ok since spatial entities won't have complicated behavior and movements. Of the will?
-        // see TODO in UpdateEntityResidence
-        assert(newChunk);
-        auto occupied = OccupyVoxel(newChunk, entity, newChunkP.block);
+    bool inWorldBounds = CheckWorldBounds(WorldPos::Make(newP));
+    if (inWorldBounds) {
+        if (newP != entity->p) {
+            // TODO: Do not post neighborhood update if entity is not moved
+            // Posting on an old location
+            PostEntityNeighborhoodUpdate(world, entity);
+            auto newChunkP = WorldPos::ToChunk(newP);
+            auto oldChunkP = WorldPos::ToChunk(entity->p);
+            auto oldChunk = GetChunk(world, oldChunkP.chunk);
+            auto newChunk = GetChunk(world, newChunkP.chunk);
+            assert(oldChunk);
+            // TODO: Just asserting for now. Should do something smart here.
+            // Entity may move to the chunk which is generated yet (i.e. outside of a region).
+            // So we need handle this situation somehow. Just scheduling chunk gen will not solve this problem
+            // because we will need to wait somehow them. Maybe just discard whole frame movement for entity
+            // is actually ok since spatial entities won't have complicated behavior and movements. Of the will?
+            // see TODO in UpdateEntityResidence
+            assert(newChunk);
+            auto occupied = OccupyVoxel(newChunk, entity, newChunkP.block);
 
-        if (occupied) {
-            auto released = ReleaseVoxel(oldChunk, entity, oldChunkP.block);
-            assert(released);
-            oldChunk->entityStorage.Unlink(entity);
-            newChunk->entityStorage.Insert(entity);
-            log_print("[World] Block entity %lu changed it's residence (%ld, %ld, %ld) -> (%ld, %ld, %ld)\n", entity->id, oldChunk->p.x, oldChunk->p.y, oldChunk->p.z, newChunk->p.x, newChunk->p.y, newChunk->p.z);
-            entity->p = newP;
-            moved = true;
+            if (occupied) {
+                auto released = ReleaseVoxel(oldChunk, entity, oldChunkP.block);
+                assert(released);
+                oldChunk->entityStorage.Unlink(entity);
+                newChunk->entityStorage.Insert(entity);
+                log_print("[World] Block entity %lu changed it's residence (%ld, %ld, %ld) -> (%ld, %ld, %ld)\n", entity->id, oldChunk->p.x, oldChunk->p.y, oldChunk->p.z, newChunk->p.x, newChunk->p.y, newChunk->p.z);
+                entity->p = newP;
+                moved = true;
+                // Posting on a new location
+                PostEntityNeighborhoodUpdate(world, entity);
+            }
         }
     }
     return moved;

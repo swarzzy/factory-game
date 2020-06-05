@@ -5,7 +5,6 @@ Entity* CreateBelt(GameWorld* world, WorldPos p) {
     Belt* belt = AddBlockEntity<Belt>(world, p.block);
     if (belt) {
         belt->type = EntityType::Belt;
-        MakeEntityNeighborhoodDirty(world, belt);
         belt->dirtyNeighborhood = true;
         belt->direction = Direction::North;
         belt->beltTrait.InsertItem = BeltInsertItem;
@@ -15,7 +14,6 @@ Entity* CreateBelt(GameWorld* world, WorldPos p) {
 }
 
 void BeltDelete(Entity* entity, GameWorld* world) {
-    MakeEntityNeighborhoodDirty(world, (BlockEntity*)entity);
 }
 
 void BeltDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
@@ -112,14 +110,10 @@ void BeltUpdateAndRender(Belt* belt, void* _data) {
 
 }
 
-void BeltNeighborhoodUpdate(Belt* belt) {
-}
-
 void BeltRotate(Belt* belt, void* _data) {
     auto data = (EntityRotateData*)_data;
     belt->direction = Dir::RotateYCW(belt->direction);
-    MakeEntityNeighborhoodDirty(belt->world, belt);
-    BeltNeighborhoodUpdate(belt);
+    PostEntityNeighborhoodUpdate(belt->world, belt);
 }
 
 void BeltBehavior(Entity* entity, EntityBehaviorInvoke reason, void* data) {

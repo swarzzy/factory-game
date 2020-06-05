@@ -4,7 +4,7 @@ Entity* CreatePlayerEntity(GameWorld* world, WorldPos p) {
     Player* entity = AddSpatialEntity<Player>(world, p);
     if (entity) {
         entity->type = EntityType::Player;
-        entity->flags |= EntityFlag_ProcessOverlaps;
+        entity->flags |= EntityFlag_ProcessOverlaps | EntityFlag_DisableDeleteWhenOutsideOfWorldBounds;
         entity->scale = 0.95f;
         entity->acceleration = 70.0f;
         entity->friction = 10.0f;
@@ -184,7 +184,7 @@ void PlayerProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEn
             itemRemainder = EntityInventoryPushItem(testEntity->inventory, pickup->item, pickup->count);
         }
         if (itemRemainder == 0) {
-            DeleteBlockEntityAfterThisFrame(world, overlappedEntity);
+            ScheduleEntityForDelete(world, overlappedEntity);
         } else {
             pickup->count = itemRemainder;
         }

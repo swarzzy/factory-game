@@ -5,7 +5,6 @@ Entity* CreateExtractor(GameWorld* world, WorldPos p) {
     if (extractor) {
         extractor->flags = EntityFlag_Collides;
         extractor->type = EntityType::Extractor;
-        MakeEntityNeighborhoodDirty(world, extractor);
         extractor->dirtyNeighborhood = true;
         extractor->direction = Direction::North;
         extractor->itemExchangeTrait.PushItem = ExtractorPushItem;
@@ -15,7 +14,6 @@ Entity* CreateExtractor(GameWorld* world, WorldPos p) {
 }
 
 void ExtractoryDelete(Entity* entity, GameWorld* world) {
-    MakeEntityNeighborhoodDirty(world, (BlockEntity*)entity);
 }
 
 void ExtractorDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
@@ -82,7 +80,7 @@ void ExtractorUpdateAndRender(Extractor* extractor, void* _data) {
 void ExtractorRotate(Extractor* belt, void* _data) {
     auto data = (EntityRotateData*)_data;
     belt->direction = Dir::RotateYCW(belt->direction);
-    MakeEntityNeighborhoodDirty(belt->world, belt);
+    PostEntityNeighborhoodUpdate(belt->world, belt);
 }
 
 void ExtractorBehavior(Entity* entity, EntityBehaviorInvoke reason, void* data) {

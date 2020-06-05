@@ -601,7 +601,7 @@ void FluxUpdate(Context* context) {
                                 EntityInventoryPopItem(player->toolbelt, player->toolbeltSelectIndex);
                             }
                         }
-                        assert(result);
+                        //assert(result);
                     }
                 }
             }
@@ -617,18 +617,14 @@ void FluxUpdate(Context* context) {
 
     }
 
-    foreach(context->gameWorld.blockEntitiesToDelete) {
+    foreach(context->gameWorld.entitiesToDelete) {
         assert(it);
         auto entity = *it;
         assert(entity->deleted);
-        if (entity->kind == EntityKind::Spatial) {
-            DeleteSpatialEntity(&context->gameWorld, static_cast<SpatialEntity*>(entity));
-        } else {
-            DeleteBlockEntity(&context->gameWorld, static_cast<BlockEntity*>(entity));
-        }
+        DeleteEntity(&context->gameWorld, entity);
     }
 
-    BucketArrayClear(&context->gameWorld.blockEntitiesToDelete);
+    BucketArrayClear(&context->gameWorld.entitiesToDelete);
 
     Begin(renderer, group);
     ShadowPass(renderer, group);

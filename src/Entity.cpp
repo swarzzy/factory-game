@@ -3,9 +3,7 @@
 
 EntityID GenEntityID(GameWorld* world, EntityKind kind) {
     assert(world->entitySerialCount < (U64::Max - 1));
-    u64 mask = kind == EntityKind::Spatial ? 0x8000000000000000ull : 0ull;
-    EntityID result = { (++world->entitySerialCount) | mask };
-    ClassifyEntity(result);
+    EntityID result = ++world->entitySerialCount;
     return result;
 }
 

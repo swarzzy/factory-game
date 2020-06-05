@@ -147,14 +147,12 @@ Entity* CreatePipeEntity(GameWorld* world, WorldPos p) {
     if (pipe) {
         pipe->type = EntityType::Pipe;
         pipe->flags |= EntityFlag_Collides;
-        MakeEntityNeighborhoodDirty(world, pipe);
         pipe->dirtyNeighborhood = true;
     }
     return pipe;
 }
 
 void PipeDelete(Entity* entity, GameWorld* world) {
-    MakeEntityNeighborhoodDirty(world, (BlockEntity*)entity);
 }
 
 void PipeDropPickup(Entity* entity, GameWorld* world, WorldPos p) {

@@ -31,7 +31,8 @@ EntityID GenEntityID(GameWorld* world, EntityKind kind);
 
 enum EntityFlags : u32 {
     EntityFlag_Collides = (1 << 0),
-    EntityFlag_ProcessOverlaps = (2 << 0),
+    EntityFlag_ProcessOverlaps = (1 << 1),
+    EntityFlag_DisableDeleteWhenOutsideOfWorldBounds = (1 << 3)
 };
 
 enum struct EntityType : u32 {
@@ -59,16 +60,8 @@ struct Entity {
 
     Entity* nextInStorage;
     Entity* prevInStorage;
-
     // TODO: just make it global variable
     GameWorld* world;
-
-    // TODO: Maybe we just use entity info instead of virtual functions.
-    // That way we will independent from C++ specific feature which will simplify C scripting API implementation,
-    // and entities will becode POD again. Further more, we could just use straight old composition instead of
-    // inheritance. By the way, it looks like inlining of virtual functions isn't a thing actually
-    virtual void Render(RenderGroup* group, Camera* camera) {};
-    virtual void Update(f32 deltaTime) {};
 };
 
 struct SpatialEntity : Entity {
@@ -79,6 +72,7 @@ struct SpatialEntity : Entity {
     f32 acceleration;
     f32 friction;
     iv3 currentChunk;
+    b32 outsideOfTheWorld;
 };
 
 struct BlockEntity : Entity {
@@ -96,7 +90,7 @@ enum struct EntityUIInvoke: u32 {
 };
 
 enum struct EntityBehaviorInvoke : u32 {
-    UpdateAndRender, NeighborhoodChanged, Rotate
+    UpdateAndRender, Rotate
 };
 
 struct EntityUpdateAndRenderData {

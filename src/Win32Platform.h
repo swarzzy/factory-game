@@ -5,7 +5,7 @@
 #include "Win32CodeLoader.h"
 
 #define DISCRETE_GRAPHICS_DEFAULT
-//#define ENABLE_CONSOLE
+#define ENABLE_CONSOLE
 #define DEBUG_OPENGL
 constexpr u32 OPENGL_MAJOR_VERSION = 4;
 constexpr u32 OPENGL_MINOR_VERSION = 5;
