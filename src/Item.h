@@ -2,6 +2,8 @@
 
 #include "Common.h"
 
+typedef u32 ItemID;
+
 enum struct Item : u32 {
     None = 0,
     Container,
@@ -13,6 +15,8 @@ enum struct Item : u32 {
     Extractor,
     Barrel,
     Tank,
+    Water,
+    CoalOreBlock,
     _Count
 };
 

@@ -105,7 +105,6 @@ struct EntityRotateData {
 
 typedef void(EntityBehaviorFn)(Entity* entity, EntityBehaviorInvoke reason, void* data);
 
-void EntityDropPickup(Entity* entity, GameWorld* world, WorldPos p) {};
 void SpatialEntityBehavior(Entity* entity, EntityBehaviorInvoke reason, void* data);
 void SpatialEntityProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity) {};
 

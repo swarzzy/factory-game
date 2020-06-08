@@ -31,7 +31,7 @@ EntityInfoEntry* EntityInfoRegisterEntity(EntityInfo* info, EntityKind kind) {
     ClearMemory(entry);
     entry->typeID = info->entityTable.count;
     entry->Create = CreateNullEntity;
-    entry->DropPickup = EntityDropPickup;
+    entry->DropPickup = nullptr;
     entry->kind = kind;
     switch (kind) {
     case EntityKind::Spatial: {
@@ -51,6 +51,11 @@ ItemInfoEntry* EntityInfoRegisterItem(EntityInfo* info) {
     ItemInfoEntry* entry = FlatArrayPush(&info->itemTable);
     ClearMemory(entry);
     entry->id = info->itemTable.count;
+    entry->beltAlign = Globals::DefaultBeltItemMeshAlign;
+    entry->beltScale = Globals::PickupScale;
+    // TODO: Setting cube mesh as default for now
+    auto context = GetContext();
+    entry->mesh = context->cubeMesh;
     return entry;
 }
 

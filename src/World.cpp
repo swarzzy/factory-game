@@ -7,15 +7,19 @@
 void CoalOreDropPickup(const Voxel* voxel, GameWorld* world, WorldPos p) {
     RandomSeries series = {};
     for (u32 i = 0; i < 4; i++) {
-        auto entity = (Pickup*)CreatePickupEntity(world, p);
+        auto entity = CreatePickup(p, (u32)Item::CoalOre, 1);
         if (entity) {
-            entity->item = Item::CoalOre;
-            entity->count = 1;
-            entity->meshScale = V3(1.0f);
             auto spatial = static_cast<SpatialEntity*>(entity);
             v3 randomOffset = V3(RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f, RandomUnilateral(&series) - 0.5f);
             spatial->p = WorldPos::Make(p.block, randomOffset);
         }
+    }
+};
+
+void BlockDropPickup(const Voxel* voxel, GameWorld* world, WorldPos p) {
+    auto info = GetBlockInfo(voxel->value);
+    if (info->associatedItem != 0) {
+        auto entity = CreatePickup(p, info->associatedItem, 1);
     }
 };
 
@@ -553,14 +557,18 @@ void ConvertBlockToPickup(GameWorld* world, iv3 voxelP) {
 
     if (voxel->value != VoxelValue::Empty) {
         auto blockInfo = GetBlockInfo(voxel->value);
-        blockInfo->DropPickup(voxel, world, WorldPos::Make(voxelP));
+        if (blockInfo->DropPickup) {
+            blockInfo->DropPickup(voxel, world, WorldPos::Make(voxelP));
+        }
         auto voxelToModify = GetVoxelForModification(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
         voxelToModify->value = VoxelValue::Empty;
     }
 
     if (voxel->entity) {
         auto entityInfo = GetEntityInfo(voxel->entity->type);
-        entityInfo->DropPickup(voxel->entity, world, WorldPos::Make(voxelP));
+        if (entityInfo->DropPickup) {
+            entityInfo->DropPickup(voxel->entity, world, WorldPos::Make(voxelP));
+        }
         ScheduleEntityForDelete(world, voxel->entity);
     }
 }

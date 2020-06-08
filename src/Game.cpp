@@ -63,7 +63,7 @@ void RegisterBuiltInEntities(Context* context) {
         extractor->DropPickup = ExtractorDropPickup;
         extractor->Behavior = ExtractorBehavior;
         extractor->UpdateAndRenderUI = ExtractorUpdateAndRenderUI;
-        REGISTER_ENTITY_TRAIT(extractor, Container, itemExchangeTrait, Trait::ItemExchange);
+        REGISTER_ENTITY_TRAIT(extractor, Extractor, itemExchangeTrait, Trait::ItemExchange);
         //REGISTER_ENTITY_TRAIT(extractor, Extractor, testTrait, Trait::Test);
 
         auto barrel = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
@@ -101,17 +101,22 @@ void RegisterBuiltInEntities(Context* context) {
         container->material = &context->containerMaterial;
         container->icon = &context->containerIcon;
 
+
         auto stone = EntityInfoRegisterItem(entityInfo);
         assert(stone->id == (u32)Item::Stone);
         stone->name = "Stone";
         stone->convertsToBlock = true;
         stone->associatedBlock = VoxelValue::Stone;
+        stone->material = &context->stoneMaterial;
+        stone->icon = &context->stoneDiffuse;
 
         auto grass = EntityInfoRegisterItem(entityInfo);
         assert(grass->id == (u32)Item::Grass);
         grass->name = "Grass";
         grass->convertsToBlock = true;
         grass->associatedBlock = VoxelValue::Grass;
+        grass->material = &context->grassMaterial;
+        grass->icon = &context->grassDiffuse;
 
         auto coalOre = EntityInfoRegisterItem(entityInfo);
         assert(coalOre->id == (u32)Item::CoalOre);
@@ -121,6 +126,8 @@ void RegisterBuiltInEntities(Context* context) {
         coalOre->mesh = context->coalOreMesh;
         coalOre->material = &context->coalOreMaterial;
         coalOre->icon = &context->coalIcon;
+        coalOre->beltAlign = 0.4f;
+        coalOre->beltScale = 0.5f;
 
         auto pipe = EntityInfoRegisterItem(entityInfo);
         assert(pipe->id == (u32)Item::Pipe);
@@ -129,6 +136,8 @@ void RegisterBuiltInEntities(Context* context) {
         pipe->associatedEntityTypeID = (u32)EntityType::Pipe;
         pipe->mesh = context->pipeStraightMesh;
         pipe->material = &context->pipeMaterial;
+        pipe->beltScale = 0.35f;
+        pipe->icon = &context->pipeIcon;
 
         auto belt = EntityInfoRegisterItem(entityInfo);
         assert(belt->id == (u32)Item::Belt);
@@ -160,25 +169,45 @@ void RegisterBuiltInEntities(Context* context) {
         tank->convertsToBlock = false;
         tank->associatedEntityTypeID = (u32)EntityType::Tank;
 
+        auto water = EntityInfoRegisterItem(entityInfo);
+        assert(water->id == (u32)Item::Water);
+        water->name = "Water";
+        water->convertsToBlock = true;
+        water->associatedBlock = VoxelValue::Water;
+        water->material = &context->waterMaterial;
+
+        auto coalOreBlock = EntityInfoRegisterItem(entityInfo);
+        assert(coalOreBlock->id == (u32)Item::CoalOreBlock);
+        coalOreBlock->name = "CoalOreBlock";
+        coalOreBlock->convertsToBlock = true;
+        coalOreBlock->associatedBlock = VoxelValue::CoalOre;
+        coalOreBlock->material = &context->coalOreBlockMaterial;
+        coalOreBlock->icon = &context->coalOreBlockDiffuse;
+
         assert(entityInfo->itemTable.count == ((u32)Item::_Count - 1));
     }
     { // Blocks
         auto stone = EntityInfoRegisterBlock(entityInfo);
         assert(stone->id == (u32)VoxelValue::Stone);
         stone->name = "Stone";
+        stone->associatedItem = (ItemID)Item::Stone;
 
         auto grass = EntityInfoRegisterBlock(entityInfo);
         assert(grass->id == (u32)VoxelValue::Grass);
         grass->name = "Grass";
+        grass->associatedItem = (ItemID)Item::Grass;
 
         auto coalOre = EntityInfoRegisterBlock(entityInfo);
         assert(coalOre->id == (u32)VoxelValue::CoalOre);
         coalOre->name = "Coal ore";
         coalOre->DropPickup = CoalOreDropPickup;
+        coalOre->associatedItem = (ItemID)Item::CoalOre;
 
         auto water = EntityInfoRegisterBlock(entityInfo);
         assert(water->id == (u32)VoxelValue::Water);
         water->name = "Water";
+        water->associatedItem = (ItemID)Item::Water;
+
 
         assert(entityInfo->blockTable.count == ((u32)VoxelValue::_Count - 1));
     }
@@ -233,11 +262,16 @@ void FluxInit(Context* context) {
     assert(context->extractorIcon.base);
     UploadToGPU(&context->extractorIcon);
 
-    context->playerMesh = LoadMeshFlux("../res/cube.mesh");
-    assert(context->playerMesh);
-    UploadToGPU(context->playerMesh);
+    context->pipeIcon = LoadTextureFromFile("../res/pipe_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
+    assert(context->pipeIcon.base);
+    UploadToGPU(&context->pipeIcon);
 
-    context->coalOreMesh = LoadMeshFlux("../res/coal_ore.mesh");
+
+    context->cubeMesh = LoadMeshFlux("../res/cube.mesh");
+    assert(context->cubeMesh);
+    UploadToGPU(context->cubeMesh);
+
+    context->coalOreMesh = LoadMeshFlux("../res/coal_ore/coal_ore.mesh");
     assert(context->coalOreMesh);
     UploadToGPU(context->coalOreMesh);
 
@@ -374,6 +408,42 @@ void FluxInit(Context* context) {
     context->extractorMaterial.pbr.albedoMap = &context->extractorDiffuse;
     context->extractorMaterial.pbr.roughnessValue = 1.0f;
     context->extractorMaterial.pbr.metallicValue = 0.0f;
+
+    context->stoneDiffuse = LoadTextureFromFile("../res/tile_stone.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->stoneDiffuse.base);
+    UploadToGPU(&context->stoneDiffuse);
+    context->stoneMaterial.workflow = Material::Workflow::PBR;
+    context->stoneMaterial.pbr.useAlbedoMap = true;
+    context->stoneMaterial.pbr.albedoMap = &context->stoneDiffuse;
+    context->stoneMaterial.pbr.roughnessValue = 1.0f;
+    context->stoneMaterial.pbr.metallicValue = 0.0f;
+
+    context->grassDiffuse = LoadTextureFromFile("../res/tile_grass.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->grassDiffuse.base);
+    UploadToGPU(&context->grassDiffuse);
+    context->grassMaterial.workflow = Material::Workflow::PBR;
+    context->grassMaterial.pbr.useAlbedoMap = true;
+    context->grassMaterial.pbr.albedoMap = &context->grassDiffuse;
+    context->grassMaterial.pbr.roughnessValue = 1.0f;
+    context->grassMaterial.pbr.metallicValue = 0.0f;
+
+    context->coalOreBlockDiffuse = LoadTextureFromFile("../res/tile_coal_ore.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->coalOreBlockDiffuse.base);
+    UploadToGPU(&context->coalOreBlockDiffuse);
+    context->coalOreBlockMaterial.workflow = Material::Workflow::PBR;
+    context->coalOreBlockMaterial.pbr.useAlbedoMap = true;
+    context->coalOreBlockMaterial.pbr.albedoMap = &context->coalOreBlockDiffuse;
+    context->coalOreBlockMaterial.pbr.roughnessValue = 1.0f;
+    context->coalOreBlockMaterial.pbr.metallicValue = 0.0f;
+
+    context->waterDiffuse = LoadTextureFromFile("../res/tile_water.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->waterDiffuse.base);
+    UploadToGPU(&context->waterDiffuse);
+    context->waterMaterial.workflow = Material::Workflow::PBR;
+    context->waterMaterial.pbr.useAlbedoMap = true;
+    context->waterMaterial.pbr.albedoMap = &context->waterDiffuse;
+    context->waterMaterial.pbr.roughnessValue = 1.0f;
+    context->waterMaterial.pbr.metallicValue = 0.0f;
 
     EntityInfoInit(&context->entityInfo);
     RegisterBuiltInEntities(context);
@@ -596,7 +666,7 @@ void FluxUpdate(Context* context) {
                     if (blockToBuild != Item::None) {
                         // TODO: Check is item exist in inventory before build?
                         auto result = BuildBlock(context, &context->gameWorld, hitVoxel + hitNormalInt, blockToBuild);
-                        if (!CreativeModeEnabled) {
+                        if (!Globals::CreativeModeEnabled) {
                             if (result) {
                                 EntityInventoryPopItem(player->toolbelt, player->toolbeltSelectIndex);
                             }

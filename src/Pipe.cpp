@@ -156,9 +156,7 @@ void PipeDelete(Entity* entity, GameWorld* world) {
 }
 
 void PipeDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
-    auto pickup = (Pickup*)CreatePickupEntity(world, p);
-    pickup->item = Item::Pipe;
-    pickup->count = 1;
+    auto pickup = CreatePickup(p, (ItemID)Item::Pipe, 1);
 }
 
 void PipeUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason) {

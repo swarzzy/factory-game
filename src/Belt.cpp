@@ -18,14 +18,10 @@ void BeltDelete(Entity* entity, GameWorld* world) {
 
 void BeltDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
     auto belt = (Belt*)entity;
-    auto pickup = (Pickup*)CreatePickupEntity(world, p);
-    pickup->item = Item::Belt;
-    pickup->count = 1;
+    auto pickup = CreatePickup(p, (u32)Item::Belt, 1);
     for (usize i = 0; i < array_count(belt->items); i++) {
         if (belt->items[i] != 0) {
-            auto pickup = (Pickup*)CreatePickupEntity(world, p);
-            pickup->item = (Item)belt->items[i];
-            pickup->count = 1;
+            auto pickup = CreatePickup(p, belt->items[i], 1);
         }
     }
 }
@@ -91,13 +87,14 @@ void BeltUpdateAndRender(Belt* belt, void* _data) {
 
     for (usize i = 0; i < Belt::Capacity; i++) {
         if (belt->items[i] != 0) {
+            // TODO: Cache align and scale
+            auto info = GetItemInfo(belt->items[i]);
             v3 dir = V3(Dir::ToIV3(belt->direction));
             v3 horzDir = V3(Dir::ToIV3(belt->itemTurnDirections[i]));
             v3 itemBegin = V3(Dir::ToIV3(Dir::Opposite(belt->direction))) * 0.5f;
-            v3 itemOffset = itemBegin + dir * belt->itemPositions[i] - V3(0.0f, Belt::ItemSink, 0.0f) + horzDir * belt->itemHorzPositions[i] * 0.5f;
-            auto info = GetItemInfo(belt->items[i]);
+            v3 itemOffset = itemBegin + dir * belt->itemPositions[i] - V3(0.0f, info->beltAlign, 0.0f) + horzDir * belt->itemHorzPositions[i] * 0.5f;
             RenderCommandDrawMesh command {};
-            command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(belt->p, itemOffset)));
+            command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(belt->p, itemOffset))) * Scale(V3(info->beltScale));
             command.mesh = info->mesh;
             command.material = info->material;
             Push(data->group, &command);

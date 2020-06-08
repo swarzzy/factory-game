@@ -38,12 +38,15 @@ struct ItemInfoEntry {
     Mesh* mesh;
     Material* material;
     Texture* icon;
+    f32 beltAlign;
+    f32 beltScale;
 };
 
 struct BlockInfoEntry {
     BlockDropPickupFn* DropPickup;
     const char* name;
     u32 id;
+    ItemID associatedItem;
 };
 
 struct EntityTraitInfoEntry {

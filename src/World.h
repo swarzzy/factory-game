@@ -42,7 +42,7 @@ struct Voxel {
 
 typedef void(BlockDropPickupFn)(const Voxel* voxel, GameWorld* world, WorldPos p);
 
-void BlockDropPickup(const Voxel* voxel, GameWorld* world, WorldPos p) {};
+void BlockDropPickup(const Voxel* voxel, GameWorld* world, WorldPos p);
 
 void CoalOreDropPickup(const Voxel* voxel, GameWorld* world, WorldPos p);
 

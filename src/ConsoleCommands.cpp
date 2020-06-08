@@ -237,8 +237,8 @@ void PrintGameMetaInfoCommand(Console* console, Context* context, ConsoleCommand
 }
 
 void ToggleCreativeModeCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
-    CreativeModeEnabled = !CreativeModeEnabled;
-    if (CreativeModeEnabled) {
+    Globals::CreativeModeEnabled = !Globals::CreativeModeEnabled;
+    if (Globals::CreativeModeEnabled) {
         LogMessage(console->logger, "Creative mode enabled\n");
     } else {
         LogMessage(console->logger, "Creative mode disabled\n");

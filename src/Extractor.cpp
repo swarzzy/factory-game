@@ -17,10 +17,7 @@ void ExtractoryDelete(Entity* entity, GameWorld* world) {
 }
 
 void ExtractorDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
-    auto extractor = (Extractor*)entity;
-    auto pickup = (Pickup*)CreatePickupEntity(world, p);
-    pickup->item = Item::Extractor;
-    pickup->count = 1;
+    auto pickup = CreatePickup(p, (ItemID)Item::Extractor, 1);
 }
 
 void ExtractorUpdateAndRender(Extractor* extractor, void* _data) {

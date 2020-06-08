@@ -18,7 +18,7 @@ struct Context {
     GameWorld gameWorld;
     UI ui;
     SimRegion playerRegion;
-    Mesh* playerMesh;
+    Mesh* cubeMesh;
     Material playerMaterial;
     Mesh* coalOreMesh;
     Material coalOreMaterial;
@@ -51,9 +51,20 @@ struct Context {
     Texture coalIcon;
     Texture containerIcon;
     Texture extractorIcon;
+    Texture pipeIcon;
     Mesh* extractorMesh;
     Material extractorMaterial;
     Texture extractorDiffuse;
+
+    Texture stoneDiffuse;
+    Texture grassDiffuse;
+    Texture coalOreBlockDiffuse;
+    Texture waterDiffuse;
+    Material stoneMaterial;
+    Material grassMaterial;
+    Material coalOreBlockMaterial;
+    Material waterMaterial;
+
     Camera camera;
     Renderer* renderer;
     RenderGroup renderGroup;

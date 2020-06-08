@@ -28,9 +28,7 @@ void ContainerUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void
 
 
 void ContainerDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
-    auto pickup = (Pickup*)CreatePickupEntity(world, p);
-    pickup->item = Item::Container;
-    pickup->count = 1;
+    auto pickup = CreatePickup(p, (ItemID)Item::Container, 1);
 }
 
 void ContainerUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason) {

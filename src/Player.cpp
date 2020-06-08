@@ -166,7 +166,7 @@ void PlayerUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _
         if (entity->camera->mode != CameraMode::Gameplay) {
             RenderCommandDrawMesh command{};
             command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, entity->p));
-            command.mesh = context->playerMesh;
+            command.mesh = context->cubeMesh;
             command.material = &context->playerMaterial;
             Push(data->group, &command);
         }
@@ -179,9 +179,9 @@ void PlayerProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEn
         auto player = (Player*)testEntity;
         auto pickup = static_cast<Pickup*>(overlappedEntity);
         assert(testEntity->inventory);
-        auto itemRemainder = EntityInventoryPushItem(player->toolbelt, pickup->item, pickup->count);
+        auto itemRemainder = EntityInventoryPushItem(player->toolbelt, (Item)pickup->item, pickup->count);
         if (itemRemainder) {
-            itemRemainder = EntityInventoryPushItem(testEntity->inventory, pickup->item, pickup->count);
+            itemRemainder = EntityInventoryPushItem(testEntity->inventory, (Item)pickup->item, pickup->count);
         }
         if (itemRemainder == 0) {
             ScheduleEntityForDelete(world, overlappedEntity);
