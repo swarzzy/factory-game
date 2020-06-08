@@ -2,9 +2,9 @@
 #include "RenderGroup.h"
 
 Pickup* CreatePickup(WorldPos p, ItemID item, u32 count) {
-    auto context = GetContext();
+    auto world = GetWorld();
     auto info = GetItemInfo(item);
-    auto pickup = (Pickup*)CreatePickupEntity(&context->gameWorld, p);
+    auto pickup = (Pickup*)CreatePickupEntity(world, p);
     if (pickup) {
         pickup->item = item;
         pickup->count = count;
@@ -26,7 +26,6 @@ void PickupUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _
     if (reason == EntityBehaviorInvoke::UpdateAndRender) {
         auto data = (EntityUpdateAndRenderData*)_data;
         auto entity = (Pickup*)_entity;
-        auto context = GetContext();
 
         auto info = GetItemInfo(entity->item);
 

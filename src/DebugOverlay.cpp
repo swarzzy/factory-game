@@ -11,7 +11,8 @@ void DrawDebugPerformanceCounters() {
     bool open = true;
     if (ImGui::Begin("Overlay", &open, (corner != -1 ? ImGuiWindowFlags_NoMove : 0) | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
         char fpsBuffer[128];
-        sprintf_s(fpsBuffer, 128, "FPS: %11d\nUPS: %11d\ndT(abs):  %.4f\ndT(game): %.4f", GlobalPlatform.fps, GlobalPlatform.ups, GlobalAbsDeltaTime, GlobalGameDeltaTime);
+        auto platform = GetPlatform();
+        sprintf_s(fpsBuffer, 128, "FPS: %11d\nUPS: %11d\ndT(abs):  %.4f\ndT(game): %.4f", platform->fps, platform->ups, platform->absDeltaTime, platform->gameDeltaTime);
         ImGui::Text("%s", fpsBuffer);
     }
     ImGui::End();

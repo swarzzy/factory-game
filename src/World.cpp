@@ -113,7 +113,9 @@ Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z) {
 
 void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed) {
     world->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
-    world->context = context;
+    world->entityHashMap = HashMap<EntityID, Entity*, EntityRegionHashFunc, EntityRegionHashCompFunc>::Make();
+
+    world->camera = &context->camera;
     world->mesher = mesher;
     world->worldGen.Init(seed);
     BucketArrayInit(&world->entitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
@@ -144,6 +146,15 @@ T* AddSpatialEntity(GameWorld* world, WorldPos p) {
         }
     }
     return entity;
+}
+
+Entity* GetEntity(GameWorld* world, EntityID id) {
+    Entity* result = nullptr;
+    auto ptr = Get(&world->entityHashMap, &id);
+    if (ptr) {
+        result = *ptr;
+    }
+    return result;
 }
 
 Entity* GetEntity(GameWorld* world, iv3 p) {
@@ -313,7 +324,6 @@ bool IsVoxelCollider(const Voxel* voxel) {
 }
 
 void FindOverlapsFor(GameWorld* world, SpatialEntity* entity) {
-    auto context = GetContext();
     WorldPos origin = entity->p;
 
     bool overlaps = false;
@@ -459,11 +469,11 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
 void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup) {
 
     auto overlapResolveResult = TryResolveOverlaps(world, entity);
-
+#if 0
     if (overlapResolveResult.wasOverlapped) {
         log_print("Entity was overlapping at frame %d. %s\n", GlobalPlatform.tickCount, overlapResolveResult.resolved ? "Resolved" : "Stuck");
     }
-
+#endif
     if (overlapResolveResult.resolved) {
         // TODO: Better ground hit detection
         entity->grounded = false;
@@ -552,8 +562,6 @@ void ConvertBlockToPickup(GameWorld* world, iv3 voxelP) {
     auto chunkPos = WorldPos::ToChunk(voxelP);
     auto chunk = GetChunk(world, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
     auto voxel = GetVoxel(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
-
-    auto context = GetContext();
 
     if (voxel->value != VoxelValue::Empty) {
         auto blockInfo = GetBlockInfo(voxel->value);

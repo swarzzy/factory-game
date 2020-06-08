@@ -19,3 +19,33 @@ void SpatialEntityBehavior(Entity* _entity, EntityBehaviorInvoke reason, void* _
         MoveSpatialEntity(entity->world, entity, movementDelta, nullptr, nullptr);
     }
 }
+
+NeighborIterator NeighborIterator::Begin(iv3 p) {
+    NeighborIterator iter {};
+    iter.p = p;
+    return iter;
+}
+
+bool NeighborIterator::Ended(NeighborIterator* iter) {
+    return (iter->at == array_count(NeighborIterator::Offsets));
+}
+
+void NeighborIterator::Advance(NeighborIterator* iter) {
+    if (iter->at < array_count(NeighborIterator::Offsets)) {
+        iter->at++;
+    }
+}
+
+const Voxel* NeighborIterator::Get(NeighborIterator* iter) {
+    static const Voxel* result = nullptr;
+    if (!Ended(iter)) {
+        auto world = GetWorld();
+        result = GetVoxel(world, iter->p + NeighborIterator::Offsets[iter->at]);
+    }
+    return result;
+}
+
+Direction NeighborIterator::GetCurrentDirection(NeighborIterator* iter) {
+    assert(iter->at < array_count(NeighborIterator::Directions));
+    return Directions[iter->at];
+}

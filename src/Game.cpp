@@ -54,7 +54,7 @@ void RegisterBuiltInEntities(Context* context) {
         belt->name = "Belt";
         belt->DropPickup = BeltDropPickup;
         belt->Behavior = BeltBehavior;
-        REGISTER_ENTITY_TRAIT(belt, Belt, beltTrait, Trait::Belt);
+        REGISTER_ENTITY_TRAIT(belt, Belt, belt, Trait::Belt);
 
         auto extractor = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
         assert(extractor->typeID == (u32)EntityType::Extractor);
@@ -469,7 +469,7 @@ void FluxInit(Context* context) {
     UIInit(&context->ui);
 
     context->camera.mode = CameraMode::Gameplay;
-    GlobalPlatform.inputMode = InputMode::FreeCursor;
+    PlatformSetInputMode(InputMode::FreeCursor);
     context->camera.inputMode = GameInputMode::Game;
 
     EntityInventoryPushItem(player->toolbelt, Item::Pipe, 128);
@@ -484,7 +484,7 @@ void FluxReload(Context* context) {
 }
 
 void FluxUpdate(Context* context) {
-    auto player = static_cast<Player*>(GetEntity(&context->playerRegion, context->gameWorld.playerID));
+    auto player = static_cast<Player*>(GetEntity(&context->gameWorld, context->gameWorld.playerID));
     assert(player);
 
     auto renderer = context->renderer;
@@ -502,9 +502,9 @@ void FluxUpdate(Context* context) {
     }
 
     if (camera->inputMode == GameInputMode::InGameUI || camera->inputMode == GameInputMode::UI) {
-        GlobalPlatform.inputMode = InputMode::FreeCursor;
+        PlatformSetInputMode(InputMode::FreeCursor);
     } else {
-        GlobalPlatform.inputMode = InputMode::CaptureCursor;
+        PlatformSetInputMode(InputMode::CaptureCursor);
     }
 
     if (context->consoleEnabled) {
@@ -518,9 +518,9 @@ void FluxUpdate(Context* context) {
     }
 
     auto renderRes = GetRenderResolution(renderer);
-    if (renderRes.x != GlobalPlatform.windowWidth ||
-        renderRes.y != GlobalPlatform.windowHeight) {
-        ChangeRenderResolution(renderer, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), GetRenderSampleCount(renderer));
+    if (renderRes.x != GetPlatform()->windowWidth ||
+        renderRes.y != GetPlatform()->windowHeight) {
+        ChangeRenderResolution(renderer, UV2(GetPlatform()->windowWidth, GetPlatform()->windowHeight), GetRenderSampleCount(renderer));
     }
 
     auto ui = &context->ui;
@@ -623,7 +623,7 @@ void FluxUpdate(Context* context) {
 
         if (hitEntity != 0) {
             if (KeyPressed(Key::R)) {
-                auto entity = GetEntity(&context->playerRegion, hitEntity);
+                auto entity = GetEntity(&context->gameWorld, hitEntity);
                 if (entity) {
                     auto info = GetEntityInfo(entity->type);
                     EntityRotateData data {};
@@ -631,7 +631,7 @@ void FluxUpdate(Context* context) {
                     info->Behavior(entity, EntityBehaviorInvoke::Rotate, &data);
                 }
             }
-            Entity* entity = GetEntity(&context->playerRegion, hitEntity); {
+            Entity* entity = GetEntity(&context->gameWorld, hitEntity); {
                 if (entity) {
                     UIDrawEntityInfo(&context->ui, entity);
                 }
@@ -650,7 +650,7 @@ void FluxUpdate(Context* context) {
             if (MouseButtonPressed(MouseButton::Right)) {
                 bool buildBlock = true;
                 if (hitEntity != 0) {
-                    auto entity = GetEntity(&context->playerRegion, hitEntity);
+                    auto entity = GetEntity(&context->gameWorld, hitEntity);
                     if (entity) {
                         auto info = GetEntityInfo(entity->type);
                         if (info->hasUI) {

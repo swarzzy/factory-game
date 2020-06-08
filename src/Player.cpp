@@ -20,14 +20,14 @@ Entity* CreatePlayerEntity(GameWorld* world, WorldPos p) {
 
 // TODO: Maybe move toolbelt drawind logic to UI
 void PlayerDrawToolbelt(Player* player) {
-    auto context = GetContext();
     auto platform = GetPlatform();
 
     if (platform->input.scrollFrameOffset != 0) {
         player->toolbeltSelectIndex = (u32)Clamp((i32)player->toolbeltSelectIndex - platform->input.scrollFrameOffset, (i32)0, (i32)player->toolbelt->slotCount - 1);
     }
 
-    auto ui = &context->ui;
+    // TODO: Remove this hack and draw player UI somewhere else
+    auto ui = &_GlobalContext->ui;
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2, io.DisplaySize.y);
     ImVec2 windowPivot = ImVec2(0.5f, 1.0f);

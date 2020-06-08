@@ -255,8 +255,9 @@ int ConsoleInputCallback(ImGuiInputTextCallbackData* data) {
 }
 
 void DrawConsole(Console* console) {
-    auto windowWidth = GlobalPlatform.windowWidth;
-    auto windowHeight = GlobalPlatform.windowHeight;
+    auto platform = GetPlatform();
+    auto windowWidth = platform->windowWidth;
+    auto windowHeight = platform->windowHeight;
 
     ImGui::SetNextWindowSize(ImVec2((f32)(windowWidth - 20), 300.0f));
     ImGui::SetNextWindowPos(ImVec2(10.0f, 0.0f), ImGuiCond_Always);

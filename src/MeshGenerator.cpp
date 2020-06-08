@@ -150,7 +150,7 @@ void ChunkMesherWork(void* data0, void* data1, void* data2, u32 threadID) {
     auto chunk = (Chunk*)data0;
     auto mesh = chunk->primaryMesh;
     GenMesh(mesh->mesher, chunk);
-    if (GlobalPlatform.supportsAsyncGPUTransfer) {
+    if (GetPlatform()->supportsAsyncGPUTransfer) {
         if (chunk->primaryMesh->vertexCount) {
             auto uploaded = UploadToGPU(chunk->primaryMesh, false);
             assert(uploaded);
@@ -167,7 +167,7 @@ bool ScheduleChunkMeshing(GameWorld* world, Chunk* chunk) {
     assert(chunk->primaryMesh);
     assert(chunk->state == ChunkState::Complete);
     bool result = true;
-    auto queue = chunk->priority == ChunkPriority::High ? GlobalHighPriorityWorkQueue : GlobalLowPriorityWorkQueue;
+    auto queue = chunk->priority == ChunkPriority::High ? PlatformHighPriorityQueue : PlatformLowPriorityQueue;
     chunk->state = ChunkState::Meshing;
     WriteFence();
     if (!PlatformPushWork(queue, ChunkMesherWork, chunk, nullptr, nullptr)) {
@@ -223,7 +223,7 @@ void ScheduleChunkMeshUpload(Chunk* chunk) {
     assert(chunk->state == ChunkState::WaitsForUpload);
     BeginGPUUpload(chunk->primaryMesh);
     assert(chunk->primaryMesh->gpuBufferPtr);
-    auto queue = chunk->priority == ChunkPriority::High ? GlobalHighPriorityWorkQueue : GlobalLowPriorityWorkQueue;
+    auto queue = chunk->priority == ChunkPriority::High ? PlatformHighPriorityQueue : PlatformLowPriorityQueue;
     chunk->state = ChunkState::UploadingMesh;
     WriteFence();
     if (!PlatformPushWork(queue, UploadChunkMeshToGPUWork, chunk, nullptr, nullptr)) {

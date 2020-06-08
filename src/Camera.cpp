@@ -31,11 +31,12 @@ void GatherInput(Camera* camera) {
         camera->frameAcceleration = Normalize(camera->frameAcceleration);
         camera->frameAcceleration *= camera->moveSpeed;
     }
+    auto input = GetInput();
     if (camera->inputMode == GameInputMode::Game) {
         v2 mousePos;
         f32 speed = camera->rotSpeed;
-        mousePos.x = GlobalInput.mouseFrameOffsetX * speed;
-        mousePos.y = GlobalInput.mouseFrameOffsetY * speed;
+        mousePos.x = input->mouseFrameOffsetX * speed;
+        mousePos.y = input->mouseFrameOffsetY * speed;
         camera->targetYaw += mousePos.x;
         camera->targetPitch -= mousePos.y;
 
@@ -45,7 +46,7 @@ void GatherInput(Camera* camera) {
             camera->targetOrbit.y -= mousePos.y;
         }
 
-        camera->frameScrollOffset = GlobalInput.scrollFrameOffset;
+        camera->frameScrollOffset = input->scrollFrameOffset;
     }
 }
 
@@ -109,11 +110,10 @@ void Update(Camera* camera, Player* player, f32 dt) {
          camera->front = Normalize(front);
     }
 
+    auto input = GetInput();
     v2 normMousePos;
-    DEBUG_OVERLAY_TRACE(GlobalInput.mouseX);
-    DEBUG_OVERLAY_TRACE(GlobalInput.mouseY);
-    normMousePos.x = 2.0f * GlobalInput.mouseX - 1.0f;
-    normMousePos.y = 2.0f * GlobalInput.mouseY - 1.0f;
+    normMousePos.x = 2.0f * input->mouseX - 1.0f;
+    normMousePos.y = 2.0f * input->mouseY - 1.0f;
     v4 mouseClip = V4(normMousePos, -1.0f, 0.0f);
 
     camera->viewMatrix = LookAtGLRH(camera->position, camera->front, V3(0.0f, 1.0f, 0.0f));

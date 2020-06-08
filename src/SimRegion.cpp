@@ -261,7 +261,6 @@ void RegionUpdateChunkStates(SimRegion* region) {
 }
 
 void InitRegion(SimRegion* region) {
-    region->blockEntityTable = HashMap<EntityID, Entity*, SimRegionHashFunc, SimRegionHashCompFunc>::Make();
 }
 
 // TODO: Make this an actual function
@@ -341,13 +340,13 @@ void DrawRegion(SimRegion* region, RenderGroup* renderGroup, Camera* camera) {
 }
 
 void RegisterEntity(SimRegion* region, Entity* entity) {
-    auto entry = Add(&region->blockEntityTable, &entity->id);
+    auto entry = Add(&region->world->entityHashMap, &entity->id);
     assert(entry);
     *entry = entity;
 }
 
 bool UnregisterEntity(SimRegion* region, EntityID id) {
-    bool result = Delete(&region->blockEntityTable, &id);
+    bool result = Delete(&region->world->entityHashMap, &id);
     return result;
 }
 
@@ -359,7 +358,7 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
             if (info->Behavior) {
                 it->generation = GetPlatform()->tickCount;
                 EntityUpdateAndRenderData data;
-                data.deltaTime = GlobalGameDeltaTime;
+                data.deltaTime = GetPlatform()->gameDeltaTime;
                 data.group = renderGroup;
                 data.camera = camera;
                 info->Behavior(it, EntityBehaviorInvoke::UpdateAndRender, &data);
@@ -382,13 +381,4 @@ void UpdateEntities(SimRegion* region, RenderGroup* renderGroup, Camera* camera,
         }
         chunk = chunk->nextActive;
     }
-}
-
-Entity* GetEntity(SimRegion* region, EntityID id) {
-    Entity* result = nullptr;
-    auto ptr = Get(&region->blockEntityTable, &id);
-    if (ptr) {
-        result = *ptr;
-    }
-    return result;
 }

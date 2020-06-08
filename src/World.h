@@ -161,6 +161,20 @@ bool ChunkHashCompFunc(void* a, void* b) {
     return result;
 }
 
+u32 EntityRegionHashFunc(void* value) {
+    EntityID* p = (EntityID*)value;
+    // TODO: Reasonable hashing
+    u32 hash = (u32)(*p);
+    return hash;
+}
+
+bool EntityRegionHashCompFunc(void* a, void* b) {
+    EntityID* p1 = (EntityID*)a;
+    EntityID* p2 = (EntityID*)b;
+    bool result = (*p1 == *p2);
+    return result;
+}
+
 struct GameWorld {
     static const i32 MinHeight = -(i32)Chunk::Size * 3;
     static const i32 MaxHeight = (i32)Chunk::Size * 3 - 1;
@@ -170,9 +184,10 @@ struct GameWorld {
     inline static const iv3 InvalidPos = IV3(InvalidCoord);
     EntityID playerID;
     HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc> chunkHashMap;
+    HashMap<EntityID, Entity*, EntityRegionHashFunc, EntityRegionHashCompFunc> entityHashMap;
     // TODO: Dynamic view distance
     static const u32 ViewDistance = 4;
-    Context* context;
+    Camera* camera;
     WorldGen worldGen;
     ChunkMesher* mesher;
     Chunk* firstActive;
@@ -236,3 +251,4 @@ bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP);
 bool BuildBlock(Context* context, GameWorld* world, iv3 p, Item item);
 
 Entity* GetEntity(GameWorld* world, iv3 p);
+Entity* GetEntity(GameWorld* region, EntityID id);

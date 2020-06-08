@@ -127,15 +127,15 @@ void CameraCommand(Console* console, Context* context, ConsoleCommandArgs* args)
         if (StringsAreEqual(args->args, "free")) {
             LogMessage(console->logger, "Camera mode changed to free\n");
             context->camera.mode = CameraMode::DebugFree;
-            GlobalPlatform.inputMode = InputMode::FreeCursor;
+            PlatformSetInputMode(InputMode::FreeCursor);
         } else if (StringsAreEqual(args->args, "follow")) {
             LogMessage(console->logger, "Camera mode changed to follow\n");
             context->camera.mode = CameraMode::DebugFollowing;
-            GlobalPlatform.inputMode = InputMode::FreeCursor;
+            PlatformSetInputMode(InputMode::FreeCursor);
         } else if (StringsAreEqual(args->args, "game")) {
             LogMessage(console->logger, "Camera mode changed to game\n");
             context->camera.mode = CameraMode::Gameplay;
-            GlobalPlatform.inputMode = InputMode::CaptureCursor;
+            PlatformSetInputMode(InputMode::CaptureCursor);
         } else {
             LogMessage(console->logger, "Unknown camera mode\n");
         }
@@ -176,7 +176,7 @@ void SetEntityPosCommand(Console* console, Context* context, ConsoleCommandArgs*
         auto arg4Value = StringToInt(arg4);
         if (arg1Value.succeed && arg2Value.succeed && arg3Value.succeed && arg4Value.succeed) {
             auto id = arg1Value.value;
-            auto _entity = GetEntity(&context->playerRegion, EntityID {(u64)id});
+            auto _entity = GetEntity(&context->gameWorld, EntityID {(u64)id});
             if (_entity && _entity->kind == EntityKind::Spatial) {
                 auto entity = static_cast<SpatialEntity*>(_entity);
                 entity->p = WorldPos::Make(IV3(arg2Value.value, arg3Value.value, arg4Value.value));

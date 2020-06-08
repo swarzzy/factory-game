@@ -9,16 +9,6 @@ enum struct Trait {
     _Count
 };
 
-
-typedef bool(BeltTraitInsertItemFn)(Entity* entity, Direction dir, u32 itemID, f32 callerItemPos);
-typedef u32(BeltTraitGrabItemFn)(Entity* entity, Direction dir);
-
-struct BeltTrait {
-    constant TraitID ID = (TraitID)Trait::Belt;
-    BeltTraitInsertItemFn* InsertItem;
-    BeltTraitGrabItemFn* GrabItem;
-};
-
 struct EntityPopItemResult {
     u32 itemID;
     u32 count;

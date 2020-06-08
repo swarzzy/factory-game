@@ -16,22 +16,21 @@ inline void AssertHandler(void* data, const char* file, const char* func, u32 li
     debug_break();
 }
 
+
+// NOTE: Platform globals
+static PlatformState* _GlobalPlatform = nullptr;
 static Context* _GlobalContext = nullptr;
+
+inline GameWorld* GetWorld() { return &_GlobalContext->gameWorld; }
+inline const PlatformState* GetPlatform() { return _GlobalPlatform; }
+inline const InputState* GetInput() { return &_GlobalPlatform->input; }
+inline void PlatformSetInputMode(InputMode mode) { _GlobalPlatform->inputMode = mode; }
+// TODO: Remove this
 inline Context* GetContext() { return _GlobalContext; }
 
-// NOTE: Platforn globals
-static PlatformState* _GlobalPlatform = 0;
-// TODO remove define
-#define GlobalPlatform (*((_GlobalPlatform)))
-inline const PlatformState* GetPlatform() { return _GlobalPlatform; }
 
-// NOTE: Actual frame time
-#define GlobalAbsDeltaTime GlobalPlatform.absDeltaTime
-// NOTE: Frame time corrected by game speed
-#define GlobalGameDeltaTime GlobalPlatform.gameDeltaTime
-#define GlobalInput GlobalPlatform.input
-#define GlobalLowPriorityWorkQueue GlobalPlatform.lowPriorityQueue
-#define GlobalHighPriorityWorkQueue GlobalPlatform.highPriorityQueue
+#define PlatformLowPriorityQueue (_GlobalPlatform->lowPriorityQueue)
+#define PlatformHighPriorityQueue (_GlobalPlatform->highPriorityQueue)
 
 LoggerFn* GlobalLogger = LogMessageAPI;
 void* GlobalLoggerData;
@@ -40,26 +39,26 @@ AssertHandlerFn* GlobalAssertHandler = AssertHandler;
 void* GlobalAssertHandlerData = nullptr;
 
 bool KeyHeld(Key key) {
-    return GlobalInput.keys[(u32)key].pressedNow;
+    return GetInput()->keys[(u32)key].pressedNow;
 }
 
 bool KeyPressed(Key key) {
-    return GlobalInput.keys[(u32)key].pressedNow && !GlobalInput.keys[(u32)key].wasPressed;
+    return GetInput()->keys[(u32)key].pressedNow && !GetInput()->keys[(u32)key].wasPressed;
 }
 
 bool MouseButtonHeld(MouseButton button) {
-    return GlobalInput.mouseButtons[(u32)button].pressedNow;
+    return GetInput()->mouseButtons[(u32)button].pressedNow;
 }
 
 bool MouseButtonPressed(MouseButton button) {
-    return GlobalInput.mouseButtons[(u32)button].pressedNow && !GlobalInput.mouseButtons[(u32)button].wasPressed;
+    return GetInput()->mouseButtons[(u32)button].pressedNow && !GetInput()->mouseButtons[(u32)button].wasPressed;
 }
 
 
 #if defined(COMPILER_MSVC)
-#define platform_call(func) GlobalPlatform.functions.##func
+#define platform_call(func) _GlobalPlatform->functions.##func
 #else
-#define platform_call(func) GlobalPlatform.functions. func
+#define platform_call(func) _GlobalPlatform->functions. func
 #endif
 
 #define PlatformAlloc platform_call(Allocate)
@@ -86,9 +85,9 @@ void* PlatformAllocClear(uptr size) {
 #define PlatformSleep platform_call(Sleep)
 
 #if defined(COMPILER_MSVC)
-#define gl_call(func) GlobalPlatform.gl->functions.fn.##func
+#define gl_call(func) _GlobalPlatform->gl->functions.fn.##func
 #else
-#define platform_call(func) GlobalPlatform.gl->functions.fn. func
+#define platform_call(func) _GlobalPlatform->gl->functions.fn. func
 #endif
 
 #define glGenTextures gl_call(glGenTextures)
@@ -245,7 +244,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 
         log_print("[Info] Asynchronous GPU memory transfer supported: %s\n", platform->supportsAsyncGPUTransfer ? "true" : "false");
 
-        context->renderer = InitializeRenderer(gameArena, tempArena, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), 8);
+        context->renderer = InitializeRenderer(gameArena, tempArena, UV2(GetPlatform()->windowWidth, GetPlatform()->windowHeight), 8);
 
         //context->renderer->clearColor = V4(0.8f, 0.8f, 0.8f, 1.0f);
         context->renderGroup = RenderGroup::Make(gameArena, Megabytes(32), 8192 * 2 * 2);

@@ -11,6 +11,7 @@ struct RenderGroup;
 struct Camera;
 struct Entity;
 struct GameWorld;
+struct Voxel;
 
 typedef u64 EntityID;
 
@@ -50,7 +51,7 @@ enum struct EntityType : u32 {
 
 struct Entity {
     EntityID id;
-    u64 generation; // UpdateAndRender call count
+    u64 generation; // Frame counter at last UpdateAndRender call
     EntityKind kind;
     EntityType type;
     u32 flags;
@@ -90,7 +91,7 @@ enum struct EntityUIInvoke: u32 {
 };
 
 enum struct EntityBehaviorInvoke : u32 {
-    UpdateAndRender, Rotate
+    UpdateAndRender, Rotate,
 };
 
 struct EntityUpdateAndRenderData {
@@ -115,3 +116,32 @@ typedef void(EntityDeleteFn)(Entity* entity, GameWorld* world);
 typedef void(EntityDropPickupFn)(Entity* entity, GameWorld* world, WorldPos p);
 typedef void(EntityProcessOverlapFn)(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity);
 typedef void(EntityUpdateAndRenderUIFn)(Entity* entity, EntityUIInvoke reason);
+
+struct NeighborIterator {
+    constant iv3 Offsets[] = {
+        { -1,  0,  0 },
+        {  1,  0,  0 },
+        {  0, -1,  0 },
+        {  0,  1,  0 },
+        {  0,  0, -1 },
+        {  0,  0,  1 },
+    };
+
+    constant Direction Directions[] = {
+        Direction::West,
+        Direction::East,
+        Direction::Down,
+        Direction::Up,
+        Direction::North,
+        Direction::South,
+    };
+
+    iv3 p;
+    u32 at;
+
+    static NeighborIterator Begin(iv3 p);
+    static bool Ended(NeighborIterator* iter);
+    static void Advance(NeighborIterator* iter);
+    static const Voxel* Get(NeighborIterator* iter);
+    static Direction GetCurrentDirection(NeighborIterator* iter);
+};

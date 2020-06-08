@@ -89,8 +89,8 @@ bool UIHasOpen(UI* ui) {
 }
 
 void UIDragItem(UI* ui, EntityID id, EntityInventory* inventory, u32 index) {
-    auto context = GetContext();
-    if (GetEntity(&context->playerRegion, id) && inventory && (index < inventory->slotCount)) {
+    auto world = GetWorld();
+    if (GetEntity(world, id) && inventory && (index < inventory->slotCount)) {
         ui->dragEntityID = id;
         ui->dragEntityInventory = inventory;
         ui->dragItemIndex = index;
@@ -104,8 +104,8 @@ void UIClearDragAndDrop(UI* ui) {
 }
 
 void UIDropItem(UI* ui, EntityInventory* dropInventory, u32 index) {
-    auto context = GetContext();
-    if (GetEntity(&context->playerRegion, ui->dragEntityID) && (ui->dragItemIndex < ui->dragEntityInventory->slotCount)) {
+    auto world = GetWorld();
+    if (GetEntity(world, ui->dragEntityID) && (ui->dragItemIndex < ui->dragEntityInventory->slotCount)) {
         if (index < dropInventory->slotCount) {
             auto dropSlot = dropInventory->slots + index;
             if (dropSlot->item == Item::None) {
@@ -131,8 +131,8 @@ void UIDropItem(UI* ui, EntityInventory* dropInventory, u32 index) {
 }
 
 void UIUpdateAndRender(UI* ui) {
-    auto context = GetContext();
-    auto camera = &context->camera;
+    auto world = GetWorld();
+    auto camera = world->camera;
     bool showingEntities = false;
     float windowOffset = 50.0f;
     for (usize i = 0; i < array_count(ui->entityList); i++) {
@@ -144,7 +144,7 @@ void UIUpdateAndRender(UI* ui) {
                 }
             }
             showingEntities = true;
-            auto entity = GetEntity(&context->playerRegion, id);
+            auto entity = GetEntity(world, id);
             if (entity) {
                 auto info = GetEntityInfo(entity->type);
                 if (info->UpdateAndRenderUI) {

@@ -4,12 +4,16 @@
 #include "World.h"
 #include "EntityTraits.h"
 
-struct Belt : BlockEntity {
+typedef bool(BeltTraitInsertItemFn)(Entity* entity, Direction dir, u32 itemID, f32 callerItemPos);
+typedef u32(BeltTraitGrabItemFn)(Entity* entity, Direction dir);
+
+struct BeltTrait {
+    constant TraitID ID = (TraitID)Trait::Belt;
+    BeltTraitInsertItemFn* InsertItem;
+    BeltTraitGrabItemFn* GrabItem;
     constant u32 Capacity = 5;
     constant f32 Speed = 0.4f;
     constant f32 HorzSpeed = Speed * 5.0f;
-    constant f32 ItemSink = 0.32f;
-    constant f32 ExtractTimeout = 2.0f;
     constant u32 FirstSlot = 0;
     constant u32 LastSlot = Capacity - 1;
     Direction direction;
@@ -18,7 +22,10 @@ struct Belt : BlockEntity {
     f32 itemHorzPositions[Capacity];
     Direction itemTurnDirections[Capacity];
     f32 extractTimeout;
-    BeltTrait beltTrait;
+};
+
+struct Belt : BlockEntity {
+    BeltTrait belt;
 };
 
 Entity* CreateBelt(GameWorld* world, WorldPos p);
