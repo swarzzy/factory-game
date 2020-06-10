@@ -18,7 +18,7 @@ void EntityInfoInit(EntityInfo* info) {
 
     info->nullItem.name = "null";
     info->nullItem.convertsToBlock = true;
-    info->nullItem.associatedBlock = VoxelValue::Empty;
+    info->nullItem.associatedBlock = BlockValue::Empty;
 
     info->nullBlock.DropPickup = BlockDropPickup;
     info->nullBlock.name = "null";

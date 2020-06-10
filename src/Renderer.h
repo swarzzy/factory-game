@@ -163,7 +163,7 @@ void FreeGPUTexture(u32 id);
 TexTransferBufferInfo GetTextureTransferBuffer(Renderer* renderer, u32 size);
 void CompleteTextureTransfer(TexTransferBufferInfo* info, Texture* texture);
 
-u16 VoxelValueToTerrainIndex(VoxelValue value);
-void SetVoxelTexture(Renderer* renderer, VoxelValue value, void* data);
+u16 BlockValueToTerrainIndex(BlockValue value);
+void SetBlockTexture(Renderer* renderer, BlockValue value, void* data);
 
 void RecompileShaders(MemoryArena* tempArena, Renderer* renderer);

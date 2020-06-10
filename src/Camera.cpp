@@ -106,7 +106,7 @@ void Update(Camera* camera, Player* player, f32 dt) {
          front.y = Sin(ToRad(pitch));
          front.z = Cos(ToRad(pitch)) * Sin(ToRad(yaw));
 
-         camera->position = V3(0.0f, player->height - Voxel::HalfDim, 0.0f);
+         camera->position = V3(0.0f, player->height - Block::HalfDim, 0.0f);
          camera->front = Normalize(front);
     }
 

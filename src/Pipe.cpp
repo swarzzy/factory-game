@@ -6,10 +6,11 @@
 void OrientPipe(GameWorld* world, Pipe* pipe);
 
 void NeighborhoodChangedUpdate(Pipe* pipe) {
+    auto world = GetWorld();
     OrientPipe(pipe->world, pipe);
 
-    const Voxel* downVoxel = GetVoxel(pipe->world, pipe->p + IV3(0, -1, 0));
-    if (downVoxel && (downVoxel->value == VoxelValue::Water)) {
+    const Block* downBlock = GetBlock(pipe->world, pipe->p + IV3(0, -1, 0));
+    if (downBlock && (downBlock->value == BlockValue::Water)) {
         // TODO: Orient pipe to water
         pipe->filled = true;
         pipe->liquid = Liquid::Water;
@@ -181,12 +182,12 @@ void OrientPipe(GameWorld* world, Pipe* pipe) {
     pipe->mesh = context->pipeStraightMesh;
 
     // TODO: Be carefull with pointers in blocks
-    Entity* westNeighbour = GetVoxel(world, p + IV3(-1, 0, 0))->entity;
-    Entity* eastNeighbour = GetVoxel(world, p + IV3(1, 0, 0))->entity;
-    Entity* northNeighbour = GetVoxel(world, p + IV3(0, 0, -1))->entity;
-    Entity* southNeighbour = GetVoxel(world, p + IV3(0, 0, 1))->entity;
-    Entity* upNeighbour = GetVoxel(world, p + IV3(0, 1, 0))->entity;
-    Entity* downNeighbour = GetVoxel(world, p + IV3(0, -1, 0))->entity;
+    Entity* westNeighbour = GetBlock(world, p + IV3(-1, 0, 0))->entity;
+    Entity* eastNeighbour = GetBlock(world, p + IV3(1, 0, 0))->entity;
+    Entity* northNeighbour = GetBlock(world, p + IV3(0, 0, -1))->entity;
+    Entity* southNeighbour = GetBlock(world, p + IV3(0, 0, 1))->entity;
+    Entity* upNeighbour = GetBlock(world, p + IV3(0, 1, 0))->entity;
+    Entity* downNeighbour = GetBlock(world, p + IV3(0, -1, 0))->entity;
 
     bool px = 0;
     bool nx = 0;

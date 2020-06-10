@@ -5,11 +5,10 @@
 struct Player : SpatialEntity {
     SpatialEntity base;
     f32 height;
-    iv3 selectedVoxel;
+    iv3 selectedBlock;
     EntityID selectedEntity;
     f32 jumpAcceleration;
     f32 runAcceleration;
-    SimRegion* region;
     Camera* camera;
     b32 flightMode;
     EntityInventory* toolbelt;

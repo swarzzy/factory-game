@@ -35,7 +35,7 @@ struct ChunkShader {
     static constexpr u32 Position = 0;
     static constexpr u32 Normal = 1;
     static constexpr u32 Tangent = 2;
-    static constexpr u32 VoxelValue = 3;
+    static constexpr u32 BlockValue = 3;
     static constexpr u32 TerrainAtlasSampler = 0;
     static constexpr u32 ShadowMapSampler = 9;
 };

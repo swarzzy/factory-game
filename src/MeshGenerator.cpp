@@ -2,13 +2,13 @@
 
 #include "Intrinsics.h"
 
-bool IsVoxelOccluder(Chunk* chunk, i32 x, i32 y, i32 z) {
+bool IsBlockOccluder(Chunk* chunk, i32 x, i32 y, i32 z) {
     bool occluder = false;
     // NOTE: Assuming blocks on chunk edges always visible
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size &&
         x >= 0 && y >= 0 && z >= 0) {
-        auto voxel = GetVoxelRaw(chunk, (u32)x, (u32)y, (u32)z);
-        occluder = voxel->value != VoxelValue::Empty;
+        auto voxel = GetBlockRaw(chunk, (u32)x, (u32)y, (u32)z);
+        occluder = voxel->value != BlockValue::Empty;
     }
     return occluder;
 }
@@ -90,10 +90,10 @@ void PushVertex(ChunkMesher* mesher, ChunkMesh* mesh, v3 v, v3 n, v3 t, u16 terr
     mesh->vertexCount++;
 }
 
-void PushQuad(ChunkMesher* mesher, ChunkMesh* mesh, v3 vt0, v3 vt1, v3 vt2, v3 vt3, VoxelValue value) {
+void PushQuad(ChunkMesher* mesher, ChunkMesh* mesh, v3 vt0, v3 vt1, v3 vt2, v3 vt3, BlockValue value) {
     v3 n = Cross(vt2 - vt1, vt0 - vt1);
     v3 t = vt1 - vt0;
-    u16 terrainIndex = VoxelValueToTerrainIndex(value);
+    u16 terrainIndex = BlockValueToTerrainIndex(value);
     PushVertex(mesher, mesh, vt0, n, t, terrainIndex);
     PushVertex(mesher, mesh, vt1, n, t, terrainIndex);
     PushVertex(mesher, mesh, vt2, n, t, terrainIndex);
@@ -107,20 +107,20 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
     for (u32 z = 0; z < Chunk::Size; z++) {
         for (u32 y = 0; y < Chunk::Size; y++) {
             for (u32 x = 0; x < Chunk::Size; x++) {
-                auto voxel = GetVoxelRaw(chunk, x, y, z);
-                if (voxel->value != VoxelValue::Empty) {
+                auto voxel = GetBlockRaw(chunk, x, y, z);
+                if (voxel->value != BlockValue::Empty) {
                     auto value = voxel->value;
 
-                    bool up = IsVoxelOccluder(chunk, (i32)x, ((i32)y) + 1, (i32)z);
-                    bool down = IsVoxelOccluder(chunk, (i32)x, ((i32)y) - 1, (i32)z);
-                    bool left = IsVoxelOccluder(chunk, ((i32)x) - 1, (i32)y, (i32)z);
-                    bool right = IsVoxelOccluder(chunk, ((i32)x) + 1, ((i32)y), (i32)z);
-                    bool front = IsVoxelOccluder(chunk, (i32)x, (i32)y, ((i32)z) + 1);
-                    bool back = IsVoxelOccluder(chunk, (i32)x, (i32)y, ((i32)z) - 1);
+                    bool up = IsBlockOccluder(chunk, (i32)x, ((i32)y) + 1, (i32)z);
+                    bool down = IsBlockOccluder(chunk, (i32)x, ((i32)y) - 1, (i32)z);
+                    bool left = IsBlockOccluder(chunk, ((i32)x) - 1, (i32)y, (i32)z);
+                    bool right = IsBlockOccluder(chunk, ((i32)x) + 1, ((i32)y), (i32)z);
+                    bool front = IsBlockOccluder(chunk, (i32)x, (i32)y, ((i32)z) + 1);
+                    bool back = IsBlockOccluder(chunk, (i32)x, (i32)y, ((i32)z) - 1);
 
-                    v3 offset = V3(x, y, z) * Voxel::Dim;
-                    v3 min = offset - V3(Voxel::HalfDim, Voxel::HalfDim, Voxel::HalfDim);
-                    v3 max = offset + V3(Voxel::HalfDim, Voxel::HalfDim, Voxel::HalfDim);
+                    v3 offset = V3(x, y, z) * Block::Dim;
+                    v3 min = offset - V3(Block::HalfDim, Block::HalfDim, Block::HalfDim);
+                    v3 max = offset + V3(Block::HalfDim, Block::HalfDim, Block::HalfDim);
 
                     v3 vt0 = V3(min.x, min.y, max.z);
                     v3 vt1 = V3(max.x, min.y, max.z);

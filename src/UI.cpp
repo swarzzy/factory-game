@@ -38,7 +38,7 @@ void UIDrawEntityInfo(UI* ui, Entity* entity) {
     ImGui::End();
 }
 
-void UIDrawBlockInfo(UI* ui, const Voxel* block) {
+void UIDrawBlockInfo(UI* ui, const Block* block) {
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2, 0);
     ImVec2 windowPivot = ImVec2(0.5f, 0.0f);

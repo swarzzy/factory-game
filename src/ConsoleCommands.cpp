@@ -117,7 +117,8 @@ void RecompileShadersCommand(Console* console, Context* context, ConsoleCommandA
 void ResetPlayerPositionCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
     LogMessage(console->logger, "Reset player position to (0, 30, 0)\n");
     context->camera.targetWorldPosition = WorldPos::Make(IV3(0, 15, 0));
-    MoveRegion(&context->playerRegion, WorldPos::ToChunk(context->camera.targetWorldPosition.block).chunk);
+    auto world = GetWorld();
+    MoveRegion(&world->chunkPool.playerRegion, WorldPos::ToChunk(context->camera.targetWorldPosition.block).chunk);
     // TODO: Make this work
     //context->gameWorld.playerEntity.p = MakeWorldPos(IV3(0, 30, 0));
 }
@@ -212,7 +213,7 @@ void PrintEntitiesCommand(Console* console, Context* context, ConsoleCommandArgs
 }
 
 void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
-    GlobalDrawDebugOverlay = !GlobalDrawDebugOverlay;
+    Globals::ShowDebugOverlay = !Globals::ShowDebugOverlay;
 }
 
 void PrintPlayerInventoryCommand(Console* console, Context* context, ConsoleCommandArgs* args) {

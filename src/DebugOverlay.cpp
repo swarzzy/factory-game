@@ -36,20 +36,20 @@ void BeginDebugOverlay() {
 
 bool DebugOverlayBeginCustom() {
     bool result = false;
-    if (GlobalDrawDebugOverlay) {
+    if (Globals::ShowDebugOverlay) {
         result = ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags);
     }
     return result;
 }
 
 void DebugOverlayEndCustom() {
-    if (GlobalDrawDebugOverlay) {
+    if (Globals::ShowDebugOverlay) {
         ImGui::End();
     }
 }
 
 void DebugOverlayPushInternal(const char* string) {
-    if (GlobalDrawDebugOverlay) {
+    if (Globals::ShowDebugOverlay) {
         if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
             ImGui::Separator();
             ImGui::Text("%s", string);
@@ -101,7 +101,7 @@ void DebugOverlayPushVar(const char* title, f32 var) {
 }
 
 void DebugOverlayPushSlider(const char* title, f32* var, f32 min, f32 max) {
-    if (GlobalDrawDebugOverlay) {
+    if (Globals::ShowDebugOverlay) {
         if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
             ImGui::Separator();
             ImGui::SliderFloat(title, var, min, max);
@@ -111,7 +111,7 @@ void DebugOverlayPushSlider(const char* title, f32* var, f32 min, f32 max) {
 }
 
 void DebugOverlayPushSlider(const char* title, i32* var, i32 min, i32 max) {
-    if (GlobalDrawDebugOverlay) {
+    if (Globals::ShowDebugOverlay) {
         if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
             ImGui::Separator();
             ImGui::SliderInt(title, var, min, max);
@@ -121,7 +121,7 @@ void DebugOverlayPushSlider(const char* title, i32* var, i32 min, i32 max) {
 }
 
 void DebugOverlayPushSlider(const char* title, v3* var, f32 min, f32 max) {
-    if (GlobalDrawDebugOverlay) {
+    if (Globals::ShowDebugOverlay) {
 
         if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
             ImGui::Separator();
@@ -132,7 +132,7 @@ void DebugOverlayPushSlider(const char* title, v3* var, f32 min, f32 max) {
 }
 
 void DebugOverlayPushSlider(const char* title, v4* var, f32 min, f32 max) {
-    if (GlobalDrawDebugOverlay) {
+    if (Globals::ShowDebugOverlay) {
         if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
             ImGui::Separator();
             ImGui::SliderFloat4(title, var->data, min, max);
@@ -142,7 +142,7 @@ void DebugOverlayPushSlider(const char* title, v4* var, f32 min, f32 max) {
 }
 
 void DebugOverlayPushToggle(const char* title, bool* var) {
-    if (GlobalDrawDebugOverlay) {
+    if (Globals::ShowDebugOverlay) {
         if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
             ImGui::Separator();
             ImGui::Checkbox(title, var);

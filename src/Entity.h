@@ -11,7 +11,7 @@ struct RenderGroup;
 struct Camera;
 struct Entity;
 struct GameWorld;
-struct Voxel;
+struct Block;
 
 typedef u64 EntityID;
 
@@ -33,7 +33,10 @@ EntityID GenEntityID(GameWorld* world, EntityKind kind);
 enum EntityFlags : u32 {
     EntityFlag_Collides = (1 << 0),
     EntityFlag_ProcessOverlaps = (1 << 1),
-    EntityFlag_DisableDeleteWhenOutsideOfWorldBounds = (1 << 3)
+    EntityFlag_DisableDeleteWhenOutsideOfWorldBounds = (1 << 3),
+    // TODO: This probably should be some kind of entity-type associated flag
+    // since we do not allow to change it at runtime, because this will break chunk sim propagaton count
+    EntityFlag_PropagatesSim = (1 << 4)
 };
 
 enum struct EntityType : u32 {
@@ -61,7 +64,7 @@ struct Entity {
 
     Entity* nextInStorage;
     Entity* prevInStorage;
-    // TODO: just make it global variable
+
     GameWorld* world;
 };
 
@@ -85,6 +88,10 @@ struct BlockEntity : Entity {
     //
     iv3* multiBlockEntityFootprint;
 };
+
+typedef WorldPos(GetEntityPositionFn)(Entity* entity);
+
+WorldPos GetEntityPosition(Entity* entity);
 
 enum struct EntityUIInvoke: u32 {
     Info, Inventory
@@ -142,6 +149,6 @@ struct NeighborIterator {
     static NeighborIterator Begin(iv3 p);
     static bool Ended(NeighborIterator* iter);
     static void Advance(NeighborIterator* iter);
-    static const Voxel* Get(NeighborIterator* iter);
+    static const Block* Get(NeighborIterator* iter);
     static Direction GetCurrentDirection(NeighborIterator* iter);
 };

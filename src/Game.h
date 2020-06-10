@@ -5,9 +5,10 @@
 #include "RenderGroup.h"
 #include "World.h"
 #include "MeshGenerator.h"
-#include "SimRegion.h"
+#include "ChunkPool.h"
 #include "Console.h"
 #include "UI.h"
+#include "DebugUI.h"
 #include "EntityInfo.h"
 
 struct Context {
@@ -17,7 +18,7 @@ struct Context {
     ChunkMesher chunkMesher;
     GameWorld gameWorld;
     UI ui;
-    SimRegion playerRegion;
+    DebugUI debugUI;
     Mesh* cubeMesh;
     Material playerMaterial;
     Mesh* coalOreMesh;

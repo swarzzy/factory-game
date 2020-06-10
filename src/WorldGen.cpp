@@ -95,19 +95,19 @@ void GenChunk(WorldGen* gen, Chunk* chunk) {
                 u32 grassHeight = GetHeightFromNoise(&gen->noise, wp.block.x, wp.block.z, 10);
                 u32 rockHeight = GetHeightFromNoise(&gen->anotherNoise, wp.block.x, wp.block.z, 8);
                 auto height = grassHeight;
-                auto value = grassHeight > rockHeight ? VoxelValue::Grass : VoxelValue::Stone;
+                auto value = grassHeight > rockHeight ? BlockValue::Grass : BlockValue::Stone;
                 if (rockHeight <= 7 && grassHeight <= 7) {
-                    value = VoxelValue::Water;
+                    value = BlockValue::Water;
                     height = 6;
                 }
                 for (u32 by = 0; by < height; by++) {
                     i32 coal = rand() % 1000;
-                    if (value != VoxelValue::Water) {
+                    if (value != BlockValue::Water) {
                         if (coal == 1) {
-                            value = VoxelValue::CoalOre;
+                            value = BlockValue::CoalOre;
                         }
                     }
-                    auto block = GetVoxelForModification(chunk, bx, by, bz);
+                    auto block = GetBlockRaw(chunk, bx, by, bz);
                     block->value = value;
                 }
             }
@@ -116,9 +116,9 @@ void GenChunk(WorldGen* gen, Chunk* chunk) {
         for (u32 bz = 0; bz < Chunk::Size; bz++) {
             for (u32 by = 0; by < Chunk::Size; by++) {
                 for (u32 bx = 0; bx < Chunk::Size; bx++) {
-                    auto block = GetVoxelForModification(chunk, bx, by, bz);
+                    auto block = GetBlockRaw(chunk, bx, by, bz);
                     if (block) {
-                        block->value = VoxelValue::Stone;
+                        block->value = BlockValue::Stone;
                     }
                 }
             }

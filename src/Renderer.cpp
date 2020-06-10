@@ -78,7 +78,7 @@ struct Renderer {
     // Maybe we need to create some placeholder texture here
     GLuint nullTexture2D = 0;
 
-    // NOTE: Chunk::Size * Chunk::Size * Chunk::Size * VerticesInQuad * QuadsInVoxel
+    // NOTE: Chunk::Size * Chunk::Size * Chunk::Size * VerticesInQuad * QuadsInBlock
     // Dividing by two because the maximum index count will be used when chunk has chuckerboard pattern,
     // i.e. only half of voxels are filled
     static constexpr uptr ChunkIndexBufferCount = Chunk::Size * Chunk::Size * Chunk::Size * 6 * 6 / 2;
@@ -776,21 +776,21 @@ Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 ren
     return renderer;
 }
 
-u16 VoxelValueToTerrainIndex(VoxelValue value) {
+u16 BlockValueToTerrainIndex(BlockValue value) {
     u16 index = 0;
     switch(value) {
-    case VoxelValue::Stone: { index = 0; } break;
-    case VoxelValue::Grass: { index = 1; } break;
-    case VoxelValue::CoalOre: { index = 2; } break;
-    case VoxelValue::Water: { index = 3; } break;
+    case BlockValue::Stone: { index = 0; } break;
+    case BlockValue::Grass: { index = 1; } break;
+    case BlockValue::CoalOre: { index = 2; } break;
+    case BlockValue::Water: { index = 3; } break;
     invalid_default();
     }
     return index;
 }
 
-void SetVoxelTexture(Renderer* renderer, VoxelValue value, void* data) {
+void SetBlockTexture(Renderer* renderer, BlockValue value, void* data) {
     glBindTexture(GL_TEXTURE_2D_ARRAY, renderer->terrainTexArray);
-    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, VoxelValueToTerrainIndex(value),
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, BlockValueToTerrainIndex(value),
                     Renderer::TerrainTextureSize, Renderer::TerrainTextureSize, 1,
                     GL_RGB, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
@@ -1190,7 +1190,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     glEnableVertexAttribArray(ChunkShader::Position);
                     glEnableVertexAttribArray(ChunkShader::Normal);
                     glEnableVertexAttribArray(ChunkShader::Tangent);
-                    glEnableVertexAttribArray(ChunkShader::VoxelValue);
+                    glEnableVertexAttribArray(ChunkShader::BlockValue);
 
                     uptr normalsOffset = mesh->vertexCount * sizeof(v3);
                     uptr tangentsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
@@ -1199,7 +1199,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     glVertexAttribPointer(ChunkShader::Position, 3, GL_FLOAT, GL_FALSE, 0, 0);
                     glVertexAttribPointer(ChunkShader::Normal, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
                     glVertexAttribPointer(ChunkShader::Tangent, 3, GL_FLOAT, GL_FALSE, 0, (void*)tangentsOffset);
-                    glVertexAttribIPointer(ChunkShader::VoxelValue, 1, GL_UNSIGNED_SHORT, 0, (void*)valuesOffset);
+                    glVertexAttribIPointer(ChunkShader::BlockValue, 1, GL_UNSIGNED_SHORT, 0, (void*)valuesOffset);
 
                     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer->chunkIndexBufferHandle);
                     // TODO: Look for glDrawElementsInstancedBaseInstance

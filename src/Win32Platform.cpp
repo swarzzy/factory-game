@@ -1224,6 +1224,17 @@ DWORD WINAPI Win32ThreadProc(void* param) {
     }
 }
 
+void* Win32AllocatePages(uptr size) {
+    void* block = VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    assert(block);
+    return block;
+}
+
+void Win32DeallocatePages(void* memory, uptr size) {
+    auto result = VirtualFree(memory, 0, MEM_RELEASE);
+    assert(result);
+}
+
 MemoryArena* Win32AllocateArena(uptr size) {
     uptr headerSize = sizeof(MemoryArena);
     void* mem = VirtualAlloc(0, size + headerSize,
@@ -1244,6 +1255,7 @@ void Win32FreeArena(MemoryArena* arena) {
     auto result = VirtualFree(base, 0, MEM_RELEASE);
     assert(result);
 }
+
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCmd)
 {
@@ -1309,6 +1321,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     app->state.functions.Deallocate = Deallocate;
     app->state.functions.Reallocate = Reallocate;
 
+    app->state.functions.AllocatePages = Win32AllocatePages;
+    app->state.functions.DeallocatePages = Win32DeallocatePages;
+
     app->state.functions.AllocateArena = Win32AllocateArena;
     app->state.functions.FreeArena = Win32FreeArena;
 
@@ -1338,6 +1353,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
 
     ImGui::StyleColorsDark();
+    //ImGuiStyleColorsLightGreen();
     io.IniFilename = 0;
 
     ImGuiStyle& style = ImGui::GetStyle();

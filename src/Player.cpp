@@ -9,7 +9,7 @@ Entity* CreatePlayerEntity(GameWorld* world, WorldPos p) {
         entity->acceleration = 70.0f;
         entity->friction = 10.0f;
         entity->height = 1.8f;
-        entity->selectedVoxel = GameWorld::InvalidPos;
+        entity->selectedBlock = GameWorld::InvalidPos;
         entity->jumpAcceleration = 420.0f;
         entity->runAcceleration = 140.0f;
         entity->inventory = AllocateEntityInventory(16, 128);
@@ -86,6 +86,13 @@ void PlayerUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _
         auto oldP = entity->p;
         v3 frameAcceleration = {};
 
+
+        {
+            auto world = GetWorld();
+            auto playerChunk = GetChunk(world, WorldPos::ToChunk(entity->p.block).chunk);
+            DEBUG_OVERLAY_TRACE(playerChunk->simPropagationCount);
+        }
+
         f32 playerAcceleration;
         v3 drag = entity->velocity * entity->friction;
 
@@ -157,7 +164,7 @@ void PlayerUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _
         MoveSpatialEntity(entity->world, entity, movementDelta, data->camera, nullptr);
 
         if (WorldPos::ToChunk(entity->p).chunk != WorldPos::ToChunk(oldP).chunk) {
-            MoveRegion(entity->region, WorldPos::ToChunk(entity->p).chunk);
+            MoveRegion(&entity->world->chunkPool.playerRegion, WorldPos::ToChunk(entity->p).chunk);
         }
 
         PlayerDrawToolbelt(entity);

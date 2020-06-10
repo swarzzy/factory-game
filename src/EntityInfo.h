@@ -32,7 +32,7 @@ struct ItemInfoEntry {
     b32 convertsToBlock;
     union {
         u32 associatedEntityTypeID;
-        VoxelValue associatedBlock;
+        BlockValue associatedBlock;
     };
     const char* name;
     Mesh* mesh;
@@ -96,6 +96,6 @@ inline T* FindEntityTrait(Entity* entity) {
 
 inline const EntityInfoEntry* GetEntityInfo(EntityType type) { return GetEntityInfo((u32)type); }
 inline const ItemInfoEntry* GetItemInfo(Item item) { return GetItemInfo((u32)item); }
-inline const BlockInfoEntry* GetBlockInfo(VoxelValue block) {return GetBlockInfo((u32)block); }
+inline const BlockInfoEntry* GetBlockInfo(BlockValue block) {return GetBlockInfo((u32)block); }
 
 void EntityInfoPrint(EntityInfo* info, Logger* logger);

@@ -5,13 +5,13 @@ WorldPos WorldPos::Normalize(WorldPos p) {
     WorldPos result;
 
     // NOTE: We are not checking against integer overflowing
-    i32 voxelX = (i32)Floor((p.offset.x + Voxel::HalfDim) / Voxel::Dim);
-    i32 voxelY = (i32)Floor((p.offset.y + Voxel::HalfDim) / Voxel::Dim);
-    i32 voxelZ = (i32)Floor((p.offset.z + Voxel::HalfDim) / Voxel::Dim);
+    i32 voxelX = (i32)Floor((p.offset.x + Block::HalfDim) / Block::Dim);
+    i32 voxelY = (i32)Floor((p.offset.y + Block::HalfDim) / Block::Dim);
+    i32 voxelZ = (i32)Floor((p.offset.z + Block::HalfDim) / Block::Dim);
 
-    result.offset.x = p.offset.x - voxelX * Voxel::Dim;
-    result.offset.y = p.offset.y - voxelY * Voxel::Dim;
-    result.offset.z = p.offset.z - voxelZ * Voxel::Dim;
+    result.offset.x = p.offset.x - voxelX * Block::Dim;
+    result.offset.y = p.offset.y - voxelY * Block::Dim;
+    result.offset.z = p.offset.z - voxelZ * Block::Dim;
 
     result.block.x = p.block.x + voxelX;
     result.block.y = p.block.y + voxelY;
@@ -30,7 +30,7 @@ v3 WorldPos::Difference(WorldPos a, WorldPos b) {
     v3 result;
     iv3 voxelDiff = a.block - b.block;
     v3 offsetDiff = a.offset - b.offset;
-    result = Hadamard(V3(voxelDiff), V3(Voxel::Dim)) + offsetDiff;
+    result = Hadamard(V3(voxelDiff), V3(Block::Dim)) + offsetDiff;
     return result;
 }
 

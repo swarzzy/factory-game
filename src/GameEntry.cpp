@@ -74,6 +74,9 @@ bool MouseButtonPressed(MouseButton button) {
 #define PlatformAllocateArena platform_call(AllocateArena)
 #define PlatformFreeArena platform_call(FreeArena)
 
+#define PlatformAllocatePages platform_call(AllocatePages)
+#define PlatformDeallocatePages platform_call(DeallocatePages)
+
 void* PlatformAllocClear(uptr size) {
     void* memory = PlatformAlloc(size, 0, nullptr);
     memset(memory, 0, size);
@@ -329,7 +332,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "MeshGenerator.cpp"
 //#include "Region.cpp"
 #include "WorldGen.cpp"
-#include "SimRegion.cpp"
+#include "ChunkPool.cpp"
 #include "Console.cpp"
 #include "ConsoleCommands.cpp"
 #include "UI.cpp"
@@ -344,7 +347,9 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "FlatArray.cpp"
 #include "EntityInfo.cpp"
 #include "Extractor.cpp"
-
+#include "DebugUI.cpp"
+#include "Block.cpp"
+#include "Chunk.cpp"
 
 // NOTE: Platform specific intrinsics implementation begins here
 #if defined(PLATFORM_WINDOWS)

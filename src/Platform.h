@@ -77,6 +77,9 @@ typedef void*(ReallocateFn)(void* ptr, uptr newSize);
 typedef MemoryArena*(AllocateArenaFn)(uptr size);
 typedef void(FreeArenaFn)(MemoryArena* arena);
 
+typedef void*(AllocatePagesFn)(uptr size);
+typedef void(DeallocatePagesFn)(void* memory, uptr size);
+
 // Work queue API
 struct WorkQueue;
 typedef void(WorkFn)(void* data0, void* data1, void* data2, u32 threadIndex);
@@ -157,6 +160,9 @@ struct PlatformCalls
     AllocateFn* Allocate;
     DeallocateFn* Deallocate;
     ReallocateFn* Reallocate;
+
+    AllocatePagesFn* AllocatePages;
+    DeallocatePagesFn* DeallocatePages;
 
     AllocateArenaFn* AllocateArena;
     FreeArenaFn* FreeArena;

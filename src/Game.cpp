@@ -106,7 +106,7 @@ void RegisterBuiltInEntities(Context* context) {
         assert(stone->id == (u32)Item::Stone);
         stone->name = "Stone";
         stone->convertsToBlock = true;
-        stone->associatedBlock = VoxelValue::Stone;
+        stone->associatedBlock = BlockValue::Stone;
         stone->material = &context->stoneMaterial;
         stone->icon = &context->stoneDiffuse;
 
@@ -114,7 +114,7 @@ void RegisterBuiltInEntities(Context* context) {
         assert(grass->id == (u32)Item::Grass);
         grass->name = "Grass";
         grass->convertsToBlock = true;
-        grass->associatedBlock = VoxelValue::Grass;
+        grass->associatedBlock = BlockValue::Grass;
         grass->material = &context->grassMaterial;
         grass->icon = &context->grassDiffuse;
 
@@ -122,7 +122,7 @@ void RegisterBuiltInEntities(Context* context) {
         assert(coalOre->id == (u32)Item::CoalOre);
         coalOre->name = "Coal ore";
         coalOre->convertsToBlock = true;
-        coalOre->associatedBlock = VoxelValue::CoalOre;
+        coalOre->associatedBlock = BlockValue::CoalOre;
         coalOre->mesh = context->coalOreMesh;
         coalOre->material = &context->coalOreMaterial;
         coalOre->icon = &context->coalIcon;
@@ -173,14 +173,14 @@ void RegisterBuiltInEntities(Context* context) {
         assert(water->id == (u32)Item::Water);
         water->name = "Water";
         water->convertsToBlock = true;
-        water->associatedBlock = VoxelValue::Water;
+        water->associatedBlock = BlockValue::Water;
         water->material = &context->waterMaterial;
 
         auto coalOreBlock = EntityInfoRegisterItem(entityInfo);
         assert(coalOreBlock->id == (u32)Item::CoalOreBlock);
         coalOreBlock->name = "CoalOreBlock";
         coalOreBlock->convertsToBlock = true;
-        coalOreBlock->associatedBlock = VoxelValue::CoalOre;
+        coalOreBlock->associatedBlock = BlockValue::CoalOre;
         coalOreBlock->material = &context->coalOreBlockMaterial;
         coalOreBlock->icon = &context->coalOreBlockDiffuse;
 
@@ -188,34 +188,33 @@ void RegisterBuiltInEntities(Context* context) {
     }
     { // Blocks
         auto stone = EntityInfoRegisterBlock(entityInfo);
-        assert(stone->id == (u32)VoxelValue::Stone);
+        assert(stone->id == (u32)BlockValue::Stone);
         stone->name = "Stone";
         stone->associatedItem = (ItemID)Item::Stone;
 
         auto grass = EntityInfoRegisterBlock(entityInfo);
-        assert(grass->id == (u32)VoxelValue::Grass);
+        assert(grass->id == (u32)BlockValue::Grass);
         grass->name = "Grass";
         grass->associatedItem = (ItemID)Item::Grass;
 
         auto coalOre = EntityInfoRegisterBlock(entityInfo);
-        assert(coalOre->id == (u32)VoxelValue::CoalOre);
+        assert(coalOre->id == (u32)BlockValue::CoalOre);
         coalOre->name = "Coal ore";
         coalOre->DropPickup = CoalOreDropPickup;
         coalOre->associatedItem = (ItemID)Item::CoalOre;
 
         auto water = EntityInfoRegisterBlock(entityInfo);
-        assert(water->id == (u32)VoxelValue::Water);
+        assert(water->id == (u32)BlockValue::Water);
         water->name = "Water";
         water->associatedItem = (ItemID)Item::Water;
 
 
-        assert(entityInfo->blockTable.count == ((u32)VoxelValue::_Count - 1));
+        assert(entityInfo->blockTable.count == ((u32)BlockValue::_Count - 1));
     }
 }
 
 void FluxInit(Context* context) {
-    LogMessage(&context->logger, "Logger test %s", "message\n");
-    LogMessage(&context->logger, "Logger prints string");
+    log_print("Chunk size %llu\n", sizeof(Chunk));
 
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
@@ -238,13 +237,13 @@ void FluxInit(Context* context) {
     InitWorld(&context->gameWorld, context, &context->chunkMesher, 293847);
 
     auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    SetVoxelTexture(context->renderer, VoxelValue::Stone, stone->bits);
+    SetBlockTexture(context->renderer, BlockValue::Stone, stone->bits);
     auto grass = ResourceLoaderLoadImage("../res/tile_grass.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    SetVoxelTexture(context->renderer, VoxelValue::Grass, grass->bits);
+    SetBlockTexture(context->renderer, BlockValue::Grass, grass->bits);
     auto coalOre = ResourceLoaderLoadImage("../res/tile_coal_ore.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    SetVoxelTexture(context->renderer, VoxelValue::CoalOre, coalOre->bits);
+    SetBlockTexture(context->renderer, BlockValue::CoalOre, coalOre->bits);
     auto water = ResourceLoaderLoadImage("../res/tile_water.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    SetVoxelTexture(context->renderer, VoxelValue::Water, water->bits);
+    SetBlockTexture(context->renderer, BlockValue::Water, water->bits);
 
     context->coalIcon = LoadTextureFromFile("../res/coal_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
     assert(context->coalIcon.base);
@@ -450,21 +449,13 @@ void FluxInit(Context* context) {
 
     context->camera.targetWorldPosition = WorldPos::Make(IV3(0, 15, 0));
 
-    context->playerRegion.world = &context->gameWorld;
+    MoveRegion(&gameWorld->chunkPool.playerRegion, WorldPos::ToChunk(context->camera.targetWorldPosition.block).chunk);
 
-    InitRegion(&context->playerRegion);
-    ResizeRegion(&context->playerRegion, GameWorld::ViewDistance, context->gameArena);
-    MoveRegion(&context->playerRegion, WorldPos::ToChunk(context->camera.targetWorldPosition.block).chunk);
-
-    auto player = (Player*)CreatePlayerEntity(gameWorld, WorldPos::Make(0, 30, 0));
-    player->camera =  &context->camera;
-    player->region =  &context->playerRegion;
-
-    gameWorld->playerID = player->id;
-
+#if 0
     Entity* container = CreateContainerEntity(gameWorld, WorldPos::Make(0, 16, 0));
     Entity* pipe = CreatePipeEntity(gameWorld, WorldPos::Make(2, 16, 0));
     //Entity* barrel = CreateBarrel(context, gameWorld, IV3(4, 16, 0));
+#endif
 
     UIInit(&context->ui);
 
@@ -472,18 +463,29 @@ void FluxInit(Context* context) {
     PlatformSetInputMode(InputMode::FreeCursor);
     context->camera.inputMode = GameInputMode::Game;
 
-    EntityInventoryPushItem(player->toolbelt, Item::Pipe, 128);
-    EntityInventoryPushItem(player->toolbelt, Item::Belt, 128);
-    EntityInventoryPushItem(player->toolbelt, Item::CoalOre, 128);
-    EntityInventoryPushItem(player->toolbelt, Item::Container, 128);
-    EntityInventoryPushItem(player->toolbelt, Item::Stone, 128);
-    EntityInventoryPushItem(player->toolbelt, Item::Extractor, 128);
 }
 
 void FluxReload(Context* context) {
 }
 
 void FluxUpdate(Context* context) {
+    auto world = &context->gameWorld;
+    while (!world->playerID) {
+        auto player = (Player*)CreatePlayerEntity(world, WorldPos::Make(0, 30, 0));
+        if (player) {
+            player->camera =  &context->camera;
+            world->playerID = player->id;
+            EntityInventoryPushItem(player->toolbelt, Item::Pipe, 128);
+            EntityInventoryPushItem(player->toolbelt, Item::Belt, 128);
+            EntityInventoryPushItem(player->toolbelt, Item::CoalOre, 128);
+            EntityInventoryPushItem(player->toolbelt, Item::Container, 128);
+            EntityInventoryPushItem(player->toolbelt, Item::Stone, 128);
+            EntityInventoryPushItem(player->toolbelt, Item::Extractor, 128);
+        }
+        UpdateChunks(&world->chunkPool);
+        return;
+    }
+
     auto player = static_cast<Player*>(GetEntity(&context->gameWorld, context->gameWorld.playerID));
     assert(player);
 
@@ -524,6 +526,15 @@ void FluxUpdate(Context* context) {
     }
 
     auto ui = &context->ui;
+    auto debugUI = &context->debugUI;
+
+    if (KeyPressed(Key::F1)) {
+        Globals::ShowDebugOverlay = !Globals::ShowDebugOverlay;
+    }
+
+    if (KeyPressed(Key::F2)) {
+        DebugUIToggleChunkTool(debugUI);
+    }
 
     if (KeyPressed(Key::E)) {
         if (UIHasOpen(ui)) {
@@ -538,6 +549,7 @@ void FluxUpdate(Context* context) {
     }
 
     UIUpdateAndRender(ui);
+    DebugUIUpdateAndRender(debugUI);
 
     Update(&context->camera, player, 1.0f / 60.0f);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -558,19 +570,12 @@ void FluxUpdate(Context* context) {
     RenderCommandSetDirLight lightCommand = { light };
     Push(group, &lightCommand);
 
-
-    DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->freeBlockCount);
-    DEBUG_OVERLAY_TRACE(context->gameWorld.mesher->totalBlockCount);
-
-    UpdateEntities(&context->playerRegion, group, camera, context);
+    UpdateChunkEntities(&world->chunkPool, group, camera);
 
 
-    RegionUpdateChunkStates(&context->playerRegion);
+    UpdateChunks(&world->chunkPool);
 
-    DrawRegion(&context->playerRegion, group, camera);
-
-    DEBUG_OVERLAY_TRACE(context->playerRegion.chunkCount);
-    DEBUG_OVERLAY_TRACE(context->playerRegion.maxChunkCount);
+    DrawChunks(&world->chunkPool, group, camera);
 
     if (camera->inputMode == GameInputMode::Game) {
 
@@ -586,7 +591,7 @@ void FluxUpdate(Context* context) {
         iv3 max = IV3(Max(roWorld.x, rdWorld.x), Max(roWorld.y, rdWorld.y), Max(roWorld.z, rdWorld.z)) + IV3(1);
 
         f32 tMin = F32::Max;
-        iv3 hitVoxel = GameWorld::InvalidPos;
+        iv3 hitBlock = GameWorld::InvalidPos;
         EntityID hitEntity = EntityID {0};
         v3 hitNormal;
         iv3 hitNormalInt;
@@ -594,20 +599,20 @@ void FluxUpdate(Context* context) {
         for (i32 z = min.z; z < max.z; z++) {
             for (i32 y = min.y; y < max.y; y++) {
                 for (i32 x = min.x; x < max.x; x++) {
-                    const Voxel* voxel = GetVoxel(&context->gameWorld, x, y, z);
-                    if (voxel && (voxel->value != VoxelValue::Empty || voxel->entity)) {
+                    const Block* voxel = GetBlock(&context->gameWorld, x, y, z);
+                    if (voxel && (voxel->value != BlockValue::Empty || voxel->entity)) {
                         WorldPos voxelWorldP = WorldPos::Make(x, y, z);
                         v3 voxelRelP = WorldPos::Relative(camera->targetWorldPosition, voxelWorldP);
                         BBoxAligned voxelAABB;
-                        voxelAABB.min = voxelRelP - V3(Voxel::HalfDim);
-                        voxelAABB.max = voxelRelP + V3(Voxel::HalfDim);
+                        voxelAABB.min = voxelRelP - V3(Block::HalfDim);
+                        voxelAABB.max = voxelRelP + V3(Block::HalfDim);
 
                         //DrawAlignedBoxOutline(group, voxelAABB.min, voxelAABB.max, V3(0.0f, 1.0f, 0.0f), 2.0f);
 
                         auto intersection = Intersect(voxelAABB, ro, rd, 0.0f, dist); // TODO: Raycast distance
                         if (intersection.hit && intersection.t < tMin) {
                             tMin = intersection.t;
-                            hitVoxel = voxelWorldP.block;
+                            hitBlock = voxelWorldP.block;
                             hitNormal = intersection.normal;
                             hitNormalInt = intersection.iNormal;
                             if (voxel->entity) {
@@ -618,7 +623,7 @@ void FluxUpdate(Context* context) {
                 }
             }
         }
-        player->selectedVoxel = hitVoxel;
+        player->selectedBlock = hitBlock;
         player->selectedEntity = hitEntity;
 
         if (hitEntity != 0) {
@@ -636,16 +641,16 @@ void FluxUpdate(Context* context) {
                     UIDrawEntityInfo(&context->ui, entity);
                 }
             }
-        } else if (hitVoxel.x != GameWorld::InvalidCoord) {
-            auto voxel = GetVoxel(&context->gameWorld, hitVoxel);
+        } else if (hitBlock.x != GameWorld::InvalidCoord) {
+            auto voxel = GetBlock(&context->gameWorld, hitBlock);
             if (voxel) {
                 UIDrawBlockInfo(&context->ui, voxel);
             }
         }
 
-        if (hitVoxel.x != GameWorld::InvalidCoord) {
+        if (hitBlock.x != GameWorld::InvalidCoord) {
             if (MouseButtonPressed(MouseButton::Left)) {
-                ConvertBlockToPickup(&context->gameWorld, hitVoxel);
+                ConvertBlockToPickup(&context->gameWorld, hitBlock);
             }
             if (MouseButtonPressed(MouseButton::Right)) {
                 bool buildBlock = true;
@@ -665,7 +670,7 @@ void FluxUpdate(Context* context) {
                     auto blockToBuild = player->toolbelt->slots[player->toolbeltSelectIndex].item;
                     if (blockToBuild != Item::None) {
                         // TODO: Check is item exist in inventory before build?
-                        auto result = BuildBlock(context, &context->gameWorld, hitVoxel + hitNormalInt, blockToBuild);
+                        auto result = BuildBlock(context, &context->gameWorld, hitBlock + hitNormalInt, blockToBuild);
                         if (!Globals::CreativeModeEnabled) {
                             if (result) {
                                 EntityInventoryPopItem(player->toolbelt, player->toolbeltSelectIndex);
@@ -676,12 +681,12 @@ void FluxUpdate(Context* context) {
                 }
             }
 
-            iv3 selectedVoxelPos = player->selectedVoxel;
+            iv3 selectedBlockPos = player->selectedBlock;
 
-            v3 minP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
-            v3 maxP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedVoxelPos));
-            minP -= V3(Voxel::HalfDim);
-            maxP += V3(Voxel::HalfDim);
+            v3 minP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedBlockPos));
+            v3 maxP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedBlockPos));
+            minP -= V3(Block::HalfDim);
+            maxP += V3(Block::HalfDim);
             DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);
         }
 
