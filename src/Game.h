@@ -69,7 +69,7 @@ struct Context {
     Camera camera;
     Renderer* renderer;
     RenderGroup renderGroup;
-    CubeTexture skybox;
+    //CubeTexture skybox;
     CubeTexture hdrMap;
     CubeTexture irradanceMap;
     CubeTexture enviromentMap;
