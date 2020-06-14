@@ -36,7 +36,7 @@ void PlayerDrawToolbelt(Player* player) {
     bool open = true;
     if (ImGui::Begin("player toolbelt", &open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
         u32 i = 0;
-        foreach (*player->toolbelt) {
+        ForEach(player->toolbelt, [&](auto* it) {
             ImGui::SameLine();
             ImGui::PushID(it);
             bool selected;
@@ -74,7 +74,7 @@ void PlayerDrawToolbelt(Player* player) {
             ImGui::PopID();
             ImGui::PopID();
             i++;
-        }
+        });
     }
     ImGui::End();
 }

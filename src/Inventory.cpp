@@ -1,5 +1,13 @@
 #include "Inventory.h"
 
+template <typename F>
+void ForEach(EntityInventory* inventory, F func) {
+    for (usize i = 0; i < inventory->slotCount; i++) {
+        auto slot = inventory->slots + i;
+        func (slot);
+    }
+}
+
 EntityInventory* AllocateEntityInventory(u32 slotCount, u32 slotCapacity) {
     // TODO: Joint allocation
     auto inventory = (EntityInventory*)PlatformAlloc(sizeof(EntityInventory) * slotCount, 0, nullptr);

@@ -6,6 +6,7 @@
 
 bucket_array_template_decl
 struct BucketArray {
+    using ValueType = T;
     struct Bucket {
         Bucket* next;
         usize at;
@@ -17,18 +18,19 @@ struct BucketArray {
     Bucket* firstBucket;
     usize bucketCount;
     usize entryCount;
-
-    struct Iterator {
-        Bucket* currentBucket;
-        usize index;
-        T* Begin() {return currentBucket ? currentBucket->data : nullptr; }
-        T* Get() { return currentBucket->data + index; }
-        void Advance() { index++; if (index == currentBucket->at) { index = 0; currentBucket = currentBucket->next; } }
-        bool End() { return currentBucket == nullptr; }
-    };
-
-    inline Iterator GetIterator() { return Iterator { firstBucket, 0 }; }
 };
+
+template<typename T, usize BucketCapacity, typename F>
+void ForEach(BucketArray<T, BucketCapacity>* array, F func) {
+    auto bucket = array->firstBucket;
+    while (bucket) {
+        for (u32 i = 0; i < bucket->at; i++) {
+            auto it = bucket->data + i;
+            func(it);
+        }
+        bucket = bucket->next;
+    }
+}
 
 bucket_array_template_decl
 void BucketArrayInit(bucket_array_decl* array, Allocator allocator) {

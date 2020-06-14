@@ -3,27 +3,24 @@
 void OrientBelt(Belt* belt) {
     i32 directions[4] {};
 
-    NeighborIterator iter = NeighborIterator::Begin(belt->p);
-    while (!NeighborIterator::Ended(&iter)) {
-        auto voxel = NeighborIterator::Get(&iter);
-        Direction dir = NeighborIterator::GetCurrentDirection(&iter);
-        if (voxel) {
-            if (voxel->entity) {
+    auto world = GetWorld();
+    ForEachEntityNeighbor(world, belt->p, [&](auto block, auto dir) {
+        if (block) {
+            if (block->entity) {
                 // TODO: Actually use  trait
-                auto neighborBelt = FindEntityTrait<BeltTrait>(voxel->entity);
+                auto neighborBelt = FindEntityTrait<BeltTrait>(block->entity);
                 if (neighborBelt) {
                     if (neighborBelt->direction == dir || Dir::Opposite(neighborBelt->direction) == dir) {
                         belt->belt.direction = neighborBelt->direction;
-                        break;
+                        return;
                     } else {
                         belt->belt.direction = dir;
-                        break;
+                        return;
                     }
                 }
             }
         }
-        NeighborIterator::Advance(&iter);
-    }
+    });
 
     i32 max = -1;
     i32 maxIndex = -1;

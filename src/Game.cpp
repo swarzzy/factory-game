@@ -690,12 +690,12 @@ void FluxUpdate(Context* context) {
 
     }
 
-    foreach(context->gameWorld.entitiesToDelete) {
-        assert(it);
+    ForEach(&context->gameWorld.entitiesToDelete, [&](Entity** it) {
         auto entity = *it;
+        assert(entity);
         assert(entity->deleted);
-        DeleteEntity(&context->gameWorld, entity);
-    }
+        DeleteEntity(world, entity);
+    });
 
     BucketArrayClear(&context->gameWorld.entitiesToDelete);
 

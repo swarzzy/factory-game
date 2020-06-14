@@ -77,9 +77,9 @@ void RemoveChunkFromSimPool(ChunkPool* pool, Chunk* chunk) {
         }
     }
 
-    foreach (chunk->entityStorage) {
+    ForEach (&chunk->entityStorage, [&] (Entity* it) {
         UnregisterEntity(pool->world, it->id);
-    }
+    });
 
     if (!chunk->simPropagationCount && !chunk->modified) {
         DeleteChunk(pool->world, chunk);
@@ -199,9 +199,10 @@ void AddChunkToRenderPool(ChunkPool* pool, Chunk* chunk) {
     chunk->primaryMesh = mesh.mesh;
     chunk->primaryMeshPoolIndex = mesh.index;
 
-    foreach (chunk->entityStorage) {
-        RegisterEntity(pool->world, it);
-    }
+
+    ForEach(&chunk->entityStorage, [&](Entity* it) {
+            RegisterEntity(pool->world, it);
+    });
 }
 
 void AddChunkToSimPool(ChunkPool* pool, Chunk* chunk) {
@@ -219,9 +220,9 @@ void AddChunkToSimPool(ChunkPool* pool, Chunk* chunk) {
     pool->firstSimChunk = chunk;
     pool->simChunkCount++;
 
-    foreach (chunk->entityStorage) {
+    ForEach(&chunk->entityStorage, [&](Entity* it) {
         RegisterEntity(pool->world, it);
-    }
+    });
 }
 
 void SwapChunkMeshes(Chunk* chunk) {
@@ -440,34 +441,39 @@ void DrawChunks(ChunkPool* pool, RenderGroup* renderGroup, Camera* camera) {
 }
 
 void UpdateChunkEntities(ChunkPool* pool, RenderGroup* renderGroup, Camera* camera) {
-    auto chunk = pool->firstSimChunk;
-    while (chunk) {
-        foreach (chunk->entityStorage) {
-            auto info = GetEntityInfo(it->type);
-            if (info->Behavior) {
-                it->generation = GetPlatform()->tickCount;
-                EntityUpdateAndRenderData data;
-                data.deltaTime = GetPlatform()->gameDeltaTime;
-                data.group = renderGroup;
-                data.camera = camera;
-                info->Behavior(it, EntityBehaviorInvoke::UpdateAndRender, &data);
-            }
-            if (it->id) {
-                if (it->kind == EntityKind::Spatial) {
-                    auto entity = static_cast<SpatialEntity*>(it);
-                    if (entity->flags & EntityFlag_ProcessOverlaps) {
-                        FindOverlapsFor(pool->world, entity);
-                    }
-                    if (UpdateEntityResidence(pool->world, entity)) {
-                        // HACK: Just aborting loop for now
-                        // If entity changed it's residence then iterator becomes invalid
-                        // We need a way to continue this loop
-                        // Maybe ensure that iterator is still valid if onlu current element changes or smth
-                        break;
-                    }
+    ForEachEntity(pool, [&](Entity* it) {
+        auto info = GetEntityInfo(it->type);
+        if (info->Behavior) {
+            it->generation = GetPlatform()->tickCount;
+            EntityUpdateAndRenderData data;
+            data.deltaTime = GetPlatform()->gameDeltaTime;
+            data.group = renderGroup;
+            data.camera = camera;
+            info->Behavior(it, EntityBehaviorInvoke::UpdateAndRender, &data);
+        }
+        if (it->id) {
+            if (it->kind == EntityKind::Spatial) {
+                auto entity = static_cast<SpatialEntity*>(it);
+                if (entity->flags & EntityFlag_ProcessOverlaps) {
+                    FindOverlapsFor(pool->world, entity);
+                }
+                if (UpdateEntityResidence(pool->world, entity)) {
+                    // HACK: Just aborting loop for now
+                    // If entity changed it's residence then iterator becomes invalid
+                    // We need a way to continue this loop
+                    // Maybe ensure that iterator is still valid if onlu current element changes or smth
+                    return;
                 }
             }
         }
+    });
+}
+
+template <typename F>
+void ForEachEntity(ChunkPool* pool, F func) {
+    auto chunk = pool->firstSimChunk;
+    while (chunk) {
+        ForEach(&chunk->entityStorage, func);
         chunk = chunk->nextActive;
     }
 }

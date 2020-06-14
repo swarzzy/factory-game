@@ -31,6 +31,9 @@ struct InventoryPopItemResult {
     u32 count;
 };
 
+template <typename F>
+void ForEach(EntityInventory* inventory, F func);
+
 // NOTE: Returns a count of items that isn't fitted
 u32 EntityInventoryPushItem(EntityInventory* inventory, Item item, u32 count);
 InventoryPopItemResult EntityInventoryPopItem(EntityInventory* inventory, Item filter, u32 slot);

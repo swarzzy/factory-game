@@ -176,7 +176,7 @@ void UIUpdateAndRender(UI* ui) {
 void UIDrawInventory(UI* ui, Entity* entity, EntityInventory* inventory) {
     if (ImGui::BeginChild("inventory")) {
         u32 i = 0;
-        foreach (*inventory) {
+        ForEach(inventory, [&](auto* it) {
             if (!(i % 6 == 0)) {
                 ImGui::SameLine();
             }
@@ -212,7 +212,7 @@ void UIDrawInventory(UI* ui, Entity* entity, EntityInventory* inventory) {
             ImGui::PopID();
             ImGui::PopID();
             i++;
-        }
+        });
     }
     ImGui::EndChild();
 }

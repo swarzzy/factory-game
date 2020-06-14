@@ -1,5 +1,14 @@
 #include "Chunk.h"
 
+template <typename F>
+void ForEach(EntityStorage* storage, F func) {
+    auto entity = storage->first;
+    while (entity) {
+        func(entity);
+        entity = entity->nextInStorage;
+    }
+}
+
 void EntityStorageInsert(EntityStorage* storage, Entity* entity) {
     if (storage->first) {
         assert(entity->id != storage->first->id);

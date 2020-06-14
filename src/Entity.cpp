@@ -31,32 +31,30 @@ WorldPos GetEntityPosition(Entity* entity) {
     return result;
 }
 
-NeighborIterator NeighborIterator::Begin(iv3 p) {
-    NeighborIterator iter {};
-    iter.p = p;
-    return iter;
-}
+template <typename F>
+void ForEachEntityNeighbor(GameWorld* world, iv3 p, F func) {
+    static const iv3 Offsets[] = {
+        { -1,  0,  0 },
+        {  1,  0,  0 },
+        {  0, -1,  0 },
+        {  0,  1,  0 },
+        {  0,  0, -1 },
+        {  0,  0,  1 },
+    };
 
-bool NeighborIterator::Ended(NeighborIterator* iter) {
-    return (iter->at == array_count(NeighborIterator::Offsets));
-}
+    static const Direction Directions[] = {
+        Direction::West,
+        Direction::East,
+        Direction::Down,
+        Direction::Up,
+        Direction::North,
+        Direction::South,
+    };
 
-void NeighborIterator::Advance(NeighborIterator* iter) {
-    if (iter->at < array_count(NeighborIterator::Offsets)) {
-        iter->at++;
+    for (usize i = 0; i < array_count(Offsets); i++) {
+        auto block = GetBlock(world, p + Offsets[i]);
+        if (block) {
+            func(block, Directions[i]);
+        }
     }
-}
-
-const Block* NeighborIterator::Get(NeighborIterator* iter) {
-    static const Block* result = nullptr;
-    if (!Ended(iter)) {
-        auto world = GetWorld();
-        result = GetBlock(world, iter->p + NeighborIterator::Offsets[iter->at]);
-    }
-    return result;
-}
-
-Direction NeighborIterator::GetCurrentDirection(NeighborIterator* iter) {
-    assert(iter->at < array_count(NeighborIterator::Directions));
-    return Directions[iter->at];
 }

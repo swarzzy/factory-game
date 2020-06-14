@@ -176,11 +176,11 @@ void ChunkToolChunkInfo(DebugUI* ui) {
         ImGui::BulletText("secondaryMeshPoolIndex: %lu", chunk->secondaryMeshPoolIndex);
         ImGui::BulletText("simPropagationCount: %lu", chunk->simPropagationCount);
         if (ImGui::CollapsingHeader("Living entities")) {
-            foreach(chunk->entityStorage) {
+            ForEach(&chunk->entityStorage, [&](Entity* it) {
                 auto info = GetEntityInfo(it->type);
                 auto p = GetEntityPosition(it);
                 ImGui::Text("[%llu] %s entity - %s, {%ld, %ld, %ld}", it->id, ToString(it->kind), info->name, p.block.x, p.block.y, p.block.z);
-            }
+            });
         }
 
     }
@@ -205,10 +205,11 @@ void DebugUIUpdateAndRender(DebugUI* ui) {
         }
         ImGui::End();
         if (!enabled) {
+            ui->shouldReleaseControl = true;
             ui->chunkToolState = ChunkToolState::Closed;
         }
     }
-    if (ui->chunkToolState == ChunkToolState::Closed) {
+    if (ui->shouldReleaseControl) {
         if (camera->inputMode == GameInputMode::InGameUI) {
             camera->inputMode = GameInputMode::Game;
         }

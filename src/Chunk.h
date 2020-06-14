@@ -38,20 +38,13 @@ enum struct ChunkPriority : u32 {
 struct EntityStorage {
     Entity* first;
     usize count;
-
-    struct Iterator {
-        Entity* current;
-        Entity* Begin() {return current; }
-        Entity* Get() { return current; }
-        void Advance() { current = current->nextInStorage; }
-        bool End() { return current == nullptr; }
-    };
-
-    inline Iterator GetIterator() { return Iterator { this->first }; }
 };
 
 void EntityStorageInsert(EntityStorage* storage, Entity* entity);
 void EntityStorageUnlink(EntityStorage* storage, Entity* entity);
+
+template <typename F>
+void ForEach(EntityStorage* storage, F func);
 
 struct Chunk {
     static const u32 BitShift = 5;

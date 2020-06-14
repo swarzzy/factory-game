@@ -124,31 +124,5 @@ typedef void(EntityDropPickupFn)(Entity* entity, GameWorld* world, WorldPos p);
 typedef void(EntityProcessOverlapFn)(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity);
 typedef void(EntityUpdateAndRenderUIFn)(Entity* entity, EntityUIInvoke reason);
 
-struct NeighborIterator {
-    constant iv3 Offsets[] = {
-        { -1,  0,  0 },
-        {  1,  0,  0 },
-        {  0, -1,  0 },
-        {  0,  1,  0 },
-        {  0,  0, -1 },
-        {  0,  0,  1 },
-    };
-
-    constant Direction Directions[] = {
-        Direction::West,
-        Direction::East,
-        Direction::Down,
-        Direction::Up,
-        Direction::North,
-        Direction::South,
-    };
-
-    iv3 p;
-    u32 at;
-
-    static NeighborIterator Begin(iv3 p);
-    static bool Ended(NeighborIterator* iter);
-    static void Advance(NeighborIterator* iter);
-    static const Block* Get(NeighborIterator* iter);
-    static Direction GetCurrentDirection(NeighborIterator* iter);
-};
+template <typename F>
+void ForEachEntityNeighbor(GameWorld* world, iv3 p, F func);

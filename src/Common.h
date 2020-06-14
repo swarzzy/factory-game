@@ -48,16 +48,16 @@ struct ExitScope
     ExitScope& operator =(const ExitScope&);
 };
 
-class ExitScopeHelp
+struct ExitScopeHelp
 {
-  public:
     template<typename T>
     ExitScope<T> operator+(T t) { return t; }
 };
 
 #define defer const auto& concat(defer__, __LINE__) = ExitScopeHelp() + [&]()
 
-#define foreach(collection) auto concat(iterator__, __LINE__) =  (collection).GetIterator(); for (auto it = concat(iterator__, __LINE__) .Begin(); ! concat(iterator__, __LINE__) .End(); concat(iterator__, __LINE__) .Advance(), it = concat(iterator__, __LINE__). Get())
+template <typename T>
+using ForEachFn = void(T it);
 
 typedef uint8_t byte;
 typedef unsigned char uchar;

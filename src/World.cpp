@@ -330,28 +330,28 @@ void FindOverlapsFor(GameWorld* world, SpatialEntity* entity) {
             for (i32 x = minChunk.x; x <= maxChunk.x; x++) {
                 auto chunk = GetChunk(world, x, y, z);
                 if (chunk) {
-                    foreach (chunk->entityStorage) {
-                        // TODO: For each spatial entity
-                        if (it->kind == EntityKind::Spatial) {
-                            auto overlapped = static_cast<SpatialEntity*>(it);
-                            if (overlapped->id != entity->id) {
-                                v3 relativePos = WorldPos::Relative(entity->p, overlapped->p);
-                                v3 testSize = V3(overlapped->scale);
-                                v3 testRadius = colliderSize * 0.5f;
-                                v3 testMin = relativePos - testRadius - colliderRadius;
-                                v3 testMax = relativePos + testRadius + colliderRadius;
-                                v3 bary = GetBarycentric(testMin, testMax, V3(0.0f));
-                                // TODO: Inside bary
-                                if ((bary.x > 0.0f && bary.x <= 1.0f) &&
-                                    (bary.y > 0.0f && bary.y <= 1.0f) &&
-                                    (bary.z > 0.0f && bary.z <= 1.0f)) {
-                                    auto entityInfo = GetEntityInfo(entity->type);
-                                    assert(entityInfo->kind == EntityKind::Spatial);
-                                    entityInfo->ProcessOverlap(world, entity, overlapped);
+                    ForEach(&chunk->entityStorage, [&] (Entity* it){
+                            // TODO: For each spatial entity
+                            if (it->kind == EntityKind::Spatial) {
+                                auto overlapped = static_cast<SpatialEntity*>(it);
+                                if (overlapped->id != entity->id) {
+                                    v3 relativePos = WorldPos::Relative(entity->p, overlapped->p);
+                                    v3 testSize = V3(overlapped->scale);
+                                    v3 testRadius = colliderSize * 0.5f;
+                                    v3 testMin = relativePos - testRadius - colliderRadius;
+                                    v3 testMax = relativePos + testRadius + colliderRadius;
+                                    v3 bary = GetBarycentric(testMin, testMax, V3(0.0f));
+                                    // TODO: Inside bary
+                                    if ((bary.x > 0.0f && bary.x <= 1.0f) &&
+                                        (bary.y > 0.0f && bary.y <= 1.0f) &&
+                                        (bary.z > 0.0f && bary.z <= 1.0f)) {
+                                        auto entityInfo = GetEntityInfo(entity->type);
+                                        assert(entityInfo->kind == EntityKind::Spatial);
+                                        entityInfo->ProcessOverlap(world, entity, overlapped);
+                                    }
                                 }
                             }
-                        }
-                    }
+                        });
                 }
             }
         }

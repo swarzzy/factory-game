@@ -10,6 +10,7 @@ struct DebugUI {
     ChunkToolState chunkToolState;
     int chunkLayer;
     iv3 selectedChunk;
+    bool shouldReleaseControl;
 };
 
 void DebugUIToggleChunkTool(DebugUI* ui) {
