@@ -21,7 +21,7 @@ void UIDropItem(UI* ui, EntityInventory* dropInventory, u32 index);
 void UIClearDragAndDrop(UI* ui);
 
 void UIDrawEntityInfo(UI* ui, Entity* entity);
-void UIDrawBlockInfo(UI* ui, const Block* block);
+void UIDrawBlockInfo(UI* ui, iv3 coord);
 
 bool UIOpenForEntity(UI* ui, EntityID id);
 void UICloseAll(UI* ui);

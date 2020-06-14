@@ -597,13 +597,13 @@ void FluxUpdate(Context* context) {
         for (i32 z = min.z; z < max.z; z++) {
             for (i32 y = min.y; y < max.y; y++) {
                 for (i32 x = min.x; x < max.x; x++) {
-                    const Block* voxel = GetBlock(&context->gameWorld, x, y, z);
-                    if (voxel && (voxel->value != BlockValue::Empty || voxel->entity)) {
+                    auto block = GetBlock(&context->gameWorld, x, y, z);
+                    if ((u32)(block.value) || block.entity) {
                         WorldPos voxelWorldP = WorldPos::Make(x, y, z);
                         v3 voxelRelP = WorldPos::Relative(camera->targetWorldPosition, voxelWorldP);
                         BBoxAligned voxelAABB;
-                        voxelAABB.min = voxelRelP - V3(Block::HalfDim);
-                        voxelAABB.max = voxelRelP + V3(Block::HalfDim);
+                        voxelAABB.min = voxelRelP - V3(Globals::BlockHalfDim);
+                        voxelAABB.max = voxelRelP + V3(Globals::BlockHalfDim);
 
                         //DrawAlignedBoxOutline(group, voxelAABB.min, voxelAABB.max, V3(0.0f, 1.0f, 0.0f), 2.0f);
 
@@ -613,8 +613,8 @@ void FluxUpdate(Context* context) {
                             hitBlock = voxelWorldP.block;
                             hitNormal = intersection.normal;
                             hitNormalInt = intersection.iNormal;
-                            if (voxel->entity) {
-                                hitEntity = voxel->entity->id;
+                            if (block.entity) {
+                                hitEntity = block.entity->id;
                             }
                         }
                     }
@@ -640,9 +640,9 @@ void FluxUpdate(Context* context) {
                 }
             }
         } else if (hitBlock.x != GameWorld::InvalidCoord) {
-            auto voxel = GetBlock(&context->gameWorld, hitBlock);
-            if (voxel) {
-                UIDrawBlockInfo(&context->ui, voxel);
+            auto block = GetBlockValue(&context->gameWorld, hitBlock);
+            if (block != BlockValue::Empty) {
+                UIDrawBlockInfo(&context->ui, hitBlock);
             }
         }
 
@@ -683,8 +683,8 @@ void FluxUpdate(Context* context) {
 
             v3 minP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedBlockPos));
             v3 maxP = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(selectedBlockPos));
-            minP -= V3(Block::HalfDim);
-            maxP += V3(Block::HalfDim);
+            minP -= V3(Globals::BlockHalfDim);
+            maxP += V3(Globals::BlockHalfDim);
             DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);
         }
 
@@ -698,6 +698,14 @@ void FluxUpdate(Context* context) {
     });
 
     BucketArrayClear(&context->gameWorld.entitiesToDelete);
+
+    ForEach(&context->gameWorld.entitiesToMove, [&](auto it) {
+        auto entity = *it;
+        assert(entity);
+        UpdateEntityResidence(&context->gameWorld, entity);
+    });
+
+    FlatArrayClear(&context->gameWorld.entitiesToMove);
 
     Begin(renderer, group);
     ShadowPass(renderer, group);

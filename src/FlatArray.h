@@ -13,6 +13,9 @@ struct FlatArray {
     usize initialCount;
 };
 
+template<typename T, typename F>
+void ForEach(FlatArray<T>* array, F func);
+
 template <typename T>
 void FlatArrayInit(FlatArray<T>* array, Allocator allocator, usize size = 16);
 

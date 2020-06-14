@@ -7,8 +7,10 @@ bool IsBlockOccluder(Chunk* chunk, i32 x, i32 y, i32 z) {
     // NOTE: Assuming blocks on chunk edges always visible
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size &&
         x >= 0 && y >= 0 && z >= 0) {
-        auto voxel = GetBlockRaw(chunk, (u32)x, (u32)y, (u32)z);
-        occluder = voxel->value != BlockValue::Empty;
+        auto block = GetBlockValue(chunk, (u32)x, (u32)y, (u32)z);
+        if (block != BlockValue::Empty) {
+            occluder = true;
+        }
     }
     return occluder;
 }
@@ -107,9 +109,9 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
     for (u32 z = 0; z < Chunk::Size; z++) {
         for (u32 y = 0; y < Chunk::Size; y++) {
             for (u32 x = 0; x < Chunk::Size; x++) {
-                auto voxel = GetBlockRaw(chunk, x, y, z);
-                if (voxel->value != BlockValue::Empty) {
-                    auto value = voxel->value;
+                auto block = GetBlockValueRaw(chunk, x, y, z);
+                if (*block != BlockValue::Empty) {
+                    auto value = *block;
 
                     bool up = IsBlockOccluder(chunk, (i32)x, ((i32)y) + 1, (i32)z);
                     bool down = IsBlockOccluder(chunk, (i32)x, ((i32)y) - 1, (i32)z);
@@ -118,9 +120,9 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
                     bool front = IsBlockOccluder(chunk, (i32)x, (i32)y, ((i32)z) + 1);
                     bool back = IsBlockOccluder(chunk, (i32)x, (i32)y, ((i32)z) - 1);
 
-                    v3 offset = V3(x, y, z) * Block::Dim;
-                    v3 min = offset - V3(Block::HalfDim, Block::HalfDim, Block::HalfDim);
-                    v3 max = offset + V3(Block::HalfDim, Block::HalfDim, Block::HalfDim);
+                    v3 offset = V3(x, y, z) * Globals::BlockDim;
+                    v3 min = offset - V3(Globals::BlockHalfDim, Globals::BlockHalfDim, Globals::BlockHalfDim);
+                    v3 max = offset + V3(Globals::BlockHalfDim, Globals::BlockHalfDim, Globals::BlockHalfDim);
 
                     v3 vt0 = V3(min.x, min.y, max.z);
                     v3 vt1 = V3(max.x, min.y, max.z);

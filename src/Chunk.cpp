@@ -36,28 +36,52 @@ void EntityStorageUnlink(EntityStorage* storage, Entity* entity) {
     entity->nextInStorage = nullptr;
 }
 
-Block* GetBlockRaw(Chunk* chunk, u32 x, u32 y, u32 z) {
-    Block* result = &chunk->voxels[x + Chunk::Size * y + Chunk::Size * Chunk::Size * z];
+BlockValue* GetBlockValueRaw(Chunk* chunk, u32 x, u32 y, u32 z) {
+    BlockValue* result = chunk->blocks + (x + Chunk::Size * y + Chunk::Size * Chunk::Size * z);
     return result;
 }
 
-const Block* GetBlock(Chunk* chunk, u32 x, u32 y, u32 z) {
-    const Block* result = nullptr;
+BlockValue GetBlockValue(Chunk* chunk, u32 x, u32 y, u32 z) {
+    const BlockValue* result = nullptr;
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
-        result = GetBlockRaw(chunk, x, y, z);
+        result = GetBlockValueRaw(chunk, x, y, z);
     } else {
-        result = &chunk->nullBlock;
+        result = &chunk->nullBlockValue;
+    }
+    return *result;
+}
+
+BlockEntity** GetBlockEntityRaw(Chunk* chunk, u32 x, u32 y, u32 z) {
+    BlockEntity** result = nullptr;
+    result = chunk->livingEntities + (x + Chunk::Size * y + Chunk::Size * Chunk::Size * z);
+    return result;
+}
+
+BlockEntity* GetBlockEntity(Chunk* chunk, u32 x, u32 y, u32 z) {
+    BlockEntity* result = nullptr;
+    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+        result = *GetBlockEntityRaw(chunk, x, y, z);
     }
     return result;
+}
+
+Block GetBlock(Chunk* chunk, u32 x, u32 y, u32 z) {
+    Block block { chunk->nullBlockValue, nullptr };
+    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+        auto value = GetBlockValueRaw(chunk, x, y, z);
+        auto entity = GetBlockEntityRaw(chunk, x, y, z);
+        block.value = *value;
+        block.entity = *entity;
+    }
+    return block;
 }
 
 bool OccupyBlock(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
     bool result = false;
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
-        auto voxel = GetBlockRaw(chunk, x, y, z);
-        assert(voxel);
-        if (!voxel->entity) {
-            voxel->entity = entity;
+        auto livingEntity = GetBlockEntityRaw(chunk, x, y, z);
+        if (!(*livingEntity)) {
+            *livingEntity = entity;
             if (entity->flags & EntityFlag_PropagatesSim) {
                 chunk->simPropagationCount++;
             }
@@ -70,12 +94,13 @@ bool OccupyBlock(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
 bool ReleaseBlock(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
     bool result = false;
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
-        auto voxel = GetBlockRaw(chunk, x, y, z);
-        assert(voxel);
+        auto ptr = GetBlockEntityRaw(chunk, x, y, z);
+        assert(*ptr);
+        auto livingEntity = *ptr;
         // Only entity that lives here allowed to release voxel
-        assert(voxel->entity->id == entity->id);
-        if (voxel->entity->id == entity->id) {
-            voxel->entity = nullptr;
+        assert(livingEntity->id == entity->id);
+        if (livingEntity->id == entity->id) {
+            *ptr = nullptr;
             if (entity->flags & EntityFlag_PropagatesSim) {
                 assert(chunk->simPropagationCount > 0);
                 chunk->simPropagationCount--;
@@ -86,10 +111,10 @@ bool ReleaseBlock(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
     return result;
 }
 
-Block* GetBlockForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
-    Block* result = nullptr;
+BlockValue* GetBlockForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
+    BlockValue* result = nullptr;
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
-        result = GetBlockRaw(chunk, x, y, z);
+        result = GetBlockValueRaw(chunk, x, y, z);
         chunk->shouldBeRemeshedAfterEdit = true;
         chunk->modified = true;
     }

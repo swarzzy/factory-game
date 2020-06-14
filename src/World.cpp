@@ -39,14 +39,32 @@ void FreeWorldChunk(WorldMemory* memory, Chunk* chunk) {
 }
 
 
-const Block* GetBlock(GameWorld* world, i32 x, i32 y, i32 z) {
-    const Block* result = nullptr;
+BlockValue GetBlockValue(GameWorld* world, i32 x, i32 y, i32 z) {
+    BlockValue result = world->nullBlockValue;
+    auto chunkP = WorldPos::ToChunk(IV3(x, y, z));
+    Chunk* chunk = GetChunk(world, chunkP.chunk.x, chunkP.chunk.y, chunkP.chunk.z);
+    if (chunk) {
+        result = GetBlockValue(chunk, chunkP.block.x, chunkP.block.y, chunkP.block.z);
+    }
+    return result;
+}
+
+BlockEntity* GetBlockEntity(GameWorld* world, i32 x, i32 y, i32 z) {
+    BlockEntity* result = nullptr;
+    auto chunkP = WorldPos::ToChunk(IV3(x, y, z));
+    Chunk* chunk = GetChunk(world, chunkP.chunk.x, chunkP.chunk.y, chunkP.chunk.z);
+    if (chunk) {
+        result = GetBlockEntity(chunk, chunkP.block.x, chunkP.block.y, chunkP.block.z);
+    }
+    return result;
+}
+
+Block GetBlock(GameWorld* world, i32 x, i32 y, i32 z) {
+    Block result = { world->nullBlockValue, nullptr };
     auto chunkP = WorldPos::ToChunk(IV3(x, y, z));
     Chunk* chunk = GetChunk(world, chunkP.chunk.x, chunkP.chunk.y, chunkP.chunk.z);
     if (chunk) {
         result = GetBlock(chunk, chunkP.block.x, chunkP.block.y, chunkP.block.z);
-    } else {
-        result = &world->nullBlock;
     }
     return result;
 }
@@ -96,6 +114,7 @@ void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed
 
     world->camera = &context->camera;
     BucketArrayInit(&world->entitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+    FlatArrayInit(&world->entitiesToMove, MakeAllocator(PlatformAlloc, PlatformFree, nullptr), 128);
     InitChunkPool(&world->chunkPool, world, mesher, GameWorld::ViewDistance, seed);
 }
 
@@ -138,15 +157,6 @@ Entity* GetEntity(GameWorld* world, EntityID id) {
     return result;
 }
 
-Entity* GetEntity(GameWorld* world, iv3 p) {
-    Entity* result = nullptr;
-    const Block* voxel = GetBlock(world, p);
-    if (voxel) {
-        result = voxel->entity;
-    }
-    return result;
-}
-
 // TODO: There is no way now for dirty entities to figure out who caused an neighbor update
 // So an entity which if set to dirty can not post neighborhood update itself because it will cause
 // spinlock. We probably need to neighborhood update to be event-based or smth if we need dirty entities to
@@ -158,10 +168,9 @@ void PostEntityNeighborhoodUpdate(GameWorld* world, BlockEntity* entity) {
     for (i32 z = min.z; z <= max.z; z++) {
         for (i32 y = min.y; y <= max.y; y++) {
             for (i32 x = min.x; x <= max.x; x++) {
-                Entity* neighbor = GetEntity(world, IV3(x, y, z));
-                if (neighbor && (neighbor != entity) && (neighbor->kind == EntityKind::Block)) {
-                    auto e = static_cast<BlockEntity*>(neighbor);
-                    e->dirtyNeighborhood = true;
+                BlockEntity* neighbor = GetBlockEntity(world, IV3(x, y, z));
+                if (neighbor && (neighbor != entity)) {
+                    entity->dirtyNeighborhood = true;
                 }
             }
         }
@@ -170,29 +179,28 @@ void PostEntityNeighborhoodUpdate(GameWorld* world, BlockEntity* entity) {
 
 template <typename T>
 T* AddBlockEntity(GameWorld* world, iv3 p) {
+    // TODO: Validate position
     T* entity = nullptr;
     auto chunkP = WorldPos::ToChunk(p);
     auto chunk = GetChunk(world, chunkP.chunk);
     if (chunk) {
-        auto voxel = GetBlock(chunk, chunkP.block);
-        if (voxel) {
-            if (!IsBlockCollider(voxel) && (voxel->entity == nullptr)) {
-                entity = (T*)PlatformAlloc(sizeof(T), alignof(T), nullptr);
-                if (entity) {
-                    ClearMemory(entity);
-                    EntityStorageInsert(&chunk->entityStorage, entity);
-                    entity->id = GenEntityID(world, EntityKind::Block);
-                    entity->kind = EntityKind::Block;
-                    entity->p = p;
-                    entity->flags |= EntityFlag_PropagatesSim;
-                    entity->world = world;
-                    auto occupied = OccupyBlock(chunk, entity, chunkP.block);
-                    assert(occupied);
-                    if (chunk->active) {
-                        RegisterEntity(world, entity);
-                    }
-                    PostEntityNeighborhoodUpdate(world, entity);
+        auto block = GetBlock(chunk, chunkP.block);
+        if (!IsBlockCollider(&block) && (block.entity == nullptr)) {
+            entity = (T*)PlatformAlloc(sizeof(T), alignof(T), nullptr);
+            if (entity) {
+                ClearMemory(entity);
+                EntityStorageInsert(&chunk->entityStorage, entity);
+                entity->id = GenEntityID(world, EntityKind::Block);
+                entity->kind = EntityKind::Block;
+                entity->p = p;
+                entity->flags |= EntityFlag_PropagatesSim;
+                entity->world = world;
+                auto occupied = OccupyBlock(chunk, entity, chunkP.block);
+                assert(occupied);
+                if (chunk->active) {
+                    RegisterEntity(world, entity);
                 }
+                PostEntityNeighborhoodUpdate(world, entity);
             }
         }
     }
@@ -260,6 +268,19 @@ bool CheckWorldBounds(WorldPos p) {
 bool CheckWorldBounds(ChunkPos p) {
     bool result = false;
     if (p.chunk.y <= GameWorld::MaxHeightChunk && p.chunk.y >= GameWorld::MinHeightChunk) {
+        result = true;
+    }
+    return result;
+}
+
+// TODO: Check is entity should be moved only in this function
+// stop checking it in UpdateEntityResidence
+bool EntityShouldBeMovedIntoAnotherChunk(SpatialEntity* entity) {
+    auto result = false;
+    auto inWorldBounds = CheckWorldBounds(entity->p);
+    auto residenceChunkP = entity->currentChunk;
+    auto currentP = WorldPos::ToChunk(entity->p).chunk;
+    if (!inWorldBounds || (residenceChunkP != currentP)) {
         result = true;
     }
     return result;
@@ -388,11 +409,11 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
                 // TODO: Handle case when entity is outside of world bounds
                 if (y >= GameWorld::MinHeight && y <= GameWorld::MaxHeight) {
                     auto testBlock = GetBlock(world, x, y, z);
-                    bool collides = IsBlockCollider(testBlock);
+                    bool collides = IsBlockCollider(&testBlock);
                     if (collides) {
                         v3 relOrigin = WorldPos::Relative(WorldPos::Make(IV3(x, y, z)), origin);
-                        v3 minCorner = V3(-Block::HalfDim);
-                        v3 maxCorner = V3(Block::HalfDim);
+                        v3 minCorner = V3(-Globals::BlockHalfDim);
+                        v3 maxCorner = V3(Globals::BlockHalfDim);
                         // NOTE: Minkowski sum
                         minCorner += colliderSize * -0.5f;
                         maxCorner += colliderSize * 0.5f;
@@ -413,7 +434,7 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
                                 for (i32 py = penetratedBlock.y - 1; py <= penetratedBlock.y + 1; py++) {
                                     for (i32 px = penetratedBlock.x - 1; px <= penetratedBlock.x + 1; px++) {
                                         auto neighborBlock = GetBlock(world, px, py, pz);
-                                        if (!IsBlockCollider(neighborBlock)) {
+                                        if (!IsBlockCollider(&neighborBlock)) {
                                             hasFreeNeighbor = true;
                                             v3 neighborRelOrigin = WorldPos::Relative(WorldPos::Make(IV3(x, y, z)), WorldPos::Make(IV3(px, py, pz)));
                                             f32 dist = LengthSq(neighborRelOrigin - relOrigin);
@@ -430,7 +451,7 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
                             if (hasFreeNeighbor) {
                                 // TODO: this is temporary hack
                                 // Wee need an actual way to compute this coordinate
-                                v3 relNewOrigin = Normalize(closestNeighborRelOrigin + relOrigin) * Block::Dim + F32::Eps;
+                                v3 relNewOrigin = Normalize(closestNeighborRelOrigin + relOrigin) * Globals::BlockDim + F32::Eps;
                                 origin = WorldPos::Offset(WorldPos::Make(IV3(x, y, z)), relNewOrigin);
                             } else {
                                 resolved = false;
@@ -487,8 +508,8 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
 #if 0
             v3 min = RelativePos(camera->targetWorldPosition, WorldPos::Make(minB));
             v3 max = RelativePos(camera->targetWorldPosition, WorldPos::Make(maxB));
-            // min -= V3(Block::HalfDim);
-            //max -= V3(Block::HalfDim);
+            // min -= V3(Globals::BlockHalfDim);
+            //max -= V3(Globals::BlockHalfDim);
             DrawAlignedBoxOutline(renderGroup, min, max, V3(0.0f, 0.0f, 1.0f), 2.0f);
 #endif
             for (i32 z = minB.z; z <= maxB.z; z++) {
@@ -497,11 +518,11 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
                         if (y >= GameWorld::MinHeight && y <= GameWorld::MaxHeight) {
                             // TODO: Cache chunk pointer
                             auto testBlock = GetBlock(world, x, y, z);
-                            bool collides = IsBlockCollider(testBlock);
+                            bool collides = IsBlockCollider(&testBlock);
                             if (collides) {
                                 v3 relOrigin = WorldPos::Relative(WorldPos::Make(IV3(x, y, z)), origin);
-                                v3 minCorner = V3(-Block::HalfDim);
-                                v3 maxCorner = V3(Block::HalfDim);
+                                v3 minCorner = V3(-Globals::BlockHalfDim);
+                                v3 maxCorner = V3(Globals::BlockHalfDim);
                                 // NOTE: Minkowski sum
                                 minCorner += colliderSize * -0.5f;
                                 maxCorner += colliderSize * 0.5f;
@@ -548,23 +569,23 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
 void ConvertBlockToPickup(GameWorld* world, iv3 voxelP) {
     auto chunkPos = WorldPos::ToChunk(voxelP);
     auto chunk = GetChunk(world, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
-    auto voxel = GetBlock(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
+    auto block = GetBlock(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
 
-    if (voxel->value != BlockValue::Empty) {
-        auto blockInfo = GetBlockInfo(voxel->value);
+    if (block.value != BlockValue::Empty) {
+        auto blockInfo = GetBlockInfo(block.value);
         if (blockInfo->DropPickup) {
-            blockInfo->DropPickup(voxel, world, WorldPos::Make(voxelP));
+            blockInfo->DropPickup(&block, world, WorldPos::Make(voxelP));
         }
-        auto voxelToModify = GetBlockForModification(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
-        voxelToModify->value = BlockValue::Empty;
+        auto blockToModify = GetBlockForModification(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
+        *blockToModify = BlockValue::Empty;
     }
 
-    if (voxel->entity) {
-        auto entityInfo = GetEntityInfo(voxel->entity->type);
+    if (block.entity) {
+        auto entityInfo = GetEntityInfo(block.entity->type);
         if (entityInfo->DropPickup) {
-            entityInfo->DropPickup(voxel->entity, world, WorldPos::Make(voxelP));
+            entityInfo->DropPickup(block.entity, world, WorldPos::Make(voxelP));
         }
-        ScheduleEntityForDelete(world, voxel->entity);
+        ScheduleEntityForDelete(world, block.entity);
     }
 }
 
@@ -615,9 +636,9 @@ bool BuildBlock(Context* context, GameWorld* world, iv3 p, Item item) {
         auto chunkPos = WorldPos::ToChunk(p);
         auto chunk = GetChunk(world, chunkPos.chunk.x, chunkPos.chunk.y, chunkPos.chunk.z);
         if (chunk) {
-            auto voxel = GetBlockForModification(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
-            assert(voxel);
-            voxel->value = blockValue;
+            auto block = GetBlockForModification(chunk, chunkPos.block.x, chunkPos.block.y, chunkPos.block.z);
+            assert(block);
+            *block = blockValue;
             result = true;
         }
     } else {

@@ -27,7 +27,7 @@ void ExtractorUpdateAndRender(Extractor* extractor, void* _data) {
     extractor->extractTimeout = Clamp(extractor->extractTimeout - data->deltaTime, 0.0f, Extractor::ExtractTimeout);
     if (extractor->bufferItemID == 0) {
         auto from = extractor->p + Dir::ToIV3(Dir::Opposite(extractor->direction));
-        auto fromEntity = GetEntity(extractor->world, from);
+        auto fromEntity = GetBlockEntity(extractor->world, from);
         if (extractor->extractTimeout <= 0.0f) {
             if (fromEntity) {
                 auto beltTrait = FindEntityTrait<BeltTrait>(fromEntity);
@@ -49,7 +49,7 @@ void ExtractorUpdateAndRender(Extractor* extractor, void* _data) {
 
     if (extractor->bufferItemID != 0) {
         auto to = extractor->p + Dir::ToIV3(extractor->direction);
-        auto toEntity = GetEntity(extractor->world, to);
+        auto toEntity = GetBlockEntity(extractor->world, to);
         if (toEntity) {
             auto beltTrait = FindEntityTrait<BeltTrait>(toEntity);
             if (beltTrait) {

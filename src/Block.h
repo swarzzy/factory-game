@@ -2,7 +2,7 @@
 
 #include "Common.h"
 
-struct Block;
+struct BlockEntity;
 
 enum struct BlockValue : u32 {
     Empty = 0,
@@ -13,9 +13,14 @@ enum struct BlockValue : u32 {
     _Count
 };
 
+struct Block {
+    BlockValue value;
+    BlockEntity* entity;
+};
+
 typedef void(BlockDropPickupFn)(const Block* voxel, GameWorld* world, WorldPos p);
 
 void BlockDropPickup(const Block* voxel, GameWorld* world, WorldPos p);
 void CoalOreDropPickup(const Block* voxel, GameWorld* world, WorldPos p);
 
-bool IsBlockCollider(const Block* voxel);
+bool IsBlockCollider(const Block* block);

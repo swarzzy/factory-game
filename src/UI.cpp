@@ -38,7 +38,7 @@ void UIDrawEntityInfo(UI* ui, Entity* entity) {
     ImGui::End();
 }
 
-void UIDrawBlockInfo(UI* ui, const Block* block) {
+void UIDrawBlockInfo(UI* ui, iv3 coord) {
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2, 0);
     ImVec2 windowPivot = ImVec2(0.5f, 0.0f);
@@ -46,11 +46,13 @@ void UIDrawBlockInfo(UI* ui, const Block* block) {
     ImGui::SetNextWindowBgAlpha(0.35f);
     bool open = true;
     if (ImGui::Begin("entity info", &open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
-        auto info = GetBlockInfo(block->value);
+        auto world = GetWorld();
+        auto block = GetBlock(world, coord);
+        auto info = GetBlockInfo(block.value);
         ImGui::Text("block: %s", info->name);
-        if (block->entity) {
-            auto entityInfo = GetEntityInfo(block->entity->type);
-            ImGui::Text("living entity: %s (id:%llu)", entityInfo->name, (u64)block->entity->id);
+        if (block.entity) {
+            auto entityInfo = GetEntityInfo(block.entity->type);
+            ImGui::Text("living entity: %s (id:%llu)", entityInfo->name, (u64)block.entity->id);
         } else {
             ImGui::Text("living entity: null");
         }

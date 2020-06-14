@@ -3,6 +3,7 @@
 #include "Common.h"
 #include "HashMap.h"
 #include "BucketArray.h"
+#include "FlatArray.h"
 #include "WorldGen.h"
 #include "Memory.h"
 #include "Position.h"
@@ -82,15 +83,24 @@ struct GameWorld {
     // Be carefull with pointers
     // Be carefull with pointers
     BucketArray<Entity*, 16> entitiesToDelete;
+    // TODO: Decide which type of storage use for these
+    FlatArray<SpatialEntity*> entitiesToMove;
     // TODO: Is nullBlock actually good idea?
-    Block nullBlock;
+    BlockValue nullBlockValue;
     ChunkPool chunkPool;
 };
 
 void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed);
 
-const Block* GetBlock(GameWorld* world, i32 x, i32 y, i32 z);
-inline const Block* GetBlock(GameWorld* world, iv3 p) { return GetBlock(world, p.x, p.y, p.z); }
+BlockValue GetBlockValue(GameWorld* world, i32 x, i32 y, i32 z);
+inline BlockValue GetBlockValue(GameWorld* world, iv3 p) { return GetBlockValue(world, p.x, p.y, p.z); }
+
+BlockEntity* GetBlockEntity(GameWorld* world, i32 x, i32 y, i32 z);
+inline BlockEntity* GetBlockEntity(GameWorld* world, iv3 p) { return GetBlockEntity(world, p.x, p.y, p.z); }
+
+Block GetBlock(GameWorld* world, i32 x, i32 y, i32 z);
+inline Block GetBlock(GameWorld* world, iv3 p) { return GetBlock(world, p.x, p.y, p.z); }
+
 
 Chunk* AddChunk(GameWorld* world, iv3 coord);
 void DeleteChunk(GameWorld* world, Chunk* chunk);
@@ -127,7 +137,6 @@ bool SetBlockEntityPos(GameWorld* world, BlockEntity* entity, iv3 newP);
 
 bool BuildBlock(Context* context, GameWorld* world, iv3 p, Item item);
 
-Entity* GetEntity(GameWorld* world, iv3 p);
 Entity* GetEntity(GameWorld* world, EntityID id);
 
 void RegisterEntity(GameWorld* world, Entity* entity);

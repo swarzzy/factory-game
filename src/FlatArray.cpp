@@ -1,5 +1,13 @@
 #include "FlatArray.h"
 
+template<typename T, typename F>
+void ForEach(FlatArray<T>* array, F func) {
+    for (usize i = 0; i < array->count; i++) {
+        auto it = array->data + i;
+        func(it);
+    }
+}
+
 template <typename T>
 void FlatArrayInit(FlatArray<T>* array, Allocator allocator, usize size) {
     assert(!array->capacity);

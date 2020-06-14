@@ -47,8 +47,22 @@ void ChunkToolMain(DebugUI* ui) {
         PrettySize(alBuffer, 32, world->memory.chunksAllocated * sizeof(Chunk));
         PrettySize(usBuffer, 32, world->memory.chunksUsed * sizeof(Chunk));
         PrettySize(frBuffer, 32, world->memory.chunksFree * sizeof(Chunk));
-        ImGui::BulletText("Memory: allocated %lu (%s), used %lu (%s), free %lu (%s)", world->memory.chunksAllocated, alBuffer, world->memory.chunksUsed, usBuffer, world->memory.chunksFree, frBuffer);
+        ImGui::BulletText("Pool memory: allocated %lu (%s), used %lu (%s), free %lu (%s)", world->memory.chunksAllocated, alBuffer, world->memory.chunksUsed, usBuffer, world->memory.chunksFree, frBuffer);
     }
+    {
+        char totalBuffer[32];
+        totalBuffer[0] = 0;
+        char usedBuffer[32];
+        usedBuffer[0] = 0;
+        char freeBuffer[32];
+        freeBuffer[0] = 0;
+        u32 used = pool->mesher->totalBlockCount - pool->mesher->freeBlockCount;
+        PrettySize(totalBuffer, 32, pool->mesher->totalBlockCount * sizeof(ChunkMeshBlock));
+        PrettySize(usedBuffer, 32, used * sizeof(ChunkMeshBlock));
+        PrettySize(freeBuffer, 32, pool->mesher->freeBlockCount * sizeof(ChunkMeshBlock));
+        ImGui::BulletText("Mesher memory: allocated %lu (%s), used %lu (%s), free %lu (%s)", pool->mesher->totalBlockCount, totalBuffer, used, usedBuffer, pool->mesher->freeBlockCount, freeBuffer);
+    }
+
 
     ImGui::Separator();
 

@@ -6,19 +6,6 @@
 struct ChunkPool;
 struct Entity;
 
-struct Block {
-    inline static const f32 Dim = 1.0f * Globals::MeterScale;
-    inline static const f32 HalfDim = Dim * 0.5f;
-    // NOTE: Just go bananas and storing pointer to block entity that lives in this voxel
-    // TODO: In the future we probably need some sophisticated structure for
-    // fast retrieval of entities by coords without storing 8 BYTE POINTER IN EVERY VOXEL WHICH
-    // MAKES EVERY CHUNK AT LEAST 0.25 MB BIGGER. Just static grid subdivision might be enough
-    // or there might be an octree in chunk of smth...
-    // TODO: Make this BlockEntity*
-    Entity* entity;
-    BlockValue value = BlockValue::Empty;
-};
-
 enum struct ChunkState : u32 {
     Complete = 0,
     Filling,
@@ -81,18 +68,33 @@ struct Chunk {
 
     EntityStorage entityStorage;
 
-    Block voxels[Size * Size * Size];
-    Block nullBlock;
+    // TODO: Is separating block values and living entities actually a good idea?
+    BlockValue blocks[Size * Size * Size];
+    // NOTE: Just go bananas and storing pointer to block entity that lives in this voxel
+    // TODO: In the future we probably need some sophisticated structure for
+    // fast retrieval of entities by coords without storing 8 BYTE POINTER IN EVERY VOXEL WHICH
+    // MAKES EVERY CHUNK AT LEAST 0.25 MB BIGGER. Just static grid subdivision might be enough
+    // or there might be an octree in chunk of smth...
+    // TODO: Make this BlockEntity*
+    BlockEntity* livingEntities[Size * Size * Size];
+    BlockValue nullBlockValue;
 };
 
-Block* GetBlockRaw(Chunk* chunk, u32 x, u32 y, u32 z);
+BlockValue* GetBlockValueRaw(Chunk* chunk, u32 x, u32 y, u32 z);
 
-// These getters always return a valid pointer (pointer to null voxel if actual voxel isn't found)
-const Block* GetBlock(Chunk* chunk, u32 x, u32 y, u32 z);
-inline const Block* GetBlock(Chunk* chunk, uv3 p) { return GetBlock(chunk, p.x, p.y, p.z); }
+// Returns null block value if a block isn't exist
+BlockValue GetBlockValue(Chunk* chunk, u32 x, u32 y, u32 z);
+inline BlockValue GetBlockValue(Chunk* chunk, uv3 p) { return GetBlockValue(chunk, p.x, p.y, p.z); }
 
-Block* GetBlockForModification(Chunk* chunk, u32 x, u32 y, u32 z);
-Block* GetBlockForModification(Chunk* chunk, u32 x, u32 y, u32 z);
+BlockEntity* GetBlockEntity(Chunk* chunk, u32 x, u32 y, u32 z);
+inline BlockEntity* GetBlockEntity(Chunk* chunk, uv3 p) { return GetBlockEntity(chunk, p.x, p.y, p.z); }
+
+Block GetBlock(Chunk* chunk, u32 x, u32 y, u32 z);
+inline Block GetBlock(Chunk* chunk, uv3 p) { return GetBlock(chunk, p.x, p.y, p.z); }
+
+
+BlockValue* GetBlockForModification(Chunk* chunk, u32 x, u32 y, u32 z);
+BlockValue* GetBlockForModification(Chunk* chunk, u32 x, u32 y, u32 z);
 
 bool OccupyBlock(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z);
 inline bool OccupyBlock(Chunk* chunk, BlockEntity* entity, uv3 p) { return OccupyBlock(chunk, entity, p.x, p.y, p.z); }

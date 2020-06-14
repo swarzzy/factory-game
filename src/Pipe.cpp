@@ -9,8 +9,8 @@ void NeighborhoodChangedUpdate(Pipe* pipe) {
     auto world = GetWorld();
     OrientPipe(pipe->world, pipe);
 
-    const Block* downBlock = GetBlock(pipe->world, pipe->p + IV3(0, -1, 0));
-    if (downBlock && (downBlock->value == BlockValue::Water)) {
+    auto downBlock = GetBlock(pipe->world, pipe->p + IV3(0, -1, 0));
+    if (downBlock.value == BlockValue::Water) {
         // TODO: Orient pipe to water
         pipe->filled = true;
         pipe->liquid = Liquid::Water;
@@ -38,7 +38,7 @@ void PipeUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _da
             u32 connectionCount = 0;
 
             if (entity->nxConnected) {
-                Entity* _neighbor = GetEntity(entity->world, entity->p - IV3(1, 0, 0));
+                BlockEntity* _neighbor = GetBlockEntity(entity->world, entity->p - IV3(1, 0, 0));
                 if (_neighbor->type == EntityType::Pipe) {
                     auto neighbor = static_cast<Pipe*>(_neighbor);
                     if (neighbor && neighbor->liquid == entity->liquid) {
@@ -53,7 +53,7 @@ void PipeUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _da
                 }
             }
             if (entity->pxConnected) {
-                Entity* _neighbor = GetEntity(entity->world, entity->p + IV3(1, 0, 0));
+                BlockEntity* _neighbor = GetBlockEntity(entity->world, entity->p + IV3(1, 0, 0));
                 if (_neighbor->type == EntityType::Pipe) {
                     auto neighbor = static_cast<Pipe*>(_neighbor);
                     if (neighbor && neighbor->liquid == entity->liquid) {
@@ -68,7 +68,7 @@ void PipeUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _da
                 }
             }
             if (entity->pyConnected) {
-                Entity* _neighbor = GetEntity(entity->world, entity->p + IV3(0, 1, 0));
+                BlockEntity* _neighbor = GetBlockEntity(entity->world, entity->p + IV3(0, 1, 0));
                 if (_neighbor->type == EntityType::Pipe) {
                     auto neighbor = static_cast<Pipe*>(_neighbor);
                     if (neighbor && neighbor->liquid == entity->liquid) {
@@ -83,7 +83,7 @@ void PipeUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _da
                 }
             }
             if (entity->nyConnected) {
-                Entity* _neighbor = GetEntity(entity->world, entity->p - IV3(0, 1, 0));
+                BlockEntity* _neighbor = GetBlockEntity(entity->world, entity->p - IV3(0, 1, 0));
                 if (_neighbor->type == EntityType::Pipe) {
                     auto neighbor = static_cast<Pipe*>(_neighbor);
                     if (neighbor && neighbor->liquid == entity->liquid) {
@@ -98,7 +98,7 @@ void PipeUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _da
                 }
             }
             if (entity->pzConnected) {
-                Entity* _neighbor = GetEntity(entity->world, entity->p + IV3(0, 0, 1));
+                BlockEntity* _neighbor = GetBlockEntity(entity->world, entity->p + IV3(0, 0, 1));
                 if (_neighbor->type == EntityType::Pipe) {
                     auto neighbor = static_cast<Pipe*>(_neighbor);
                     if (neighbor && neighbor->liquid == entity->liquid) {
@@ -113,7 +113,7 @@ void PipeUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _da
                 }
             }
             if (entity->nzConnected) {
-                Entity* _neighbor = GetEntity(entity->world, entity->p - IV3(0, 0, 1));
+                BlockEntity* _neighbor = GetBlockEntity(entity->world, entity->p - IV3(0, 0, 1));
                 if (_neighbor->type == EntityType::Pipe) {
                     auto neighbor = static_cast<Pipe*>(_neighbor);
                     if (neighbor && neighbor->liquid == entity->liquid) {
@@ -182,12 +182,12 @@ void OrientPipe(GameWorld* world, Pipe* pipe) {
     pipe->mesh = context->pipeStraightMesh;
 
     // TODO: Be carefull with pointers in blocks
-    Entity* westNeighbour = GetBlock(world, p + IV3(-1, 0, 0))->entity;
-    Entity* eastNeighbour = GetBlock(world, p + IV3(1, 0, 0))->entity;
-    Entity* northNeighbour = GetBlock(world, p + IV3(0, 0, -1))->entity;
-    Entity* southNeighbour = GetBlock(world, p + IV3(0, 0, 1))->entity;
-    Entity* upNeighbour = GetBlock(world, p + IV3(0, 1, 0))->entity;
-    Entity* downNeighbour = GetBlock(world, p + IV3(0, -1, 0))->entity;
+    BlockEntity* westNeighbour = GetBlockEntity(world, p + IV3(-1, 0, 0));
+    BlockEntity* eastNeighbour = GetBlockEntity(world, p + IV3(1, 0, 0));
+    BlockEntity* northNeighbour = GetBlockEntity(world, p + IV3(0, 0, -1));
+    BlockEntity* southNeighbour = GetBlockEntity(world, p + IV3(0, 0, 1));
+    BlockEntity* upNeighbour = GetBlockEntity(world, p + IV3(0, 1, 0));
+    BlockEntity* downNeighbour = GetBlockEntity(world, p + IV3(0, -1, 0));
 
     bool px = 0;
     bool nx = 0;

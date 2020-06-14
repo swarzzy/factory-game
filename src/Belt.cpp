@@ -5,18 +5,16 @@ void OrientBelt(Belt* belt) {
 
     auto world = GetWorld();
     ForEachEntityNeighbor(world, belt->p, [&](auto block, auto dir) {
-        if (block) {
-            if (block->entity) {
-                // TODO: Actually use  trait
-                auto neighborBelt = FindEntityTrait<BeltTrait>(block->entity);
-                if (neighborBelt) {
-                    if (neighborBelt->direction == dir || Dir::Opposite(neighborBelt->direction) == dir) {
-                        belt->belt.direction = neighborBelt->direction;
-                        return;
-                    } else {
-                        belt->belt.direction = dir;
-                        return;
-                    }
+        if (block.entity) {
+            // TODO: Actually use  trait
+            auto neighborBelt = FindEntityTrait<BeltTrait>(block.entity);
+            if (neighborBelt) {
+                if (neighborBelt->direction == dir || Dir::Opposite(neighborBelt->direction) == dir) {
+                    belt->belt.direction = neighborBelt->direction;
+                    return;
+                } else {
+                    belt->belt.direction = dir;
+                    return;
                 }
             }
         }
@@ -110,7 +108,7 @@ void BeltUpdateAndRender(Belt* belt, void* _data) {
                     }
                 } else {
                     auto to = belt->p + Dir::ToIV3(trait->direction);
-                    auto toEntity = GetEntity(belt->world, to);
+                    auto toEntity = GetBlockEntity(belt->world, to);
                     if (toEntity) {
                         auto toBelt = FindEntityTrait<BeltTrait>(toEntity);
                         if (toBelt) {

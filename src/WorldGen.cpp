@@ -107,8 +107,8 @@ void GenChunk(WorldGen* gen, Chunk* chunk) {
                             value = BlockValue::CoalOre;
                         }
                     }
-                    auto block = GetBlockRaw(chunk, bx, by, bz);
-                    block->value = value;
+                    auto block = GetBlockValueRaw(chunk, bx, by, bz);
+                    *block = value;
                 }
             }
         }
@@ -116,10 +116,8 @@ void GenChunk(WorldGen* gen, Chunk* chunk) {
         for (u32 bz = 0; bz < Chunk::Size; bz++) {
             for (u32 by = 0; by < Chunk::Size; by++) {
                 for (u32 bx = 0; bx < Chunk::Size; bx++) {
-                    auto block = GetBlockRaw(chunk, bx, by, bz);
-                    if (block) {
-                        block->value = BlockValue::Stone;
-                    }
+                    auto block = GetBlockValueRaw(chunk, bx, by, bz);
+                    *block = BlockValue::Stone;
                 }
             }
         }

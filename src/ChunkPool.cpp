@@ -457,12 +457,9 @@ void UpdateChunkEntities(ChunkPool* pool, RenderGroup* renderGroup, Camera* came
                 if (entity->flags & EntityFlag_ProcessOverlaps) {
                     FindOverlapsFor(pool->world, entity);
                 }
-                if (UpdateEntityResidence(pool->world, entity)) {
-                    // HACK: Just aborting loop for now
-                    // If entity changed it's residence then iterator becomes invalid
-                    // We need a way to continue this loop
-                    // Maybe ensure that iterator is still valid if onlu current element changes or smth
-                    return;
+                if (EntityShouldBeMovedIntoAnotherChunk(entity)) {
+                    auto slot = FlatArrayPush(&pool->world->entitiesToMove);
+                    *slot = entity;
                 }
             }
         }

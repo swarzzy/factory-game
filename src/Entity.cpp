@@ -53,8 +53,6 @@ void ForEachEntityNeighbor(GameWorld* world, iv3 p, F func) {
 
     for (usize i = 0; i < array_count(Offsets); i++) {
         auto block = GetBlock(world, p + Offsets[i]);
-        if (block) {
-            func(block, Directions[i]);
-        }
+        func(block, Directions[i]);
     }
 }
