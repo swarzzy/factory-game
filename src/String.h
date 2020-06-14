@@ -82,3 +82,30 @@ IntParseResult StringToInt(const char* string) {
     }
     return result;
 }
+
+bool PrettySize(char* buffer, u32 bufferSize, uptr bytes) {
+    bool result = false;
+    f64 size = (f64)bytes;
+    const char* suffixes[4] = {"bytes", "kb", "mb", "gb"};
+    i32 s = 0;
+    while (size >= 1024 && s < 4)
+    {
+        s++;
+        size /= 1024;
+    }
+    if (size - Floor(size) == 0.0) {
+        u32 requiredSize = (u32)snprintf(nullptr, 0, "%ld %s", (long)size, suffixes[s]) + 1;
+        if (requiredSize <= bufferSize) {
+            sprintf(buffer, "%ld %s", (long)size, suffixes[s]);
+            result = true;
+        }
+    }
+    else {
+        u32 requiredSize = (u32)snprintf(nullptr, 0, "%.1f %s", size, suffixes[s]) + 1;
+        if (requiredSize <= bufferSize) {
+            sprintf(buffer, "%.1f %s", size, suffixes[s]);
+            result = true;
+        }
+    }
+    return result;
+}

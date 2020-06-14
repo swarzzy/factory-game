@@ -33,8 +33,22 @@ void ChunkToolMain(DebugUI* ui) {
     }
     ImGui::SameLine();
     ImGui::Text("Layer: %ld", (long)ui->chunkLayer);
-    ImGui::SameLine();
-    ImGui::Text("(chunks: %lu, active: %lu, visible: %lu)", (u32)world->chunkHashMap.entryCount, pool->simChunkCount, pool->renderedChunkCount);
+    ImGui::Separator();
+    ImGui::BulletText("Chunks: count %lu, sim %lu, visible %lu", (u32)world->chunkHashMap.entryCount, pool->simChunkCount, pool->renderedChunkCount);
+    ImGui::BulletText("Pool: sim size %lu, render size %lu", pool->maxSimChunkCount, pool->maxRenderedChunkCount);
+    ImGui::BulletText("Mesh pool: count %lu, free %lu", pool->maxRenderedChunkCount, pool->chunkMeshPoolFree);
+    {
+        char alBuffer[32];
+        alBuffer[0] = 0;
+        char usBuffer[32];
+        usBuffer[0] = 0;
+        char frBuffer[32];
+        frBuffer[0] = 0;
+        PrettySize(alBuffer, 32, world->memory.chunksAllocated * sizeof(Chunk));
+        PrettySize(usBuffer, 32, world->memory.chunksUsed * sizeof(Chunk));
+        PrettySize(frBuffer, 32, world->memory.chunksFree * sizeof(Chunk));
+        ImGui::BulletText("Memory: allocated %lu (%s), used %lu (%s), free %lu (%s)", world->memory.chunksAllocated, alBuffer, world->memory.chunksUsed, usBuffer, world->memory.chunksFree, frBuffer);
+    }
 
     ImGui::Separator();
 
@@ -112,7 +126,17 @@ void ChunkToolMain(DebugUI* ui) {
                         ImGui::PopStyleColor();
                     }
                 } else {
-                    ImGui::Dummy(ImVec2(40.0f, 40.0f));
+                    char buffer[32];
+                    sprintf_s(buffer, 32, "##tile(%ld, %ld, %ld)", (long)x, (long)ui->chunkLayer, (long)z);
+
+                    ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.4f));
+
+                    ImGui::Button(buffer, ImVec2(40.0f, 40.0f));
+
+                    ImGui::PopStyleColor();
+                    ImGui::PopItemFlag();
+
                 }
                 ImGui::SameLine();
             }

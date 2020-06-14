@@ -76,6 +76,8 @@ struct Chunk {
     Chunk* nextRendered;
     Chunk* prevRendered;
 
+    Chunk* nextInFreeList;
+
     iv3 p;
     ChunkMesh* primaryMesh;
     ChunkMesh* secondaryMesh;

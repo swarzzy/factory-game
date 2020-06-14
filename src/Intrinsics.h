@@ -108,6 +108,10 @@ f32 Floor(f32 v) {
     return floorf(v);
 }
 
+f64 Floor(f64 v) {
+    return floor(v);
+}
+
 f32 Ceil(f32 v) {
     return ceilf(v);
 }

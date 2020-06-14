@@ -3,6 +3,42 @@
 #include "Pickup.h"
 #include "Container.h"
 
+Chunk* AllocateWorldChunk(WorldMemory* memory) {
+    Chunk* result = nullptr;
+    if (memory->chunkMemoryFreeList) {
+        result = memory->chunkMemoryFreeList;
+        memory->chunkMemoryFreeList = memory->chunkMemoryFreeList->nextInFreeList;
+        // TODO: Maybe clearing the whole chunk is too slow
+        ClearMemory(result);
+        memory->chunksUsed++;
+        assert(memory->chunksFree);
+        memory->chunksFree--;
+    } else {
+        result = (Chunk*)memory->PageAlloc(sizeof(Chunk));
+        if (result) {
+            memory->chunksAllocated++;
+            memory->chunksUsed++;
+        }
+    }
+    return result;
+}
+
+void FreeWorldChunk(WorldMemory* memory, Chunk* chunk) {
+    // Too many asserts!!!
+    assert(!chunk->locked);
+    assert(!chunk->visible);
+    assert(!chunk->active);
+    assert(!chunk->primaryMesh);
+    assert(!chunk->secondaryMesh);
+
+    chunk->nextInFreeList = memory->chunkMemoryFreeList;
+    memory->chunkMemoryFreeList = chunk;
+    assert(memory->chunksUsed);
+    memory->chunksUsed--;
+    memory->chunksFree++;
+}
+
+
 const Block* GetBlock(GameWorld* world, i32 x, i32 y, i32 z) {
     const Block* result = nullptr;
     auto chunkP = WorldPos::ToChunk(IV3(x, y, z));
@@ -16,8 +52,8 @@ const Block* GetBlock(GameWorld* world, i32 x, i32 y, i32 z) {
 }
 
 Chunk* AddChunk(GameWorld* world, iv3 coord) {
-    auto chunk = (Chunk*)PlatformAllocatePages(sizeof(Chunk));
-    ClearMemory(chunk);
+    auto chunk = AllocateWorldChunk(&world->memory);
+    assert(chunk);
     chunk->p = coord;
     chunk->priority = ChunkPriority::Low;
     auto entry = Add(&world->chunkHashMap, &chunk->p);
@@ -27,13 +63,9 @@ Chunk* AddChunk(GameWorld* world, iv3 coord) {
 }
 
 void DeleteChunk(GameWorld* world, Chunk* chunk) {
-    assert(!chunk->visible);
-    assert(!chunk->active);
-    assert(!chunk->locked);
     bool deleted = Delete(&world->chunkHashMap, &chunk->p);
     assert(deleted);
-    //Drop(&chunk->entityStorage);
-    PlatformDeallocatePages(chunk, sizeof(Chunk));
+    FreeWorldChunk(&world->memory, chunk);
 }
 
 Chunk* GetChunkInternal(GameWorld* world, i32 x, i32 y, i32 z) {
@@ -58,6 +90,9 @@ Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z) {
 void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed) {
     world->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
     world->entityHashMap = HashMap<EntityID, Entity*, EntityRegionHashFunc, EntityRegionHashCompFunc>::Make();
+
+    world->memory.PageAlloc = PlatformAllocatePages;
+    world->memory.PageDealloc = PlatformDeallocatePages;
 
     world->camera = &context->camera;
     BucketArrayInit(&world->entitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));

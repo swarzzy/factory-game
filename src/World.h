@@ -48,6 +48,19 @@ bool EntityRegionHashCompFunc(void* a, void* b) {
     return result;
 }
 
+struct WorldMemory {
+    AllocatePagesFn* PageAlloc;
+    DeallocatePagesFn* PageDealloc;
+
+    u32 chunksAllocated;
+    u32 chunksUsed;
+    u32 chunksFree;
+    Chunk* chunkMemoryFreeList;
+};
+
+Chunk* AllocateWorldChunk(WorldMemory* memory);
+void FreeWorldChunk(WorldMemory* memory, Chunk* chunk);
+
 struct GameWorld {
     static const i32 MinHeight = -(i32)Chunk::Size * 3;
     static const i32 MaxHeight = (i32)Chunk::Size * 3 - 1;
@@ -55,6 +68,7 @@ struct GameWorld {
     static const i32 MaxHeightChunk = 2;
     static const i32 InvalidCoord = I32::Max;
     inline static const iv3 InvalidPos = IV3(InvalidCoord);
+    WorldMemory memory;
     EntityID playerID;
     HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc> chunkHashMap;
     HashMap<EntityID, Entity*, EntityRegionHashFunc, EntityRegionHashCompFunc> entityHashMap;
