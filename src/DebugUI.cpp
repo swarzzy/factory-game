@@ -105,7 +105,7 @@ void ChunkToolMain(DebugUI* ui) {
                     char buffer[32];
                     if (chunk->simPropagationCount) {
                         sprintf_s(buffer, 32, "S##tile(%ld, %ld, %ld)", (long)chunk->p.x, (long)chunk->p.y, (long)chunk->p.z);
-                    } else if (chunk->modified) {
+                    } else if (chunk->lastModificationTick) {
                         sprintf_s(buffer, 32, "M##tile(%ld, %ld, %ld)", (long)chunk->p.x, (long)chunk->p.y, (long)chunk->p.z);
                     } else {
                         sprintf_s(buffer, 32, "##tile(%ld, %ld, %ld)", (long)chunk->p.x, (long)chunk->p.y, (long)chunk->p.z);
@@ -183,7 +183,7 @@ void ChunkToolChunkInfo(DebugUI* ui) {
         ImGui::BulletText("remeshingAfterEdit: %s", chunk->remeshingAfterEdit ? "true" : "false");
         ImGui::BulletText("priority: %s", ToString(chunk->priority));
         ImGui::BulletText("shouldBeRemeshedAfterEdit: %s", chunk->shouldBeRemeshedAfterEdit ? "true" : "false");
-        ImGui::BulletText("modified: %s", chunk->modified ? "true" : "false");
+        ImGui::BulletText("lastModificationTick: %llu", chunk->lastModificationTick);
         ImGui::BulletText("active: %s", chunk->active ? "true" : "false");
         ImGui::BulletText("visible: %s", chunk->visible ? "true" : "false");
         ImGui::BulletText("primaryMeshPoolIndex: %lu", chunk->primaryMeshPoolIndex);

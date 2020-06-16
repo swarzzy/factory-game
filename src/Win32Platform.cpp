@@ -1224,6 +1224,32 @@ DWORD WINAPI Win32ThreadProc(void* param) {
     }
 }
 
+void Win32SetSaveThreadWork(SaveThreadWorkFn* func, void* data, u32 timeoutMs) {
+    // TODO: Disallow code reloading while save thread is active
+    WaitForSingleObjectEx(GlobalContext.saveThreadMutex, INFINITE, FALSE);
+    GlobalContext.SaveThreadData = data;
+    GlobalContext.SaveThreadWork = func;
+    GlobalContext.saveTimeout = timeoutMs;
+    auto releaseResult = ReleaseMutex(GlobalContext.saveThreadMutex);
+    assert(releaseResult);
+    ResumeThread(GlobalContext.saveThreadHandle);
+}
+
+DWORD WINAPI Win32SaveThreadProc(void* param) {
+    while (true) {
+        WaitForSingleObjectEx(GlobalContext.saveThreadMutex, INFINITE, FALSE);
+
+        if (GlobalContext.SaveThreadWork) {
+            GlobalContext.SaveThreadWork(GlobalContext.SaveThreadData);
+        }
+
+        auto releaseResult = ReleaseMutex(GlobalContext.saveThreadMutex);
+        assert(releaseResult);
+
+        Sleep(GlobalContext.saveTimeout);
+    }
+}
+
 void* Win32AllocatePages(uptr size) {
     void* block = VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     assert(block);
@@ -1277,6 +1303,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     Win32Init(app);
 
+    app->saveThreadMutex = CreateMutex(0, FALSE, nullptr);
+    assert(app->saveThreadMutex);
+
+    app->saveTimeout = 3000;
+
+    DWORD saveThreadID;
+    app->saveThreadHandle = CreateThread(0, 0, Win32SaveThreadProc, nullptr, CREATE_SUSPENDED, &saveThreadID);
+
     app->wglSwapIntervalEXT(1);
 
     auto lowQueue = &app->lowPriorityQueue;
@@ -1329,7 +1363,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     app->state.functions.PushWork = Win32PushWork;
     app->state.functions.CompleteAllWork = Win32CompleteAllWork;
-    app->state.functions.Sleep = Win32Sleep;
+    app->state.functions.SetSaveThreadWork = Win32SetSaveThreadWork;
 
     app->state.functions.GetTimeStamp = GetTimeStamp;
 

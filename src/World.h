@@ -88,9 +88,10 @@ struct GameWorld {
     // TODO: Is nullBlock actually good idea?
     BlockValue nullBlockValue;
     ChunkPool chunkPool;
+    char name[128];
 };
 
-void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed);
+void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed, const char* name);
 
 BlockValue GetBlockValue(GameWorld* world, i32 x, i32 y, i32 z);
 inline BlockValue GetBlockValue(GameWorld* world, iv3 p) { return GetBlockValue(world, p.x, p.y, p.z); }

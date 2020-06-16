@@ -1,4 +1,5 @@
 #include "ChunkPool.h"
+#include "SaveAndLoad.h"
 
 bool IsInside(iv3 min, iv3 max, iv3 x) {
     bool result = false;
@@ -81,7 +82,11 @@ void RemoveChunkFromSimPool(ChunkPool* pool, Chunk* chunk) {
         UnregisterEntity(pool->world, it->id);
     });
 
-    if (!chunk->simPropagationCount && !chunk->modified) {
+    if (!chunk->simPropagationCount) {
+        if (chunk->lastModificationTick) {
+            auto saveResult = SaveChunk(chunk);
+            assert(saveResult);
+        }
         DeleteChunk(pool->world, chunk);
     }
 }
@@ -246,9 +251,17 @@ void UpdateChunks(ChunkPool* pool) {
     while (chunk) {
         if (!chunk->filled) {
             if (chunk->state == ChunkState::Complete) {
-                chunk->locked = true;
-                if (!ScheduleChunkFill(&pool->worldGen, chunk)) {
+                if (TryLoadChunk(chunk)) {
+                    chunk->filled = true;
+                    chunk->lastModificationTick = true;
+                    chunk->shouldBeRemeshedAfterEdit = false;
+                    chunk->state = ChunkState::Complete;
                     chunk->locked = false;
+                } else {
+                    chunk->locked = true;
+                    if (!ScheduleChunkFill(&pool->worldGen, chunk)) {
+                        chunk->locked = false;
+                    }
                 }
             } else if (chunk->state == ChunkState::Filled) {
                 chunk->filled = true;
@@ -471,6 +484,15 @@ void ForEachEntity(ChunkPool* pool, F func) {
     auto chunk = pool->firstSimChunk;
     while (chunk) {
         ForEach(&chunk->entityStorage, func);
+        chunk = chunk->nextActive;
+    }
+}
+
+template <typename F>
+void ForEachSimChunk(ChunkPool* pool, F func) {
+    auto chunk = pool->firstSimChunk;
+    while (chunk) {
+        func(chunk);
         chunk = chunk->nextActive;
     }
 }

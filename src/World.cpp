@@ -105,12 +105,16 @@ Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z) {
     return result;
 }
 
-void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed) {
+void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed, const char* name) {
     world->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
     world->entityHashMap = HashMap<EntityID, Entity*, EntityRegionHashFunc, EntityRegionHashCompFunc>::Make();
 
     world->memory.PageAlloc = PlatformAllocatePages;
     world->memory.PageDealloc = PlatformDeallocatePages;
+
+    // nocheckin
+    // TODO: Error checking
+    strcpy_s(world->name, array_count(world->name), name);
 
     world->camera = &context->camera;
     BucketArrayInit(&world->entitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));

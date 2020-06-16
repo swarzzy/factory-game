@@ -47,7 +47,8 @@ struct Chunk {
     ChunkPriority priority;
     b32 shouldBeRemeshedAfterEdit;
 
-    b32 modified;
+    u64 lastModificationTick;
+    u64 lastSaveTick;
     b32 active;
     b32 visible;
 

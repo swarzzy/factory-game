@@ -4,6 +4,8 @@ u32 AtomicCompareExchange(u32 volatile* dest, u32 comp, u32 newValue);
 u32 AtomicExchange(u32 volatile* dest, u32 value);
 u32 AtomicIncrement(u32 volatile* dest);
 
+u32 ThreadSleep(u32 ms);
+
 // NOTE: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 constexpr u32 NextPowerOfTwo(u32 v) {
     v--;

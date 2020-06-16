@@ -116,7 +116,7 @@ BlockValue* GetBlockForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
     if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
         result = GetBlockValueRaw(chunk, x, y, z);
         chunk->shouldBeRemeshedAfterEdit = true;
-        chunk->modified = true;
+        chunk->lastModificationTick = GetPlatform()->tickCount;
     }
     return result;
 }

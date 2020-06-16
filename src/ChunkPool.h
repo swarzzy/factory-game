@@ -42,3 +42,6 @@ void UpdateChunks(ChunkPool* region);
 
 template <typename F>
 void ForEachEntity(ChunkPool* pool, F func);
+
+template <typename F>
+void ForEachSimChunk(ChunkPool* pool, F func);

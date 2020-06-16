@@ -86,7 +86,8 @@ typedef void(WorkFn)(void* data0, void* data1, void* data2, u32 threadIndex);
 typedef b32(PushWorkFn)(WorkQueue* queue, WorkFn* fn, void* data0, void* data1, void* data2);
 typedef void(CompleteAllWorkFn)(WorkQueue* queue);
 
-typedef void(SleepFn)(u32 ms);
+typedef void(SaveThreadWorkFn)(void* data);
+typedef void(SetSaveThreadWorkFn)(SaveThreadWorkFn* func, void* data, u32 timeoutMs);
 
 struct Mesh {
     char name[32];
@@ -170,7 +171,7 @@ struct PlatformCalls
     // Work queue
     PushWorkFn* PushWork;
     CompleteAllWorkFn* CompleteAllWork;
-    SleepFn* Sleep;
+    SetSaveThreadWorkFn* SetSaveThreadWork;
 
     GetTimeStampFn* GetTimeStamp;
 

@@ -10,6 +10,7 @@
 #include "Belt.h"
 #include "Extractor.h"
 #include "EntityTraits.h"
+#include "SaveAndLoad.h"
 
 
 #include "Globals.h"
@@ -232,7 +233,7 @@ void FluxInit(Context* context) {
     GenEnvPrefiliteredMap(context->renderer, &context->enviromentMap, context->hdrMap.gpuHandle, 6);
 
     auto gameWorld = &context->gameWorld;
-    InitWorld(&context->gameWorld, context, &context->chunkMesher, 293847);
+    InitWorld(&context->gameWorld, context, &context->chunkMesher, 293847, Globals::DebugWorldName);
 
     auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     SetBlockTexture(context->renderer, BlockValue::Stone, stone->bits);
@@ -461,6 +462,7 @@ void FluxInit(Context* context) {
     PlatformSetInputMode(InputMode::FreeCursor);
     context->camera.inputMode = GameInputMode::Game;
 
+    PlatformSetSaveThreadWork(SaveThreadWork, nullptr, 3000);
 }
 
 void FluxReload(Context* context) {
@@ -489,6 +491,15 @@ void FluxUpdate(Context* context) {
 
     auto renderer = context->renderer;
     auto camera = &context->camera;
+
+    if (KeyPressed(Key::F5)) {
+        auto saved = SaveWorld(world);
+        if (saved) {
+            log_print("[Game] World %s was saved\n", world->name);
+        } else {
+            log_print("[Game] Failed to save world %s\n", world->name);
+        }
+    }
 
     if(KeyPressed(Key::Tilde)) {
         context->consoleEnabled = !context->consoleEnabled;

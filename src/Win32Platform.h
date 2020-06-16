@@ -105,6 +105,11 @@ struct Win32Context
     WorkQueue highPriorityQueue;
     HGLRC workersGLRC[NumOfWorkerThreads];
     HANDLE workQueueSemaphore;
+    HANDLE saveThreadMutex;
+    HANDLE saveThreadHandle;
+    SaveThreadWorkFn* SaveThreadWork;
+    void* SaveThreadData;
+    u32 saveTimeout;
     i32 mousePosX;
     i32 mousePosY;
 

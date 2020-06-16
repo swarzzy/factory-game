@@ -85,7 +85,7 @@ void* PlatformAllocClear(uptr size) {
 
 #define PlatformPushWork platform_call(PushWork)
 #define PlatformCompleteAllWork platform_call(CompleteAllWork)
-#define PlatformSleep platform_call(Sleep)
+#define PlatformSetSaveThreadWork platform_call(SetSaveThreadWork)
 
 #if defined(COMPILER_MSVC)
 #define gl_call(func) _GlobalPlatform->gl->functions.fn.##func
@@ -350,6 +350,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "DebugUI.cpp"
 #include "Block.cpp"
 #include "Chunk.cpp"
+#include "SaveAndLoad.cpp"
 
 // NOTE: Platform specific intrinsics implementation begins here
 #if defined(PLATFORM_WINDOWS)

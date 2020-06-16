@@ -11,6 +11,8 @@ namespace Globals {
     constant f32 PickupScale = 0.23f;
     constant f32 DefaultBeltItemMeshAlign = 0.32f;
 
+    constant char* DebugWorldName = "test_world";
+
     static bool DrawCollisionVolumes = true;
     static bool CreativeModeEnabled = true;
     static  bool ShowDebugOverlay = false;
