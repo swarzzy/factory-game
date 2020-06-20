@@ -49,11 +49,26 @@ void RemoveChunkFromRenderPool(ChunkPool* pool, Chunk* chunk) {
     }
 }
 
+void ChunkSaveWork(void* data0, void* data1, void* data2, u32 threadIndex) {
+    auto chunk = (Chunk*)data0;
+    auto pool = (ChunkPool*)data1;
+    auto saveResult = SaveChunk(chunk);
+    assert(saveResult);
+    log_print("[Chunk pool] Saved a chunk in a worker thread\n");
+    // TODO: Maybe chunk->lastSaveTick should not be atomic since chunk->saving works as a lock?
+    AtomicExchange(&chunk->lastSaveTick, GetPlatform()->tickCount);
+    auto prev = AtomicExchange(&chunk->saving, (u32)0);
+    assert(prev);
+    // TODO: valudate this counter
+    AtomicDecrement(&pool->pendingSavesCount);
+}
+
 void RemoveChunkFromSimPool(ChunkPool* pool, Chunk* chunk) {
     assert(!chunk->visible);
     assert(chunk->active);
     assert(!chunk->simPropagationCount);
     assert(!chunk->locked);
+
     auto prev = chunk->prevActive;
     auto next = chunk->nextActive;
     chunk->prevActive = nullptr;
@@ -130,7 +145,8 @@ void MakeRoomForChunkInSimPool(ChunkPool* pool) {
 
     Chunk* chunk = pool->firstSimChunk;
     while (chunk) {
-        if (!chunk->locked && (chunk->simPropagationCount == 0) && (!chunk->visible)) {
+        if (!chunk->locked && !chunk->lastModificationTick &&(chunk->simPropagationCount == 0) && (!chunk->visible)) {
+            assert(!chunk->saving);
             i32 dist = LengthSq(pool->playerRegion.origin - chunk->p);
             if (!IsInside(pool->playerRegion.min, pool->playerRegion.max, chunk->p)) {
                 if (dist > furthestDistOutside) {
@@ -244,12 +260,36 @@ void SwapChunkMeshes(Chunk* chunk) {
     chunk->primaryMeshPoolIndex = tmpPoolIndex;
 }
 
+void ScheduleSimChunkEviction(ChunkPool* pool, Chunk* chunk) {
+    chunk->nextInEvictionList = pool->simChunkEvictList;
+    pool->simChunkEvictList = chunk;
+}
+
 void UpdateChunks(ChunkPool* pool) {
     Chunk* chunk = pool->firstSimChunk;
-    // TODO: Mause cache chunks that are not filled or smth and update them in a separate loop.
+    // TODO: Maybe cache chunks that are not filled or smth and update them in a separate loop.
     // Then we don't need to loop over all active chunks each frame, but only over visible ones
     while (chunk) {
-        if (!chunk->filled) {
+        if ((!chunk->locked) && (!chunk->visible) && (chunk->simPropagationCount == 0)) {
+            // This chunk is not rendered, not simulated and lot locked
+            if (!IsInside(pool->playerRegion.min, pool->playerRegion.max, chunk->p)) {
+                auto saving = chunk->saving;
+                if (!saving) {
+                    // And if it is outside of a region
+                    if (chunk->lastSaveTick < chunk->lastModificationTick) {
+                        chunk->saving = true;
+                        AtomicIncrement(&pool->pendingSavesCount);
+                        WriteFence();
+                        if (!PlatformPushWork(PlatformHighPriorityQueue, ChunkSaveWork, chunk, pool, nullptr)) {
+                            chunk->saving = false;
+                            AtomicDecrement(&pool->pendingSavesCount);
+                        }
+                    } else {
+                        ScheduleSimChunkEviction(pool, chunk);
+                    }
+                }
+            }
+        } else if (!chunk->filled) {
             if (chunk->state == ChunkState::Complete) {
                 if (TryLoadChunk(chunk)) {
                     chunk->filled = true;
@@ -356,6 +396,13 @@ void UpdateChunks(ChunkPool* pool) {
         }
         chunk = chunk->nextActive;
     }
+
+    auto chunkToEvict = pool->simChunkEvictList;
+    while (chunkToEvict) {
+        RemoveChunkFromSimPool(pool, chunkToEvict);
+        chunkToEvict = chunkToEvict->nextInEvictionList;
+    }
+    pool->simChunkEvictList = nullptr;
 }
 
 void InitChunkPool(ChunkPool* pool, GameWorld* world, ChunkMesher* mesher, u32 newSpan, u32 seed) {

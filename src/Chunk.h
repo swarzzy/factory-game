@@ -38,7 +38,10 @@ struct Chunk {
     static const u32 BitMask = (1 << BitShift) - 1;
     static const u32 Size = 1 << BitShift;
 
+    volatile u64 lastSaveTick;
     volatile ChunkState state;
+    volatile u32 saving;
+
     b32 locked;
     b32 filled;
     b32 primaryMeshValid;
@@ -48,14 +51,15 @@ struct Chunk {
     b32 shouldBeRemeshedAfterEdit;
 
     u64 lastModificationTick;
-    u64 lastSaveTick;
     b32 active;
     b32 visible;
 
+    // TODO: Too many pointers here
     Chunk* nextActive;
     Chunk* prevActive;
     Chunk* nextRendered;
     Chunk* prevRendered;
+    Chunk* nextInEvictionList;
 
     Chunk* nextInFreeList;
 

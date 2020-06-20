@@ -29,7 +29,8 @@ bool SaveWorld(GameWorld* world) {
     auto pool = &world->chunkPool;
     auto tick = GetPlatform()->tickCount;
     ForEachSimChunk(pool, [&](Chunk* chunk) {
-        if (chunk->lastSaveTick < chunk->lastModificationTick) {
+        auto chunkIsCurrentlySaving = AtomicLoad(&chunk->saving);
+        if (!chunkIsCurrentlySaving && chunk->lastSaveTick < chunk->lastModificationTick) {
             auto saved = SaveChunk(chunk);
             if (!saved) {
                 result = false;
@@ -38,5 +39,8 @@ bool SaveWorld(GameWorld* world) {
             }
         }
     });
+    while (AtomicLoad(&pool->pendingSavesCount)) {
+        log_print("[Save] Spin-lock waiting for all chunks to be saved. %lu in process", pool->pendingSavesCount);
+    }
     return result;
 }

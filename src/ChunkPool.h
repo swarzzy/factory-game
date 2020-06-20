@@ -28,6 +28,9 @@ struct ChunkPool {
     u32 simChunkCount;
     Chunk* firstSimChunk;
 
+    Chunk* simChunkEvictList;
+    volatile u32 pendingSavesCount;
+
     u32 chunkMeshPoolFree;
     byte* chunkMeshPoolUsage;
     ChunkMesh* chunkMeshPool;

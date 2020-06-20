@@ -2,7 +2,14 @@
 
 u32 AtomicCompareExchange(u32 volatile* dest, u32 comp, u32 newValue);
 u32 AtomicExchange(u32 volatile* dest, u32 value);
+u64 AtomicExchange(u64 volatile* dest, u64 value);
+
+// Returns a value after operation
 u32 AtomicIncrement(u32 volatile* dest);
+u32 AtomicDecrement(u32 volatile* dest);
+
+// Just a dummy placeholder on x86-64 windows
+u32 AtomicLoad(u32 volatile* value);
 
 u32 ThreadSleep(u32 ms);
 
