@@ -1,11 +1,14 @@
 #pragma once
 
+struct Player;
+
 typedef u16 TraitID;
 
 enum struct Trait {
     Unknown = 0,
     Belt,
     ItemExchange,
+    HandUsable,
     _Count
 };
 
@@ -23,4 +26,10 @@ struct ItemExchangeTrait {
     constant TraitID ID = (TraitID)Trait::ItemExchange;
     ItemExchangeTraitPushItemFn* PushItem;
     ItemExchangeTraitPopItemFn* PopItem;
+};
+
+typedef void(HandUsableTraitUseFn)(Entity* entity, Player* caller);
+
+struct HandUsableTrait {
+    HandUsableTraitUseFn* Use;
 };

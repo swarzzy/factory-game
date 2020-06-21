@@ -3,6 +3,7 @@
 #include "Common.h"
 
 struct BlockEntity;
+struct GameWorld;
 
 enum struct BlockValue : u32 {
     Empty = 0,

@@ -9,6 +9,7 @@
 #include "entities/Pickup.h"
 #include "entities/Belt.h"
 #include "entities/Extractor.h"
+#include "entities/Projectile.h"
 #include "EntityTraits.h"
 #include "SaveAndLoad.h"
 
@@ -16,6 +17,23 @@
 #include "Globals.h"
 
 #include <stdlib.h>
+
+ItemUseResult GrenadeUse(ItemID id, Entity* user) {
+    ItemUseResult result {};
+    result.destroyAfterUse = true;
+    if (user->type == EntityType::Player) {
+        auto player = (Player*)user;
+        auto throwDir = player->lookDir;
+        auto throwPos = WorldPos::Offset(player->p, V3(0.0f, player->height - 0.2f, 0.0f));
+
+        auto grenade = CreateProjectile(throwPos);
+        if (grenade) {
+            result.used = true;
+            grenade->velocity += throwDir * 100.0f;
+        }
+    }
+    return result;
+}
 
 void RegisterBuiltInEntities(Context* context) {
     auto entityInfo = &context->entityInfo;
@@ -28,6 +46,10 @@ void RegisterBuiltInEntities(Context* context) {
         auto itemExchange = EntityInfoRegisterTrait(entityInfo);
         assert(itemExchange->id == (u32)Trait::ItemExchange);
         itemExchange->name = "Item exchange";
+
+        auto handUsable = EntityInfoRegisterTrait(entityInfo);
+        assert(handUsable->id == (u32)Trait::HandUsable);
+        handUsable->name = "Hand usable";
     }
 
     { // Entities
@@ -81,6 +103,13 @@ void RegisterBuiltInEntities(Context* context) {
         pickup->Create = CreatePickupEntity;
         pickup->name = "Pickup";
         pickup->Behavior = PickupUpdateAndRender;
+
+        auto projectile = EntityInfoRegisterEntity(entityInfo, EntityKind::Spatial);
+        assert(projectile->typeID == (u32)EntityType::Projectile);
+        projectile->Create = CreateProjectileEntity;
+        projectile->name = "Projectile";
+        projectile->Behavior = ProjectileUpdateAndRender;
+        projectile->CollisionResponse = ProjectileCollisionResponse;
 
         auto player = EntityInfoRegisterEntity(entityInfo, EntityKind::Spatial);
         assert(player->typeID == (u32)EntityType::Player);
@@ -187,6 +216,16 @@ void RegisterBuiltInEntities(Context* context) {
         coalOreBlock->material = &context->coalOreBlockMaterial;
         coalOreBlock->icon = &context->coalOreBlockDiffuse;
 
+        auto grenade = EntityInfoRegisterItem(entityInfo);
+        assert(grenade->id == (u32)Item::Grenade);
+        grenade->name = "Grenade";
+        grenade->convertsToBlock = false;
+        //grenade->associatedEntityTypeID = (u32)EntityType::Grenade;
+        grenade->mesh = context->grenadeMesh;
+        grenade->material = &context->grenadeMaterial;
+        grenade->icon = &context->grenadeIcon;
+        grenade->Use = GrenadeUse;
+
         assert(entityInfo->itemTable.count == ((u32)Item::_Count - 1));
     }
     { // Blocks
@@ -266,6 +305,9 @@ void FluxInit(Context* context) {
     assert(context->pipeIcon.base);
     UploadToGPU(&context->pipeIcon);
 
+    context->grenadeIcon = LoadTextureFromFile("../res/grenade_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
+    assert(context->grenadeIcon.base);
+    UploadToGPU(&context->grenadeIcon);
 
     context->cubeMesh = LoadMeshFlux("../res/cube.mesh");
     assert(context->cubeMesh);
@@ -306,6 +348,10 @@ void FluxInit(Context* context) {
     context->extractorMesh = LoadMeshFlux("../res/extractor/extractor.mesh");
     assert(context->extractorMesh);
     UploadToGPU(context->extractorMesh);
+
+    context->grenadeMesh = LoadMeshFlux("../res/grenade/grenade.mesh");
+    assert(context->grenadeMesh);
+    UploadToGPU(context->grenadeMesh);
 
     context->playerMaterial.workflow = Material::Workflow::PBR;
     context->playerMaterial.pbr.albedoValue = V3(0.8f, 0.0f, 0.0f);
@@ -445,6 +491,34 @@ void FluxInit(Context* context) {
     context->waterMaterial.pbr.roughnessValue = 1.0f;
     context->waterMaterial.pbr.metallicValue = 0.0f;
 
+    context->grenadeAlbedo = LoadTextureFromFile("../res/grenade/textures_256/albedo.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->grenadeAlbedo.base);
+    UploadToGPU(&context->grenadeAlbedo);
+    context->grenadeRoughness = LoadTextureFromFile("../res/grenade/textures_256/roughness.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->grenadeRoughness.base);
+    UploadToGPU(&context->grenadeRoughness);
+    context->grenadeMetallic = LoadTextureFromFile("../res/grenade/textures_256/metallic.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->grenadeMetallic.base);
+    UploadToGPU(&context->grenadeMetallic);
+    context->grenadeNormal = LoadTextureFromFile("../res/grenade/textures_256/normal.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->grenadeNormal.base);
+    UploadToGPU(&context->grenadeNormal);
+    context->grenadeAO = LoadTextureFromFile("../res/grenade/textures_256/AO.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
+    assert(context->grenadeAO.base);
+    UploadToGPU(&context->grenadeAO);
+    context->grenadeMaterial.workflow = Material::Workflow::PBR;
+    context->grenadeMaterial.pbr.useAlbedoMap = true;
+    context->grenadeMaterial.pbr.useRoughnessMap = true;
+    context->grenadeMaterial.pbr.useMetallicMap = true;
+    context->grenadeMaterial.pbr.useNormalMap = true;
+    context->grenadeMaterial.pbr.useAOMap = true;
+    context->grenadeMaterial.pbr.normalFormat = NormalFormat::DirectX;
+    context->grenadeMaterial.pbr.albedoMap = &context->grenadeAlbedo;
+    context->grenadeMaterial.pbr.roughnessMap = &context->grenadeRoughness;
+    context->grenadeMaterial.pbr.metallicMap = &context->grenadeMetallic;
+    context->grenadeMaterial.pbr.normalMap = &context->grenadeNormal;
+    context->grenadeMaterial.pbr.AOMap = &context->grenadeAO;
+
     EntityInfoInit(&context->entityInfo);
     RegisterBuiltInEntities(context);
 
@@ -483,6 +557,7 @@ void FluxUpdate(Context* context) {
             EntityInventoryPushItem(player->toolbelt, Item::Container, 128);
             EntityInventoryPushItem(player->toolbelt, Item::Stone, 128);
             EntityInventoryPushItem(player->toolbelt, Item::Extractor, 128);
+            EntityInventoryPushItem(player->toolbelt, Item::Grenade, 128);
         }
         UpdateChunks(&world->chunkPool);
         return;
@@ -664,12 +739,17 @@ void FluxUpdate(Context* context) {
             }
         }
 
+
+
+        bool buildBlock = false;
+        bool useItem = true;
+
         if (hitBlock.x != GameWorld::InvalidCoord) {
             if (MouseButtonPressed(MouseButton::Left)) {
                 ConvertBlockToPickup(&context->gameWorld, hitBlock);
             }
             if (MouseButtonPressed(MouseButton::Right)) {
-                bool buildBlock = true;
+                buildBlock = true;
                 if (hitEntity != 0) {
                     auto entity = GetEntity(&context->gameWorld, hitEntity);
                     if (entity) {
@@ -678,22 +758,28 @@ void FluxUpdate(Context* context) {
                             if (UIOpenForEntity(&context->ui, hitEntity)) {
                                 UIOpenForEntity(ui, context->gameWorld.playerID);
                                 buildBlock = false;
+                                useItem = false;
                             }
                         }
                     }
                 }
-                if (buildBlock) {
-                    auto blockToBuild = player->toolbelt->slots[player->toolbeltSelectIndex].item;
-                    if (blockToBuild != Item::None) {
+            }
+
+            if (buildBlock) {
+                auto blockToBuild = player->toolbelt->slots[player->toolbeltSelectIndex].item;
+                if (blockToBuild != Item::None) {
+                    auto info = GetItemInfo(blockToBuild);
+                    if (!info->Use) {
                         // TODO: Check is item exist in inventory before build?
                         auto result = BuildBlock(context, &context->gameWorld, hitBlock + hitNormalInt, blockToBuild);
+                        useItem = false;
                         if (!Globals::CreativeModeEnabled) {
                             if (result) {
                                 EntityInventoryPopItem(player->toolbelt, player->toolbeltSelectIndex);
                             }
                         }
-                        //assert(result);
                     }
+                    //assert(result);
                 }
             }
 
@@ -706,7 +792,28 @@ void FluxUpdate(Context* context) {
             DrawAlignedBoxOutline(group, minP, maxP, V3(0.0f, 0.0f, 1.0f), 2.0f);
         }
 
+        if (useItem && MouseButtonPressed(MouseButton::Right)) {
+            auto item = player->toolbelt->slots[player->toolbeltSelectIndex].item;
+            auto info = GetItemInfo(item);
+            if (info->Use) {
+                auto result = info->Use((ItemID)item, player);
+                if (result.used && result.destroyAfterUse) {
+                    EntityInventoryPopItem(player->toolbelt, player->toolbeltSelectIndex);
+                }
+            }
+        }
+
+
+
     }
+
+    ForEach(&context->gameWorld.entitiesToMove, [&](auto it) {
+        auto entity = *it;
+        assert(entity);
+        UpdateEntityResidence(&context->gameWorld, entity);
+    });
+
+    FlatArrayClear(&context->gameWorld.entitiesToMove);
 
     ForEach(&context->gameWorld.entitiesToDelete, [&](Entity** it) {
         auto entity = *it;
@@ -717,13 +824,6 @@ void FluxUpdate(Context* context) {
 
     BucketArrayClear(&context->gameWorld.entitiesToDelete);
 
-    ForEach(&context->gameWorld.entitiesToMove, [&](auto it) {
-        auto entity = *it;
-        assert(entity);
-        UpdateEntityResidence(&context->gameWorld, entity);
-    });
-
-    FlatArrayClear(&context->gameWorld.entitiesToMove);
 
     Begin(renderer, group);
     ShadowPass(renderer, group);

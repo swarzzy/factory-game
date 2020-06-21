@@ -257,7 +257,7 @@ void DeleteEntity(GameWorld* world, Entity* entity) {
         }
         assert(chunk);
     } break;
-    invalid_default();
+        invalid_default();
     }
 
     UnregisterEntity(world, entity->id);
@@ -266,10 +266,12 @@ void DeleteEntity(GameWorld* world, Entity* entity) {
 }
 
 void ScheduleEntityForDelete(GameWorld* world, Entity* entity) {
-    auto entry = BucketArrayPush(&world->entitiesToDelete);
-    assert(entry);
-    *entry = entity;
-    entity->deleted = true;
+    if (!entity->deleted) {
+        auto entry = BucketArrayPush(&world->entitiesToDelete);
+        assert(entry);
+        *entry = entity;
+        entity->deleted = true;
+    }
 }
 
 bool CheckWorldBounds(WorldPos p) {
@@ -511,6 +513,9 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
         WorldPos origin = entity->p;
         v3 velocity = entity->velocity;
 
+        auto info = GetEntityInfo(entity->type);
+        auto entityCollisionResponse = info->CollisionResponse;
+
         for (u32 pass = 0; pass < 4; pass++) {
             bool hit = false;
             f32 tMin = 1.0f;
@@ -522,7 +527,7 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
             iv3 targetBoxMin = WorldPos::Offset(target, -colliderRadius).block - IV3(1);
             iv3 targetBoxMax = WorldPos::Offset(target, colliderRadius).block + IV3(1);
 
-            iv3 minB = IV3(Min(originBoxMin.x, targetBoxMin.x) , Min(originBoxMin.y, targetBoxMin.y), Min(originBoxMin.z, targetBoxMin.z));
+            iv3 minB = IV3(Min(originBoxMin.x, targetBoxMin.x), Min(originBoxMin.y, targetBoxMin.y), Min(originBoxMin.z, targetBoxMin.z));
             iv3 maxB = IV3(Max(originBoxMax.x, targetBoxMax.x), Max(originBoxMax.y, targetBoxMax.y), Max(originBoxMax.z, targetBoxMax.z));
 #if 0
             v3 min = RelativePos(camera->targetWorldPosition, WorldPos::Make(minB));
@@ -557,6 +562,14 @@ void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera
                                         tMin = tHit;
                                         hitNormal = intersection.normal;
                                         hit = true;
+                                        // Collision response
+                                        if (entityCollisionResponse) {
+                                            CollisionInfo hitInfo;
+                                            hitInfo.hitPosition = WorldPos::Offset(origin, delta * tMin);
+                                            hitInfo.hitNormal = hitNormal;
+                                            hitInfo.hitBlock = testBlock;
+                                            entityCollisionResponse(entity, &hitInfo);
+                                        }
                                     }
                                 }
                             }

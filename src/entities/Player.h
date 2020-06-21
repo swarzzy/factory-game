@@ -14,6 +14,7 @@ struct Player : SpatialEntity {
     EntityInventory* toolbelt;
     EntityInventory* inventory;
     u32 toolbeltSelectIndex;
+    v3 lookDir;
 };
 
 Entity* CreatePlayerEntity(GameWorld* world, WorldPos p);

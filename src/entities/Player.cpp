@@ -88,6 +88,9 @@ void PlayerUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _
     if (reason == EntityBehaviorInvoke::UpdateAndRender) {
         auto data = (EntityUpdateAndRenderData*)_data;
         auto entity = (Player*)_entity;
+
+        entity->lookDir = data->camera->mouseRay;
+
         auto oldP = entity->p;
         v3 frameAcceleration = {};
 
@@ -95,7 +98,9 @@ void PlayerUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _
         {
             auto world = GetWorld();
             auto playerChunk = GetChunk(world, WorldPos::ToChunk(entity->p.block).chunk);
-            DEBUG_OVERLAY_TRACE(playerChunk->simPropagationCount);
+            if (playerChunk) {
+                DEBUG_OVERLAY_TRACE(playerChunk->simPropagationCount);
+            }
         }
 
         f32 playerAcceleration;

@@ -4,6 +4,7 @@
 #include "Math.h"
 #include "Item.h"
 #include "Inventory.h"
+#include "Block.h"
 
 struct Material;
 struct GameWorld;
@@ -48,6 +49,7 @@ enum struct EntityType : u32 {
     Barrel,
     Tank,
     Pickup,
+    Projectile,
     Player,
     _Count
 };
@@ -115,6 +117,14 @@ void SpatialEntityBehavior(Entity* entity, EntityBehaviorInvoke reason, void* da
 void SpatialEntityProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity) {};
 
 typedef Entity*(CreateEntityFn)(GameWorld* world, WorldPos p);
+
+struct CollisionInfo {
+    WorldPos hitPosition;
+    v3 hitNormal;
+    Block hitBlock;
+};
+
+typedef void(SpatialEntityCollisionResponseFn)(SpatialEntity* entity, const CollisionInfo* info);
 
 // TODO: Make one call out of these
 typedef void(EntityDeleteFn)(Entity* entity);

@@ -15,6 +15,7 @@ struct EntityInfoEntry {
     EntityBehaviorFn* Behavior;
     EntityDropPickupFn* DropPickup;
     EntityProcessOverlapFn* ProcessOverlap;
+    SpatialEntityCollisionResponseFn* CollisionResponse;
     EntityUpdateAndRenderUIFn* UpdateAndRenderUI;
     const char* name;
     EntityKind kind;
@@ -40,6 +41,7 @@ struct ItemInfoEntry {
     Texture* icon;
     f32 beltAlign;
     f32 beltScale;
+    ItemUseFn* Use;
 };
 
 struct BlockInfoEntry {

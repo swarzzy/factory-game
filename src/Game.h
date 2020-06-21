@@ -65,6 +65,17 @@ struct Context {
     Material coalOreBlockMaterial;
     Material waterMaterial;
 
+    Texture grenadeAlbedo;
+    Texture grenadeMetallic;
+    Texture grenadeRoughness;
+    Texture grenadeNormal;
+    Texture grenadeAO;
+    Material grenadeMaterial;
+    Texture grenadeIcon;
+    Mesh* grenadeMesh;
+
+
+
     Camera camera;
     Renderer* renderer;
     RenderGroup renderGroup;

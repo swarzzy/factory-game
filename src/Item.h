@@ -2,6 +2,8 @@
 
 #include "Common.h"
 
+struct Entity;
+
 typedef u32 ItemID;
 
 enum struct Item : u32 {
@@ -17,8 +19,16 @@ enum struct Item : u32 {
     Tank,
     Water,
     CoalOreBlock,
+    Grenade,
     _Count
 };
+
+struct ItemUseResult {
+    b32 used;
+    b32 destroyAfterUse;
+};
+
+typedef ItemUseResult(ItemUseFn)(ItemID id, Entity* user);
 
 enum struct Liquid : u32 {
     Water
