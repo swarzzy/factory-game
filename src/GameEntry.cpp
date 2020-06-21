@@ -1,4 +1,5 @@
 #include "Platform.h"
+#include "Debug.h"
 #include "Game.h"
 #include "Memory.h"
 
@@ -339,18 +340,19 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "Position.cpp"
 #include "Inventory.cpp"
 #include "Entity.cpp"
-#include "Pickup.cpp"
-#include "Player.cpp"
-#include "Container.cpp"
-#include "Pipe.cpp"
-#include "Belt.cpp"
+#include "entities/Pickup.cpp"
+#include "entities/Player.cpp"
+#include "entities/Container.cpp"
+#include "entities/Pipe.cpp"
+#include "entities/Belt.cpp"
 #include "FlatArray.cpp"
 #include "EntityInfo.cpp"
-#include "Extractor.cpp"
+#include "entities/Extractor.cpp"
 #include "DebugUI.cpp"
 #include "Block.cpp"
 #include "Chunk.cpp"
 #include "SaveAndLoad.cpp"
+#include "BinaryBlob.cpp"
 
 // NOTE: Platform specific intrinsics implementation begins here
 #if defined(PLATFORM_WINDOWS)
@@ -359,6 +361,9 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #error Unsupported OS
 #endif
 #include "Intrinsics.cpp"
+
+const u32 GlobalDebugCallRecordsCount = __COUNTER__;
+DebugCallRecord GlobalDebugCallRecords[GlobalDebugCallRecordsCount];
 
 #include "../ext/imgui/imconfig.h"
 #include "../ext/imgui/imgui.cpp"

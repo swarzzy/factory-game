@@ -907,6 +907,7 @@ void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sour
 }
 
 void DrawSkybox(Renderer* renderer, RenderGroup* group, const m4x4* invView, const m4x4* invProj) {
+    timed_scope();
     glDepthMask(GL_FALSE);
     defer { glDepthMask(GL_TRUE); };
 
@@ -919,6 +920,7 @@ void DrawSkybox(Renderer* renderer, RenderGroup* group, const m4x4* invView, con
 }
 
 m3x3 MakeNormalMatrix(m4x4 model) {
+    timed_scope();
     auto inverted= Inverse(model);
     inverted = Transpose(inverted);
     auto normal = M3x3(inverted);
@@ -927,6 +929,7 @@ m3x3 MakeNormalMatrix(m4x4 model) {
 
 // TODO: @Speed Make shure this function inlined
 m4x4 CalcShadowProjection(const CameraBase* camera, f32 nearPlane, f32 farPlane, m4x4 lightLookAt, u32 shadowMapRes, bool stable) {
+    timed_scope();
     // NOTE Shadow projection bounds
     v3 min;
     v3 max;
@@ -1050,6 +1053,7 @@ m4x4 CalcShadowProjection(const CameraBase* camera, f32 nearPlane, f32 farPlane,
 }
 
 void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
+    timed_scope();
     if (group->commandQueueAt) {
         auto shader = renderer->shaders.Shadow;
         for (u32 i = 0; i < group->commandQueueAt; i++) {
@@ -1121,6 +1125,7 @@ void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
 }
 
 void ShadowPass(Renderer* renderer, RenderGroup* group) {
+    timed_scope();
     auto light = &group->dirLight;
     auto camera = group->camera;
 
@@ -1145,7 +1150,7 @@ void ShadowPass(Renderer* renderer, RenderGroup* group) {
 }
 
 void MainPass(Renderer* renderer, RenderGroup* group) {
-
+    timed_scope();
     DEBUG_OVERLAY_SLIDER(renderer->gamma, 1.0f, 10.0f);
     DEBUG_OVERLAY_SLIDER(renderer->exposure, 0.0f, 10.0f);
     bool showShadowCascadesBoundaries = renderer->showShadowCascadesBoundaries;
@@ -1474,6 +1479,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
 }
 
 void Begin(Renderer* renderer, RenderGroup* group) {
+    timed_scope();
     auto light = group->dirLight;
     auto camera = group->camera;
 
@@ -1544,6 +1550,7 @@ void Begin(Renderer* renderer, RenderGroup* group) {
 }
 
 void End(Renderer* renderer) {
+    timed_scope();
     glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->offscreenBufferHandle);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->offscreenDownsampledBuffer);
     glBlitFramebuffer(0, 0, renderer->renderRes.x, renderer->renderRes.y,

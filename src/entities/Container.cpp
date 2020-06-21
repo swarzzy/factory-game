@@ -13,13 +13,18 @@ Entity* CreateContainerEntity(GameWorld* world, WorldPos p) {
     return entity;
 }
 
+void DeleteContainer(Entity* entity) {
+    auto container = (Container*)entity;
+    DeleteEntityInventory(container->inventory);
+}
+
 void ContainerUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _data) {
     if (reason == EntityBehaviorInvoke::UpdateAndRender) {
         auto data = (EntityUpdateAndRenderData*)_data;
         auto entity = (Container*)_entity;
         auto context = GetContext();
         RenderCommandDrawMesh command{};
-        command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(entity->p))) * Rotate(entity->meshRotation);
+        command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(entity->p)));
         command.mesh = context->containerMesh;;
         command.material = &context->containerMaterial;
         Push(data->group, &command);
@@ -34,7 +39,7 @@ void ContainerDropPickup(Entity* entity, GameWorld* world, WorldPos p) {
 void ContainerUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason) {
     if (reason == EntityUIInvoke::Inventory) {
         auto context = GetContext();
-        UIDrawInventory(&context->ui, entity, entity->inventory);
+        UIDrawInventory(&context->ui, entity, ((Container*)entity)->inventory);
     }
 }
 

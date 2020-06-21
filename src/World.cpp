@@ -1,9 +1,10 @@
 #include "World.h"
 #include "Renderer.h"
-#include "Pickup.h"
-#include "Container.h"
+#include "entities/Pickup.h"
+#include "entities/Container.h"
 
 Chunk* AllocateWorldChunk(WorldMemory* memory) {
+    timed_scope();
     Chunk* result = nullptr;
     if (memory->chunkMemoryFreeList) {
         result = memory->chunkMemoryFreeList;
@@ -24,6 +25,7 @@ Chunk* AllocateWorldChunk(WorldMemory* memory) {
 }
 
 void FreeWorldChunk(WorldMemory* memory, Chunk* chunk) {
+    timed_scope();
     // Too many asserts!!!
     assert(!chunk->locked);
     assert(!chunk->visible);
@@ -40,6 +42,7 @@ void FreeWorldChunk(WorldMemory* memory, Chunk* chunk) {
 
 
 BlockValue GetBlockValue(GameWorld* world, i32 x, i32 y, i32 z) {
+    timed_scope();
     BlockValue result = world->nullBlockValue;
     auto chunkP = WorldPos::ToChunk(IV3(x, y, z));
     Chunk* chunk = GetChunk(world, chunkP.chunk.x, chunkP.chunk.y, chunkP.chunk.z);
@@ -50,6 +53,7 @@ BlockValue GetBlockValue(GameWorld* world, i32 x, i32 y, i32 z) {
 }
 
 BlockEntity* GetBlockEntity(GameWorld* world, i32 x, i32 y, i32 z) {
+    timed_scope();
     BlockEntity* result = nullptr;
     auto chunkP = WorldPos::ToChunk(IV3(x, y, z));
     Chunk* chunk = GetChunk(world, chunkP.chunk.x, chunkP.chunk.y, chunkP.chunk.z);
@@ -60,6 +64,7 @@ BlockEntity* GetBlockEntity(GameWorld* world, i32 x, i32 y, i32 z) {
 }
 
 Block GetBlock(GameWorld* world, i32 x, i32 y, i32 z) {
+    timed_scope();
     Block result = { world->nullBlockValue, nullptr };
     auto chunkP = WorldPos::ToChunk(IV3(x, y, z));
     Chunk* chunk = GetChunk(world, chunkP.chunk.x, chunkP.chunk.y, chunkP.chunk.z);
@@ -70,6 +75,7 @@ Block GetBlock(GameWorld* world, i32 x, i32 y, i32 z) {
 }
 
 Chunk* AddChunk(GameWorld* world, iv3 coord) {
+    timed_scope();
     auto chunk = AllocateWorldChunk(&world->memory);
     assert(chunk);
     chunk->p = coord;
@@ -81,6 +87,7 @@ Chunk* AddChunk(GameWorld* world, iv3 coord) {
 }
 
 void DeleteChunk(GameWorld* world, Chunk* chunk) {
+    timed_scope();
     bool deleted = Delete(&world->chunkHashMap, &chunk->p);
     assert(deleted);
     FreeWorldChunk(&world->memory, chunk);
@@ -97,6 +104,7 @@ Chunk* GetChunkInternal(GameWorld* world, i32 x, i32 y, i32 z) {
 }
 
 Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z) {
+    timed_scope();
     Chunk* result = nullptr;
     Chunk* chunk = GetChunkInternal(world, x, y, z);
     if (chunk && chunk->filled) {
@@ -106,6 +114,7 @@ Chunk* GetChunk(GameWorld* world, i32 x, i32 y, i32 z) {
 }
 
 void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed, const char* name) {
+    timed_scope();
     world->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
     world->entityHashMap = HashMap<EntityID, Entity*, EntityRegionHashFunc, EntityRegionHashCompFunc>::Make();
 
@@ -124,6 +133,7 @@ void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed
 
 template <typename T>
 T* AddSpatialEntity(GameWorld* world, WorldPos p) {
+    timed_scope();
     // Trigger compiler error if T isn 't inherited from SpatialEntity
     static_cast<T*>(((SpatialEntity*)(0)));
     T* entity = nullptr;
@@ -153,6 +163,7 @@ T* AddSpatialEntity(GameWorld* world, WorldPos p) {
 }
 
 Entity* GetEntity(GameWorld* world, EntityID id) {
+    timed_scope();
     Entity* result = nullptr;
     auto ptr = Get(&world->entityHashMap, &id);
     if (ptr) {
@@ -166,6 +177,7 @@ Entity* GetEntity(GameWorld* world, EntityID id) {
 // spinlock. We probably need to neighborhood update to be event-based or smth if we need dirty entities to
 // post neighborhood updates
 void PostEntityNeighborhoodUpdate(GameWorld* world, BlockEntity* entity) {
+    timed_scope();
     iv3 min = entity->p - IV3(1);
     iv3 max = entity->p + IV3(1);
 
@@ -183,6 +195,7 @@ void PostEntityNeighborhoodUpdate(GameWorld* world, BlockEntity* entity) {
 
 template <typename T>
 T* AddBlockEntity(GameWorld* world, iv3 p) {
+    timed_scope();
     // TODO: Validate position
     T* entity = nullptr;
     auto chunkP = WorldPos::ToChunk(p);
@@ -212,9 +225,10 @@ T* AddBlockEntity(GameWorld* world, iv3 p) {
 }
 
 void DeleteEntity(GameWorld* world, Entity* entity) {
+    timed_scope();
     auto entityInfo = GetEntityInfo(entity->type);
     if (entityInfo->Delete) {
-        entityInfo->Delete(entity, world);
+        entityInfo->Delete(entity);
     }
 
     Chunk* chunk;
@@ -247,9 +261,6 @@ void DeleteEntity(GameWorld* world, Entity* entity) {
     }
 
     UnregisterEntity(world, entity->id);
-    if (entity->inventory) {
-        DeleteEntityInventory(entity->inventory);
-    }
     EntityStorageUnlink(&chunk->entityStorage, entity);
     PlatformFree(entity, nullptr);
 }
@@ -291,6 +302,7 @@ bool EntityShouldBeMovedIntoAnotherChunk(SpatialEntity* entity) {
 }
 
 bool UpdateEntityResidence(GameWorld* world, SpatialEntity* entity) {
+    timed_scope();
     bool changedResidence = false;
 
     auto inWorldBounds = CheckWorldBounds(entity->p);
@@ -336,6 +348,7 @@ bool UpdateEntityResidence(GameWorld* world, SpatialEntity* entity) {
 }
 
 void FindOverlapsFor(GameWorld* world, SpatialEntity* entity) {
+    timed_scope();
     WorldPos origin = entity->p;
 
     bool overlaps = false;
@@ -389,6 +402,7 @@ struct OverlapResolveResult {
 };
 
 OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity) {
+    timed_scope();
     assert(entity->kind == EntityKind::Spatial);
     WorldPos origin = entity->p;
 
@@ -479,6 +493,7 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
 
 
 void MoveSpatialEntity(GameWorld* world, SpatialEntity* entity, v3 delta, Camera* camera, RenderGroup* renderGroup) {
+    timed_scope();
 
     auto overlapResolveResult = TryResolveOverlaps(world, entity);
 #if 0
@@ -658,12 +673,14 @@ bool BuildBlock(Context* context, GameWorld* world, iv3 p, Item item) {
 }
 
 void RegisterEntity(GameWorld* world, Entity* entity) {
+    timed_scope();
     auto entry = Add(&world->entityHashMap, &entity->id);
     assert(entry);
     *entry = entity;
 }
 
 bool UnregisterEntity(GameWorld* world, EntityID id) {
+    timed_scope();
     bool result = Delete(&world->entityHashMap, &id);
     return result;
 }

@@ -1,5 +1,5 @@
 #include "UI.h"
-#include "Player.h"
+#include "entities/Player.h"
 
 #include "Inventory.h"
 
@@ -15,7 +15,6 @@ void UIDrawEntityInfo(UI* ui, Entity* entity) {
         ImGui::Text("%s", entityInfo->name);
         ImGui::Text("id: %llu", entity->id);
         ImGui::Text("kind: %s", ToString(entity->kind));
-        ImGui::Text("has inventory: %s", entity->inventory ? "true" : "false");
         switch (entity->kind) {
         case EntityKind::Block: {
             auto blockEntity = static_cast<BlockEntity*>(entity);

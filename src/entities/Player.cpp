@@ -18,6 +18,11 @@ Entity* CreatePlayerEntity(GameWorld* world, WorldPos p) {
     return entity;
 }
 
+void DeletePlayer(Entity* entity) {
+    auto player = (Player*)entity;
+    DeleteEntityInventory(player->inventory);
+}
+
 // TODO: Maybe move toolbelt drawind logic to UI
 void PlayerDrawToolbelt(Player* player) {
     auto platform = GetPlatform();
@@ -185,10 +190,9 @@ void PlayerProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEn
         assert(testEntity->type == EntityType::Player);
         auto player = (Player*)testEntity;
         auto pickup = static_cast<Pickup*>(overlappedEntity);
-        assert(testEntity->inventory);
         auto itemRemainder = EntityInventoryPushItem(player->toolbelt, (Item)pickup->item, pickup->count);
         if (itemRemainder) {
-            itemRemainder = EntityInventoryPushItem(testEntity->inventory, (Item)pickup->item, pickup->count);
+            itemRemainder = EntityInventoryPushItem(player->inventory, (Item)pickup->item, pickup->count);
         }
         if (itemRemainder == 0) {
             ScheduleEntityForDelete(world, overlappedEntity);
@@ -201,6 +205,6 @@ void PlayerProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEn
 void PlayerUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason) {
     if (reason == EntityUIInvoke::Inventory) {
         auto context = GetContext();
-        UIDrawInventory(&context->ui, entity, entity->inventory);
+        UIDrawInventory(&context->ui, entity, ((Player*)entity)->inventory);
     }
 }

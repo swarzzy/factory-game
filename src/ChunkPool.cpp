@@ -266,6 +266,7 @@ void ScheduleSimChunkEviction(ChunkPool* pool, Chunk* chunk) {
 }
 
 void UpdateChunks(ChunkPool* pool) {
+    timed_scope();
     Chunk* chunk = pool->firstSimChunk;
     // TODO: Maybe cache chunks that are not filled or smth and update them in a separate loop.
     // Then we don't need to loop over all active chunks each frame, but only over visible ones
@@ -475,6 +476,7 @@ void MoveRegion(SimRegion* region, iv3 newP) {
 }
 
 void DrawChunks(ChunkPool* pool, RenderGroup* renderGroup, Camera* camera) {
+    timed_scope();
     auto chunk = pool->firstRenderedChunk;
     Push(renderGroup, &RenderCommandBeginChunkBatch{});
     while (chunk) {
@@ -501,6 +503,7 @@ void DrawChunks(ChunkPool* pool, RenderGroup* renderGroup, Camera* camera) {
 }
 
 void UpdateChunkEntities(ChunkPool* pool, RenderGroup* renderGroup, Camera* camera) {
+    timed_scope();
     ForEachEntity(pool, [&](Entity* it) {
         auto info = GetEntityInfo(it->type);
         if (info->Behavior) {

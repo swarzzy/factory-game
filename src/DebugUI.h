@@ -8,6 +8,7 @@ enum struct ChunkToolState {
 
 struct DebugUI {
     ChunkToolState chunkToolState;
+    bool perfCountersState;
     int chunkLayer;
     iv3 selectedChunk;
     bool shouldReleaseControl;
@@ -20,5 +21,10 @@ void DebugUIToggleChunkTool(DebugUI* ui) {
         ui->chunkToolState = ChunkToolState::Main;
     }
 }
+
+void DebugUITogglePerfCounters(DebugUI* ui) {
+    ui->perfCountersState = !ui->perfCountersState;
+}
+
 
 void DebugUIUpdateAndRender(DebugUI* ui);

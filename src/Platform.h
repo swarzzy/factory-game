@@ -10,6 +10,8 @@
 #error Unsupported OS
 #endif
 
+#define GetCycleCount() __rdtsc()
+
 #include "Intrinsics.h"
 #include "Math.h"
 #include "OpenGL.h"

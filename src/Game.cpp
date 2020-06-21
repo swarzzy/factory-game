@@ -3,12 +3,12 @@
 #include "DebugOverlay.h"
 #include "Resource.h"
 
-#include "Player.h"
-#include "Container.h"
-#include "Pipe.h"
-#include "Pickup.h"
-#include "Belt.h"
-#include "Extractor.h"
+#include "entities/Player.h"
+#include "entities/Container.h"
+#include "entities/Pipe.h"
+#include "entities/Pickup.h"
+#include "entities/Belt.h"
+#include "entities/Extractor.h"
 #include "EntityTraits.h"
 #include "SaveAndLoad.h"
 
@@ -38,6 +38,7 @@ void RegisterBuiltInEntities(Context* context) {
         container->DropPickup = ContainerDropPickup;
         container->Behavior = ContainerUpdateAndRender;
         container->UpdateAndRenderUI = ContainerUpdateAndRenderUI;
+        container->Delete = DeleteContainer;
         container->hasUI = true;
         REGISTER_ENTITY_TRAIT(container, Container, itemExchangeTrait, Trait::ItemExchange);
 
@@ -89,6 +90,7 @@ void RegisterBuiltInEntities(Context* context) {
         player->Behavior = PlayerUpdateAndRender;
         player->UpdateAndRenderUI = PlayerUpdateAndRenderUI;
         player->hasUI = true;
+        player->Delete = DeletePlayer;
 
         assert(entityInfo->entityTable.count == ((u32)EntityType::_Count - 1));
     }
@@ -544,6 +546,11 @@ void FluxUpdate(Context* context) {
     if (KeyPressed(Key::F2)) {
         DebugUIToggleChunkTool(debugUI);
     }
+
+    if (KeyPressed(Key::F3)) {
+        DebugUITogglePerfCounters(debugUI);
+    }
+
 
     if (KeyPressed(Key::E)) {
         if (UIHasOpen(ui)) {

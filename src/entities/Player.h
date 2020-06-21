@@ -12,10 +12,12 @@ struct Player : SpatialEntity {
     Camera* camera;
     b32 flightMode;
     EntityInventory* toolbelt;
+    EntityInventory* inventory;
     u32 toolbeltSelectIndex;
 };
 
 Entity* CreatePlayerEntity(GameWorld* world, WorldPos p);
+void DeletePlayer(Entity* entity);
 void PlayerUpdateAndRender(Entity* entity, EntityBehaviorInvoke reason, void* data);
 void PlayerProcessOverlap(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity);
 void PlayerUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason);

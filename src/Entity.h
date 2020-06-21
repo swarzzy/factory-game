@@ -58,9 +58,7 @@ struct Entity {
     EntityKind kind;
     EntityType type;
     u32 flags;
-    EntityInventory* inventory;
     b32 deleted;
-    v3 meshRotation;
 
     Entity* nextInStorage;
     Entity* prevInStorage;
@@ -119,7 +117,7 @@ void SpatialEntityProcessOverlap(GameWorld* world, SpatialEntity* testEntity, Sp
 typedef Entity*(CreateEntityFn)(GameWorld* world, WorldPos p);
 
 // TODO: Make one call out of these
-typedef void(EntityDeleteFn)(Entity* entity, GameWorld* world);
+typedef void(EntityDeleteFn)(Entity* entity);
 typedef void(EntityDropPickupFn)(Entity* entity, GameWorld* world, WorldPos p);
 typedef void(EntityProcessOverlapFn)(GameWorld* world, SpatialEntity* testEntity, SpatialEntity* overlappedEntity);
 typedef void(EntityUpdateAndRenderUIFn)(Entity* entity, EntityUIInvoke reason);
