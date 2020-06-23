@@ -298,6 +298,7 @@ void UpdateChunks(ChunkPool* pool) {
                     chunk->shouldBeRemeshedAfterEdit = false;
                     chunk->state = ChunkState::Complete;
                     chunk->locked = false;
+                    TryLoadEntities(chunk);
                 } else {
                     chunk->locked = true;
                     if (!ScheduleChunkFill(&pool->worldGen, chunk)) {

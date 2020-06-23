@@ -74,6 +74,7 @@ bool MouseButtonPressed(MouseButton button) {
 #define PlatformGetTimeStamp platform_call(GetTimeStamp)
 #define PlatformAllocateArena platform_call(AllocateArena)
 #define PlatformFreeArena platform_call(FreeArena)
+#define PlatformForEachFile platform_call(ForEachFile)
 
 #define PlatformAllocatePages platform_call(AllocatePages)
 #define PlatformDeallocatePages platform_call(DeallocatePages)

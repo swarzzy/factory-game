@@ -187,6 +187,38 @@ OpenGLLoadResult LoadOpenGL()
     return {context, success};
 }
 
+bool Win32ForEachFile(const wchar_t* wildcard, void* data, ForEachFileCallbackFn* callback) {
+    bool result = true;
+    //TODO: MAX_PATH Stuff
+    if (wcslen(wildcard) < MAX_PATH) {
+        WIN32_FIND_DATAW findData {};
+        HANDLE handle = FindFirstFileW(wildcard, &findData);
+        if (handle != (HANDLE)INVALID_HANDLE_VALUE && handle != (HANDLE)ERROR_FILE_NOT_FOUND) {
+            do {
+                // TODO: Ignoring direcotries for now
+                if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+                    FileInfo info;
+                    info.name = findData.cFileName;
+                    ULARGE_INTEGER size;
+                    size.LowPart = findData.nFileSizeLow;
+                    size.HighPart = findData.nFileSizeHigh;
+                    info.size = (u64)size.QuadPart;
+                    callback(&info, data);
+                }
+            } while (FindNextFileW(handle, &findData));
+            auto errorCode = GetLastError();
+            if (errorCode != ERROR_NO_MORE_FILES) {
+                result = false;
+                log_print("[Win32] An error has occured while enumerating files in directory %S", wildcard);
+            }
+            FindClose(handle);
+        } else {
+            result = false;
+        }
+    }
+    return result;
+}
+
 u32 DebugGetFileSize(const wchar_t* filename)
 {
     u32 fileSize = 0;
@@ -333,14 +365,8 @@ b32 DebugCopyFile(const wchar_t* source, const wchar_t* dest, bool overwrite)
     return (b32)result;
 }
 
-DirectoryContents EnumerateFilesInDirectory(const wchar_t* dirName, MemoryArena* tempArena)
-{
-    DirectoryContents result = {};
-    return result;
-}
-
 // NOTE: Based on Raymond Chen example
-// https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
+// [https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353]
 void WindowToggleFullscreen(Win32Context* app, bool enable)
 {
     DWORD style = GetWindowLong(app->windowHandle, GWL_STYLE);
@@ -1367,7 +1393,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     app->state.functions.GetTimeStamp = GetTimeStamp;
 
-    app->state.functions.EnumerateFilesInDirectory = EnumerateFilesInDirectory;
+    app->state.functions.ForEachFile = Win32ForEachFile;
 
     app->state.lowPriorityQueue = lowQueue;
     app->state.highPriorityQueue = highQueue;

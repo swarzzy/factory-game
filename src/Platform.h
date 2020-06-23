@@ -64,7 +64,13 @@ typedef u32(DebugWriteToOpenedFileFn)(FileHandle handle, void* data, u32 size);
 
 typedef f64(GetTimeStampFn)();
 
-typedef DirectoryContents(EnumerateFilesInDirectoryFn)(const wchar_t* dirName, MemoryArena* tempArena);
+struct FileInfo {
+    const wchar_t* name;
+    u64 size;
+};
+
+typedef void(ForEachFileCallbackFn)(const FileInfo* info, void* data);
+typedef bool(ForEachFileFn)(const wchar_t* dir, void* data, ForEachFileCallbackFn* callback);
 
 typedef void(GLDebugCallbackFn)(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
 
@@ -180,7 +186,7 @@ struct PlatformCalls
     ResourceLoaderLoadImageFn* ResourceLoaderLoadImage;
     ResourceLoaderValidateImageFileFn* ResourceLoaderValidateImageFile;
 
-    EnumerateFilesInDirectoryFn* EnumerateFilesInDirectory;
+    ForEachFileFn* ForEachFile;
 };
 
 struct KeyState

@@ -129,6 +129,12 @@ void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed
     BucketArrayInit(&world->entitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
     FlatArrayInit(&world->entitiesToMove, MakeAllocator(PlatformAlloc, PlatformFree, nullptr), 128);
     InitChunkPool(&world->chunkPool, world, mesher, GameWorld::ViewDistance, seed);
+
+    wchar_t nameBuffer[256];
+    swprintf_s(nameBuffer, 128, L"%hs/*.entities", world->name);
+    auto successfullyReadAll = PlatformForEachFile(nameBuffer, nullptr, [] (auto info, void* data) {
+        log_print("File: %S\n", info->name);
+    });
 }
 
 template <typename T>
