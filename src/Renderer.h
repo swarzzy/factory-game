@@ -133,8 +133,8 @@ struct TexTransferBufferInfo {
 
 Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 renderRes, u32 sampleCount);
 
-void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle);
-void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle, u32 mipLevels);
+void GenIrradanceMap(Renderer* renderer, CubeTexture* t, GLuint sourceHandle);
+void GenEnvPrefiliteredMap(Renderer* renderer, CubeTexture* t, GLuint sourceHandle, u32 mipLevels);
 
 // TODO: Temporary hack while struct is defined in cpp file
 uv2 GetRenderResolution(Renderer* renderer);

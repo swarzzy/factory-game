@@ -16,4 +16,8 @@ namespace Globals {
     static bool DrawCollisionVolumes = true;
     static bool CreativeModeEnabled = true;
     static  bool ShowDebugOverlay = false;
+
+    // Renderer
+
+    constant u64 UniformBufferMaxTimeout = 1000000000;
 }

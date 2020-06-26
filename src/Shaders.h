@@ -16,19 +16,32 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vert, c
 void RecompileShaders(MemoryArena* tempArena, Renderer* renderer);
 inline void DeleteProgram(GLuint handle) { glDeleteProgram(handle); }
 
-template <typename T, u32 Binding>
-struct UniformBuffer {
+struct UniformBufferData {
     GLuint handle;
+    GLsync fence;
 };
 
-template<typename T, u32 Binding>
-void ReallocUniformBuffer(UniformBuffer<T, Binding>* buffer);
+template <typename T, u32 Binding>
+struct UniformBuffer {
+    u32 bufferCount;
+    u32 currentBuffer;
+    usize size;
+    UniformBufferData* buffers;
+    Allocator allocator;
+    b32 mapped;
+};
+
+template <typename T, u32 Binding>
+    void UniformBufferInit(UniformBuffer<T, Binding>* buffer, u32 swapBufferCount, Allocator allocator);
 
 template<typename T, u32 Binding>
-T* Map(UniformBuffer<T, Binding> buffer);
+void UniformBufferRealloc(UniformBuffer<T, Binding>* buffer);
 
 template<typename T, u32 Binding>
-void Unmap(UniformBuffer<T, Binding> buffer);
+T* UniformBufferMap(UniformBuffer<T, Binding>* buffer);
+
+template<typename T, u32 Binding>
+void UniformBufferUnmap(UniformBuffer<T, Binding>* buffer);
 
 struct ChunkShader {
     static constexpr u32 OffsetUniformLocation = 0;

@@ -1316,6 +1316,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     freopen("CONOUT$", "w", stdout);
 #endif
 
+    // TODO: Thread priorities
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+
     auto app = &GlobalContext;
 
     UINT sleepGranularityMs = 1;

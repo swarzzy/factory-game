@@ -86,9 +86,13 @@ struct Renderer {
 
     GLuint chunkIndexBufferHandle;
 
+    // TODO: Chunk rendering
     static constexpr u32 TerrainTextureSize = 256;
     GLuint terrainTexArray;
 
+    // TODO: Make this tewakable parameters
+    u32 frameUniformBufferSwapCount = 4;
+    u32 meshUniformBufferSwapCount = 64;
     UniformBuffer<ShaderFrameData, ShaderFrameData::Binding> frameUniformBuffer;
     UniformBuffer<ShaderMeshData, ShaderMeshData::Binding> meshUniformBuffer;
 };
@@ -542,8 +546,8 @@ Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 ren
     glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &maxTexArrayLayers);
     renderer->maxTexArrayLayers = (u32)maxTexArrayLayers;
 
-    ReallocUniformBuffer(&renderer->frameUniformBuffer);
-    ReallocUniformBuffer(&renderer->meshUniformBuffer);
+    UniformBufferInit(&renderer->frameUniformBuffer, renderer->frameUniformBufferSwapCount, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+    UniformBufferInit(&renderer->meshUniformBuffer, renderer->meshUniformBufferSwapCount, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
 
     GLfloat maxAnisotropy;
     glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_ARB, &maxAnisotropy);
@@ -761,7 +765,11 @@ Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 ren
 
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_SRGB8,
                  Renderer::TerrainTextureSize, Renderer::TerrainTextureSize,
-                 renderer->maxTexArrayLayers, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+                 // Just using fixed-size texture array for blocks for now
+                 // TODO: Chunk rendering, texture atlasses
+                 16
+                 //renderer->maxTexArrayLayers
+                 , 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
 
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -797,7 +805,7 @@ void SetBlockTexture(Renderer* renderer, BlockValue value, void* data) {
     glBindTexture(GL_TEXTURE_2D_ARRAY, renderer->terrainTexArray);
 }
 
-void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle) {
+void GenIrradanceMap(Renderer* renderer, CubeTexture* t, GLuint sourceHandle) {
     assert(t->gpuHandle);
 #if defined(PROFILE_IRRADANCE_GEN)
     SOKO_INFO("Generating irradance map...");
@@ -819,10 +827,6 @@ void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHand
     auto prog = renderer->shaders.IrradanceConvolver;
     glUseProgram(prog);
 
-    auto buffer = Map(renderer->frameUniformBuffer);
-    buffer->invProjMatrix = projInv;
-    Unmap(renderer->frameUniformBuffer);
-
     glDisable(GL_DEPTH_TEST);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->captureFramebuffer);
 
@@ -830,9 +834,10 @@ void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHand
 
     for (u32 i = 0; i < 6; i++) {
         glViewport(0, 0, t->width, t->height);
-        auto buffer = Map(renderer->frameUniformBuffer);
+        auto buffer = UniformBufferMap(&renderer->frameUniformBuffer);
+        buffer->invProjMatrix = projInv;
         buffer->invViewMatrix = M4x4(capViews[i]);
-        Unmap(renderer->frameUniformBuffer);
+        UniformBufferUnmap(&renderer->frameUniformBuffer);
 
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, t->gpuHandle, 0);
@@ -850,7 +855,7 @@ void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHand
 
 }
 
-void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle, u32 mipLevels) {
+void GenEnvPrefiliteredMap(Renderer* renderer, CubeTexture* t, GLuint sourceHandle, u32 mipLevels) {
     assert(t->gpuHandle);
     assert(t->useMips);
     assert(t->filter == TextureFilter::Trilinear);
@@ -873,10 +878,6 @@ void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sour
     assert(t->width == t->height);
     glUniform1i(EnvMapPrefilterShader::Resolution, t->width);
 
-    auto buffer = Map(renderer->frameUniformBuffer);
-    buffer->invProjMatrix = capProj;
-    Unmap(renderer->frameUniformBuffer);
-
     glBindTextureUnit(EnvMapPrefilterShader::SourceCubemap, sourceHandle);
 
     // TODO: There are still visible seams on low mip levels
@@ -893,9 +894,10 @@ void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sour
 
         for (u32 i = 0; i < 6; i++) {
             // TODO: Use another buffer for this
-            auto buffer = Map(renderer->frameUniformBuffer);
+            auto buffer = UniformBufferMap(&renderer->frameUniformBuffer);
             buffer->invViewMatrix = M4x4(capViews[i]);
-            Unmap(renderer->frameUniformBuffer);
+            buffer->invProjMatrix = capProj;
+            UniformBufferUnmap(&renderer->frameUniformBuffer);
             glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, t->gpuHandle, mipLevel);
             glClear(GL_COLOR_BUFFER_BIT);
@@ -1072,10 +1074,10 @@ void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
                     m4x4 modelMatrix = Translate(entry->offset);
                     m3x3 normalMatrix = MakeNormalMatrix(modelMatrix);
 
-                    auto meshBuffer = Map(renderer->meshUniformBuffer);
+                    auto meshBuffer = UniformBufferMap(renderer->meshUniformBuffer);
                     meshBuffer->modelMatrix = modelMatrix;
                     meshBuffer->normalMatrix = normalMatrix;
-                    Unmap(renderer->meshUniformBuffer);
+                    UniformBufferUnmap(renderer->meshUniformBuffer);
 
                     auto* mesh = entry->mesh;
 
@@ -1101,10 +1103,10 @@ void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
                 if (mesh) {
                     auto normalMatrix = MakeNormalMatrix(data->transform);
 
-                    auto meshBuffer = Map(renderer->meshUniformBuffer);
+                    auto meshBuffer = UniformBufferMap(&renderer->meshUniformBuffer);
                     meshBuffer->modelMatrix = data->transform;
                     meshBuffer->normalMatrix = normalMatrix;
-                    Unmap(renderer->meshUniformBuffer);
+                    UniformBufferUnmap(&renderer->meshUniformBuffer);
 
                     while (mesh) {
                         glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
@@ -1219,9 +1221,9 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
 
                 glUseProgram(renderer->shaders.Line);
 
-                auto meshBuffer = Map(renderer->meshUniformBuffer);
+                auto meshBuffer = UniformBufferMap(&renderer->meshUniformBuffer);
                 meshBuffer->lineColor = data->color;
-                Unmap(renderer->meshUniformBuffer);
+                UniformBufferUnmap(&renderer->meshUniformBuffer);
 
                 uptr bufferSize = command->instanceCount * sizeof(RenderCommandPushLineVertex);
                 void* instanceData = (void*)((byte*)data + sizeof(RenderCommandLineBegin));
@@ -1253,7 +1255,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                         auto meshProg = renderer->shaders.Mesh;
 
                         glUseProgram(meshProg);
-                        auto meshBuffer = Map(renderer->meshUniformBuffer);
+                        auto meshBuffer = UniformBufferMap(&renderer->meshUniformBuffer);
 
                         glBindTextureUnit(MeshShader::ShadowMap, renderer->shadowMapDepthTarget);
 
@@ -1289,7 +1291,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
 
                         meshBuffer->modelMatrix = data->transform;
                         meshBuffer->normalMatrix = normalMatrix;
-                        Unmap(renderer->meshUniformBuffer);
+                        UniformBufferUnmap(&renderer->meshUniformBuffer);
 
                         while (mesh) {
                             glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
@@ -1316,7 +1318,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                         auto meshProg = renderer->shaders.PbrMesh;
                         glUseProgram(meshProg);
 
-                        auto meshBuffer = Map(renderer->meshUniformBuffer);
+                        auto meshBuffer = UniformBufferMap(&renderer->meshUniformBuffer);
 
                         // TODO: Are they need to be binded every shader invocation?
                         glBindTextureUnit(MeshPBRShader::IrradanceMap, group->irradanceMapHandle);
@@ -1418,7 +1420,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                         meshBuffer->modelMatrix = data->transform;
                         meshBuffer->normalMatrix = normalMatrix;
 
-                        Unmap(renderer->meshUniformBuffer);
+                        UniformBufferUnmap(&renderer->meshUniformBuffer);
 
                         while (mesh) {
                             glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
@@ -1429,9 +1431,12 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                             // There are probably sould be different shaders for meshes that have bitangents
                             // and for those that do not.
                             // Or maybe bitangents sholdn't be optional at all?
-                            auto meshBuffer = Map(renderer->meshUniformBuffer);
+
+#if 0 // nocheckin
+                            auto meshBuffer = UniformBufferMap(&renderer->meshUniformBuffer);
                             meshBuffer->hasBitangents = hasBitangents ? 1 : 0;
-                            Unmap(renderer->meshUniformBuffer);
+                            UniformBufferUnmap(&renderer->meshUniformBuffer);
+#endif
 
 
                             glEnableVertexAttribArray(0);
@@ -1519,7 +1524,7 @@ void Begin(Renderer* renderer, RenderGroup* group) {
     auto lightViewProj1 = renderer->shadowCascadeViewProjMatrices + 1;
     auto lightViewProj2 = renderer->shadowCascadeViewProjMatrices + 2;
 
-    auto frameBuffer = Map(renderer->frameUniformBuffer);
+    auto frameBuffer = UniformBufferMap(&renderer->frameUniformBuffer);
     frameBuffer->viewProjMatrix = viewProj;
     frameBuffer->viewMatrix = camera->viewMatrix;
     frameBuffer->projectionMatrix = camera->projectionMatrix;
@@ -1546,7 +1551,7 @@ void Begin(Renderer* renderer, RenderGroup* group) {
     frameBuffer->exposure = renderer->exposure;
     frameBuffer->screenSize = V2((f32)renderer->renderRes.x, (f32)renderer->renderRes.y);
 
-    Unmap(renderer->frameUniformBuffer);
+    UniformBufferUnmap(&renderer->frameUniformBuffer);
 }
 
 void End(Renderer* renderer) {
