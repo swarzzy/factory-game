@@ -151,17 +151,8 @@ T* UniformBufferMap(UniformBuffer<T, Binding>* buffer)
     timed_scope();
     assert(!buffer->mapped);
 
-    auto availableBufferIndex = buffer->currentBuffer;
+    auto availableBufferIndex = 0;
     auto info = buffer->buffers + availableBufferIndex;
-
-    if (info->fence) {
-        auto waitResult = glClientWaitSync(info->fence, 0, Globals::UniformBufferMaxTimeout);
-        if (waitResult == GL_TIMEOUT_EXPIRED || waitResult == GL_WAIT_FAILED) {
-            log_print("[Renderer] API has failed while waiting for uniform buffer");
-        }
-        glDeleteSync(info->fence);
-        info->fence = 0;
-    }
 
     buffer->mapped = true;
     // TODO: GL_MAP_FLUSH_EXPLICIT_BIT
@@ -176,7 +167,7 @@ void UniformBufferUnmap(UniformBuffer<T, Binding>* buffer)
     timed_scope();
 
     assert(buffer->mapped);
-    auto bufferIndex = buffer->currentBuffer;
+    auto bufferIndex = 0;
     buffer->currentBuffer = (buffer->currentBuffer + 1) % buffer->bufferCount;
     auto info = buffer->buffers + bufferIndex;
     glUnmapNamedBuffer(info->handle);
@@ -185,6 +176,5 @@ void UniformBufferUnmap(UniformBuffer<T, Binding>* buffer)
     glBindBufferRange(GL_UNIFORM_BUFFER, Binding, info->handle, 0, sizeof(T));
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-    info->fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     buffer->mapped = false;
 }

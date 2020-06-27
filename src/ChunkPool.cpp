@@ -16,7 +16,9 @@ void ReturnChunkMeshToPool(ChunkPool* pool, u32 index) {
     pool->chunkMeshPoolFree++;
     pool->chunkMeshPoolUsage[index] = false;
     auto mesh = pool->chunkMeshPool + index;
+    assert(!mesh->gpuMemoryMapped);
     FreeChunkMesh(pool->mesher, mesh);
+    mesh->chunk = nullptr;
 }
 
 void RemoveChunkFromRenderPool(ChunkPool* pool, Chunk* chunk) {
@@ -130,6 +132,8 @@ void MakeRoomForChunkInRenderPool(ChunkPool* pool) {
         chunk = chunk->nextRendered;
     }
 
+    //furthestChunkOutside = nullptr;
+
     if (furthestChunkOutside) {
         RemoveChunkFromRenderPool(pool, furthestChunkOutside);
     } else {
@@ -215,10 +219,12 @@ void AddChunkToRenderPool(ChunkPool* pool, Chunk* chunk) {
     pool->renderedChunkCount++;
 
     auto mesh = GetChunkMeshFromPool(pool);
+    log_print("Asign chunk mesh %lu to chunk (%ld, %ld, %ld)\n", mesh.index, chunk->p.x, chunk->p.y, chunk->p.z);
     assert(mesh.mesh);
     assert(!chunk->primaryMesh);
     chunk->primaryMesh = mesh.mesh;
     chunk->primaryMeshPoolIndex = mesh.index;
+    mesh.mesh->chunk = chunk;
 
 
     ForEach(&chunk->entityStorage, [&](Entity* it) {
@@ -326,6 +332,7 @@ void UpdateChunks(ChunkPool* pool) {
                     }
                     auto mesh = GetChunkMeshFromPool(pool);
                     if (mesh.mesh) {
+                        mesh.mesh->chunk = chunk;
                         chunk->secondaryMesh = mesh.mesh;
                         chunk->secondaryMeshPoolIndex = mesh.index;
                         chunk->secondaryMeshValid = false;
@@ -385,6 +392,12 @@ void UpdateChunks(ChunkPool* pool) {
                     ScheduleChunkMeshUpload(chunk);
                 } else {
                     chunk->state = ChunkState::MeshingFinished;
+                }
+            } break;
+            case ChunkState::FailedToPushUploadWork: {
+                bool completed = EndGPUpload(chunk->primaryMesh);
+                if (completed) {
+                    chunk->state = ChunkState::WaitsForUpload;
                 }
             } break;
             case ChunkState::MeshUploadingFinished: {

@@ -229,7 +229,10 @@ void ScheduleChunkMeshUpload(Chunk* chunk) {
     chunk->state = ChunkState::UploadingMesh;
     WriteFence();
     if (!PlatformPushWork(queue, UploadChunkMeshToGPUWork, chunk, nullptr, nullptr)) {
-        chunk->state = ChunkState::WaitsForUpload;
+        // TODO: This is not a particulary good workaround for this problem
+        // If we failed to push work then we need to wait while vertex buffer is unmapped
+        EndGPUpload(chunk->primaryMesh);
+        chunk->state = ChunkState::FailedToPushUploadWork;
     }
 }
 

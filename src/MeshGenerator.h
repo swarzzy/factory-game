@@ -28,6 +28,9 @@ struct ChunkMesh {
     u64 gpuLock;
     void* gpuBufferPtr;
     ChunkMesher* mesher;
+    // TODO: For debug
+    b32 gpuMemoryMapped;
+    Chunk* chunk;
 };
 
 struct ChunkMesher {

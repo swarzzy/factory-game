@@ -14,6 +14,7 @@ enum struct ChunkState : u32 {
     MeshingFinished,
     WaitsForUpload,
     MeshUploadingFinished,
+    FailedToPushUploadWork,
     UploadingMesh
 };
 

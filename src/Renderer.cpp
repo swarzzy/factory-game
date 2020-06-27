@@ -223,14 +223,18 @@ void CompleteTextureTransfer(TexTransferBufferInfo* info, Texture* texture) {
 
 void BeginGPUUpload(ChunkMesh* mesh) {
     assert(!mesh->gpuLock);
+    assert(!mesh->gpuMemoryMapped);
     if (!mesh->gpuHandle) {
         GLuint handle;
-        glCreateBuffers(1, &handle);
+        glGenBuffers(1, &handle);
         assert(handle);
         mesh->gpuHandle = handle;
     }
 
+    log_print("Begin gpu upload for mesh with buffer %llu for chunk {%ld, %ld, %ld}\n", mesh->gpuHandle, mesh->chunk->p.x, mesh->chunk->p.y, mesh->chunk->p.z);
+
     void* result = nullptr;
+    mesh->gpuMemoryMapped = true;
 
     GLuint handle = mesh->gpuHandle;
     glBindBuffer(GL_ARRAY_BUFFER, handle);
@@ -238,11 +242,14 @@ void BeginGPUUpload(ChunkMesh* mesh) {
     glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
     glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_STATIC_DRAW);
     result = glMapBufferRange(GL_ARRAY_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+    assert(result);
     mesh->gpuBufferPtr = result;
 }
 
 bool EndGPUpload(ChunkMesh* mesh) {
+    assert(mesh->gpuMemoryMapped);
     bool completed = false;
+    log_print("End gpu upload for mesh with buffer %llu\n", mesh->gpuHandle);
     if (!mesh->gpuLock) {
         GLuint handle = mesh->gpuHandle;
         glBindBuffer(GL_ARRAY_BUFFER, handle);
@@ -256,11 +263,12 @@ bool EndGPUpload(ChunkMesh* mesh) {
     } else {
         auto result = glClientWaitSync((GLsync)mesh->gpuLock, 0, 0);
         assert(result != GL_WAIT_FAILED);
-        assert(result != GL_TIMEOUT_EXPIRED);
+        //assert(result != GL_TIMEOUT_EXPIRED);
         if (result == GL_ALREADY_SIGNALED  || result == GL_CONDITION_SATISFIED) {
             glDeleteSync((GLsync)mesh->gpuLock);
             mesh->gpuLock = 0;
             completed = true;
+            mesh->gpuMemoryMapped = false;
         }
     }
     return completed;
