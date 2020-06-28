@@ -234,12 +234,11 @@ void DebugUIUpdateAndRender(DebugUI* ui) {
         ImGui::SetNextWindowSize({650.0f, 650.0f}, ImGuiCond_FirstUseEver);
         auto windowFlags = ImGuiWindowFlags_HorizontalScrollbar; //ImGuiWindowFlags_NoResize; //ImGuiWindowFlags_AlwaysAutoResize;
         if (ImGui::Begin("Perf counters", &ui->perfCountersState, windowFlags)) {
-            for (usize i = 0; i < GlobalDebugCallRecordsCount; i++) {
-                auto record = GlobalDebugCallRecords + i;
-                if (record->invokeCount) {
-                    ImGui::BulletText("%s(%lu): %lucy %luinv %lucy/inv", record->func, record->line, record->cycleCount, record->invokeCount, record->cycleCount / record->invokeCount);
-                    record->cycleCount = 0;
-                    record->invokeCount = 0;
+            auto context = GetContext();
+            for (usize i = 0; i < array_count(context->debugProfiler.records); i++) {
+                auto record = context->debugProfiler.records + i;
+                if (record->func) {
+                    ImGui::BulletText("%s(%lu): %lucy %luinv %lucy/inv", record->func, record->line, record->cyclesAvg, record->invokeCountAvg, record->cyclesPerCallAvg);
                 }
             }
         }

@@ -8,6 +8,7 @@
 #include "Console.h"
 #include "UI.h"
 #include "DebugUI.h"
+#include "Debug.h"
 #include "EntityInfo.h"
 
 struct Context {
@@ -86,6 +87,7 @@ struct Context {
     b32 consoleEnabled;
     Logger logger;
     Console console;
+    ProfilerBuffer debugProfiler;
 };
 
 void FluxInit(Context* context);

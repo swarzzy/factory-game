@@ -640,7 +640,6 @@ void FluxUpdate(Context* context) {
     }
 
     UIUpdateAndRender(ui);
-    DebugUIUpdateAndRender(debugUI);
 
     Update(&context->camera, player, 1.0f / 60.0f);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -829,6 +828,9 @@ void FluxUpdate(Context* context) {
     ShadowPass(renderer, group);
     MainPass(renderer, group);
     End(renderer);
+
+    UpdateDebugProfiler(&context->debugProfiler);
+    DebugUIUpdateAndRender(debugUI);
 
     // Alpha
     //ImGui::PopStyleVar();
