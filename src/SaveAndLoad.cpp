@@ -82,6 +82,8 @@ bool SaveChunk(Chunk* chunk) {
         } else {
             result = true;
         }
+    } else {
+        result = blockDataWriteResult;
     }
 
     return result;

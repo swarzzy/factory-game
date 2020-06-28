@@ -56,7 +56,7 @@ void ChunkSaveWork(void* data0, void* data1, void* data2, u32 threadIndex) {
     auto pool = (ChunkPool*)data1;
     auto saveResult = SaveChunk(chunk);
     assert(saveResult);
-    log_print("[Chunk pool] Saved a chunk in a worker thread\n");
+    log_print("Finishing a save work for chunk (%ld, %ld, %ld)", chunk->p.x, chunk->p.y, chunk->p.z);
     // TODO: Maybe chunk->lastSaveTick should not be atomic since chunk->saving works as a lock?
     AtomicExchange(&chunk->lastSaveTick, GetPlatform()->tickCount);
     auto prev = AtomicExchange(&chunk->saving, (u32)0);
@@ -70,6 +70,7 @@ void RemoveChunkFromSimPool(ChunkPool* pool, Chunk* chunk) {
     assert(chunk->active);
     assert(!chunk->simPropagationCount);
     assert(!chunk->locked);
+    assert(chunk->lastModificationTick <= chunk->lastSaveTick);
 
     auto prev = chunk->prevActive;
     auto next = chunk->nextActive;
@@ -100,10 +101,12 @@ void RemoveChunkFromSimPool(ChunkPool* pool, Chunk* chunk) {
     });
 
     if (!chunk->simPropagationCount) {
+#if 0
         if (chunk->lastModificationTick) {
             auto saveResult = SaveChunk(chunk);
             assert(saveResult);
         }
+#endif
         DeleteChunk(pool->world, chunk);
     }
 }
@@ -219,7 +222,7 @@ void AddChunkToRenderPool(ChunkPool* pool, Chunk* chunk) {
     pool->renderedChunkCount++;
 
     auto mesh = GetChunkMeshFromPool(pool);
-    log_print("Asign chunk mesh %lu to chunk (%ld, %ld, %ld)\n", mesh.index, chunk->p.x, chunk->p.y, chunk->p.z);
+    //log_print("Asign chunk mesh %lu to chunk (%ld, %ld, %ld)\n", mesh.index, chunk->p.x, chunk->p.y, chunk->p.z);
     assert(mesh.mesh);
     assert(!chunk->primaryMesh);
     chunk->primaryMesh = mesh.mesh;
@@ -290,6 +293,8 @@ void UpdateChunks(ChunkPool* pool) {
                         if (!PlatformPushWork(PlatformHighPriorityQueue, ChunkSaveWork, chunk, pool, nullptr)) {
                             chunk->saving = false;
                             AtomicDecrement(&pool->pendingSavesCount);
+                        } else {
+                            log_print("Starting a save work for chunk (%ld, %ld, %ld)\n", chunk->p.x, chunk->p.y, chunk->p.z);
                         }
                     } else {
                         ScheduleSimChunkEviction(pool, chunk);

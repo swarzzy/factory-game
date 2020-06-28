@@ -16,23 +16,14 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vert, c
 void RecompileShaders(MemoryArena* tempArena, Renderer* renderer);
 inline void DeleteProgram(GLuint handle) { glDeleteProgram(handle); }
 
-struct UniformBufferData {
-    GLuint handle;
-    GLsync fence;
-};
-
 template <typename T, u32 Binding>
 struct UniformBuffer {
-    u32 bufferCount;
-    u32 currentBuffer;
-    usize size;
-    UniformBufferData* buffers;
-    Allocator allocator;
+    u32 handle;
     b32 mapped;
 };
 
 template <typename T, u32 Binding>
-    void UniformBufferInit(UniformBuffer<T, Binding>* buffer, u32 swapBufferCount, Allocator allocator);
+void UniformBufferInit(UniformBuffer<T, Binding>* buffer);
 
 template<typename T, u32 Binding>
 void UniformBufferRealloc(UniformBuffer<T, Binding>* buffer);

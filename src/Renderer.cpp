@@ -90,9 +90,6 @@ struct Renderer {
     static constexpr u32 TerrainTextureSize = 256;
     GLuint terrainTexArray;
 
-    // TODO: Make this tewakable parameters
-    u32 frameUniformBufferSwapCount = 4;
-    u32 meshUniformBufferSwapCount = 64;
     UniformBuffer<ShaderFrameData, ShaderFrameData::Binding> frameUniformBuffer;
     UniformBuffer<ShaderMeshData, ShaderMeshData::Binding> meshUniformBuffer;
 };
@@ -231,7 +228,7 @@ void BeginGPUUpload(ChunkMesh* mesh) {
         mesh->gpuHandle = handle;
     }
 
-    log_print("Begin gpu upload for mesh with buffer %llu for chunk {%ld, %ld, %ld}\n", mesh->gpuHandle, mesh->chunk->p.x, mesh->chunk->p.y, mesh->chunk->p.z);
+    //log_print("Begin gpu upload for mesh with buffer %llu for chunk {%ld, %ld, %ld}\n", mesh->gpuHandle, mesh->chunk->p.x, mesh->chunk->p.y, mesh->chunk->p.z);
 
     void* result = nullptr;
     mesh->gpuMemoryMapped = true;
@@ -249,7 +246,7 @@ void BeginGPUUpload(ChunkMesh* mesh) {
 bool EndGPUpload(ChunkMesh* mesh) {
     assert(mesh->gpuMemoryMapped);
     bool completed = false;
-    log_print("End gpu upload for mesh with buffer %llu\n", mesh->gpuHandle);
+    //log_print("End gpu upload for mesh with buffer %llu\n", mesh->gpuHandle);
     if (!mesh->gpuLock) {
         GLuint handle = mesh->gpuHandle;
         glBindBuffer(GL_ARRAY_BUFFER, handle);
@@ -554,8 +551,8 @@ Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 ren
     glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &maxTexArrayLayers);
     renderer->maxTexArrayLayers = (u32)maxTexArrayLayers;
 
-    UniformBufferInit(&renderer->frameUniformBuffer, renderer->frameUniformBufferSwapCount, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
-    UniformBufferInit(&renderer->meshUniformBuffer, renderer->meshUniformBufferSwapCount, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+    UniformBufferInit(&renderer->frameUniformBuffer);
+    UniformBufferInit(&renderer->meshUniformBuffer);
 
     GLfloat maxAnisotropy;
     glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_ARB, &maxAnisotropy);

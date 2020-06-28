@@ -107,15 +107,8 @@ void RecompileShaders(MemoryArena* tempArena, Renderer* renderer)
 }
 
 template <typename T, u32 Binding>
-void UniformBufferInit(UniformBuffer<T, Binding>* buffer, u32 swapBufferCount, Allocator allocator) {
-    buffer->currentBuffer = 0;
+void UniformBufferInit(UniformBuffer<T, Binding>* buffer) {
     buffer->mapped = false;
-    buffer->allocator = allocator;
-    buffer->bufferCount = swapBufferCount;
-    buffer->size = sizeof(T) * swapBufferCount;
-    buffer->buffers = (UniformBufferData*)allocator.Alloc(sizeof(UniformBufferData) * swapBufferCount, 0);
-    assert(buffer->buffers);
-    ClearArray(buffer->buffers, swapBufferCount);
     ReallocUniformBuffer(buffer);
 }
 
@@ -123,26 +116,14 @@ template<typename T, u32 Binding>
 inline void ReallocUniformBuffer(UniformBuffer<T, Binding>* buffer)
 {
     glFinish();
-    for (u32 i = 0; i < buffer->bufferCount; i++) {
-        auto info = buffer->buffers + i;
-        if (info->fence) {
-            auto waitResult = glClientWaitSync(info->fence, 0, 0);
-            if (waitResult == GL_TIMEOUT_EXPIRED || waitResult == GL_WAIT_FAILED) {
-                log_print("[Renderer] Reallocating a uniform buffer which is currently used!\n");
-                assert(false);
-            }
-            glDeleteSync(info->fence);
-            info->fence = 0;
-        }
-        if (info->handle) {
-            glDeleteBuffers(1, &info->handle);
-            info->handle = 0;
-        }
-
-        glCreateBuffers(1, &info->handle);
-        assert(info->handle);
-        glNamedBufferStorage(info->handle, sizeof(T), 0, GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT);
+    if (buffer->handle) {
+        glDeleteBuffers(1, &buffer->handle);
+        buffer->handle = 0;
     }
+
+    glCreateBuffers(1, &buffer->handle);
+    assert(buffer->handle);
+    glNamedBufferStorage(buffer->handle, sizeof(T), 0, GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT);
 }
 
 template<typename T, u32 Binding>
@@ -151,12 +132,11 @@ T* UniformBufferMap(UniformBuffer<T, Binding>* buffer)
     timed_scope();
     assert(!buffer->mapped);
 
-    auto availableBufferIndex = 0;
-    auto info = buffer->buffers + availableBufferIndex;
-
     buffer->mapped = true;
-    // TODO: GL_MAP_FLUSH_EXPLICIT_BIT
-    auto mem = (T*)glMapNamedBufferRange(info->handle, 0, sizeof(T), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+    // TODO: This is not a particulary good streaming scheme
+    // it is not provides a good control
+    // we need more elaborate scheme or just switch to another API
+    auto mem = (T*)glMapNamedBufferRange(buffer->handle, 0, sizeof(T), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
     assert(mem);
     return mem;
 }
@@ -167,13 +147,10 @@ void UniformBufferUnmap(UniformBuffer<T, Binding>* buffer)
     timed_scope();
 
     assert(buffer->mapped);
-    auto bufferIndex = 0;
-    buffer->currentBuffer = (buffer->currentBuffer + 1) % buffer->bufferCount;
-    auto info = buffer->buffers + bufferIndex;
-    glUnmapNamedBuffer(info->handle);
+    glUnmapNamedBuffer(buffer->handle);
 
-    glBindBuffer(GL_UNIFORM_BUFFER, info->handle);
-    glBindBufferRange(GL_UNIFORM_BUFFER, Binding, info->handle, 0, sizeof(T));
+    glBindBuffer(GL_UNIFORM_BUFFER, buffer->handle);
+    glBindBufferRange(GL_UNIFORM_BUFFER, Binding, buffer->handle, 0, sizeof(T));
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     buffer->mapped = false;
