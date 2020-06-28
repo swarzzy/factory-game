@@ -121,6 +121,9 @@ T* AddSpatialEntity(GameWorld* world, WorldPos p);
 template <typename T>
 T* AddBlockEntity(GameWorld* world, iv3 p);
 
+SpatialEntity* RestoreSpatialEntity(GameWorld* world, EntityID id, u32 type, u32 flags, WorldPos p, v3 velocity, f32 scale, f32 acceleration, f32 friction);
+BlockEntity* RestoreBlockEntity(GameWorld* world, EntityID id, u32 type, u32 flags, iv3 p);
+
 void DeleteEntity(GameWorld* world, Entity* entity);
 void ScheduleEntityForDelete(GameWorld* world, Entity* entity);
 

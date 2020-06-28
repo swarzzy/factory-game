@@ -2,6 +2,7 @@
 #include "World.h"
 #include "RenderGroup.h"
 #include "../ext/imgui/imgui.h"
+#include "BinaryBlob.h"
 
 void OrientPipe(GameWorld* world, Pipe* pipe);
 

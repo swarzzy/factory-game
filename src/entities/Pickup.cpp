@@ -44,3 +44,15 @@ void PickupUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void* _
         }
     }
 }
+
+void SerializePickup(Entity* entity, BinaryBlob* output) {
+    auto pickup = (Pickup*)entity;
+    WriteField(output, &pickup->item);
+    WriteField(output, &pickup->count);
+}
+
+void DeserializePickup(Entity* entity, EntitySerializedData data) {
+    auto pickup = (Pickup*)entity;
+    ReadField(&data, &pickup->item);
+    ReadField(&data, &pickup->count);
+}

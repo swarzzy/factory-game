@@ -53,7 +53,7 @@ void RegisterBuiltInEntities(Context* context) {
     }
 
     { // Entities
-        auto container = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        auto container = EntityInfoRegisterEntity<Container>(entityInfo, EntityKind::Block);
         assert(container->typeID == (u32)EntityType::Container);
         container->Create = CreateContainerEntity;
         container->name = "Container";
@@ -64,7 +64,7 @@ void RegisterBuiltInEntities(Context* context) {
         container->hasUI = true;
         REGISTER_ENTITY_TRAIT(container, Container, itemExchangeTrait, Trait::ItemExchange);
 
-        auto pipe = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        auto pipe = EntityInfoRegisterEntity<Pipe>(entityInfo, EntityKind::Block);
         assert(pipe->typeID == (u32)EntityType::Pipe);
         pipe->Create = CreatePipeEntity;
         pipe->name = "Pipe";
@@ -72,7 +72,7 @@ void RegisterBuiltInEntities(Context* context) {
         pipe->Behavior = PipeUpdateAndRender;
         pipe->UpdateAndRenderUI = PipeUpdateAndRenderUI;
 
-        auto belt = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        auto belt = EntityInfoRegisterEntity<Belt>(entityInfo, EntityKind::Block);
         assert(belt->typeID == (u32)EntityType::Belt);
         belt->Create = CreateBelt;
         belt->name = "Belt";
@@ -80,7 +80,7 @@ void RegisterBuiltInEntities(Context* context) {
         belt->Behavior = BeltBehavior;
         REGISTER_ENTITY_TRAIT(belt, Belt, belt, Trait::Belt);
 
-        auto extractor = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        auto extractor = EntityInfoRegisterEntity<Extractor>(entityInfo, EntityKind::Block);
         assert(extractor->typeID == (u32)EntityType::Extractor);
         extractor->Create = CreateExtractor;
         extractor->name = "Extractor";
@@ -90,28 +90,32 @@ void RegisterBuiltInEntities(Context* context) {
         REGISTER_ENTITY_TRAIT(extractor, Extractor, itemExchangeTrait, Trait::ItemExchange);
         //REGISTER_ENTITY_TRAIT(extractor, Extractor, testTrait, Trait::Test);
 
-        auto barrel = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        // TODO: Remove
+        auto barrel = EntityInfoRegisterEntity<u32>(entityInfo, EntityKind::Block);
         assert(barrel->typeID == (u32)EntityType::Barrel);
         barrel->name = "Barrel";
 
-        auto tank = EntityInfoRegisterEntity(entityInfo, EntityKind::Block);
+        // TODO: remove
+        auto tank = EntityInfoRegisterEntity<u32>(entityInfo, EntityKind::Block);
         assert(tank->typeID == (u32)EntityType::Tank);
         tank->name = "Tank";
 
-        auto pickup = EntityInfoRegisterEntity(entityInfo, EntityKind::Spatial);
+        auto pickup = EntityInfoRegisterEntity<Pickup>(entityInfo, EntityKind::Spatial);
         assert(pickup->typeID == (u32)EntityType::Pickup);
         pickup->Create = CreatePickupEntity;
         pickup->name = "Pickup";
         pickup->Behavior = PickupUpdateAndRender;
+        pickup->Serialize = SerializePickup;
+        pickup->Deserialize = DeserializePickup;
 
-        auto projectile = EntityInfoRegisterEntity(entityInfo, EntityKind::Spatial);
+        auto projectile = EntityInfoRegisterEntity<Projectile>(entityInfo, EntityKind::Spatial);
         assert(projectile->typeID == (u32)EntityType::Projectile);
         projectile->Create = CreateProjectileEntity;
         projectile->name = "Projectile";
         projectile->Behavior = ProjectileUpdateAndRender;
         projectile->CollisionResponse = ProjectileCollisionResponse;
 
-        auto player = EntityInfoRegisterEntity(entityInfo, EntityKind::Spatial);
+        auto player = EntityInfoRegisterEntity<Player>(entityInfo, EntityKind::Spatial);
         assert(player->typeID == (u32)EntityType::Player);
         player->Create = CreatePlayerEntity;
         player->name = "Player";

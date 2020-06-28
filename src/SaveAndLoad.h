@@ -3,6 +3,24 @@
 #include "Common.h"
 
 struct Chunk;
+struct GameWorld;
+
+struct WorldFile {
+    constant u32 MagicValue = 0xcabccabc;
+    constant u32 LatestVersion = 1;
+    u32 magic;
+    u32 version;
+    u64 entitySerialCount;
+};
+
+struct EntityFileHeader {
+    constant u32 MagicValue = 0xabf537ac;
+    constant u32 LatestVersion = 1;
+    u32 magic;
+    u32 version;
+    u32 entityCount;
+    u32 _reserved;
+};
 
 struct EntityHeaderV1 {
     u16 headerVersion;
@@ -25,7 +43,8 @@ struct EntityHeaderV1 {
         } block;
     };
 
-    u32 offset;
+    u32 dataOffset;
+    u32 dataSize;
 };
 
 void SaveThreadWork(void* data);
@@ -33,5 +52,8 @@ void SaveThreadWork(void* data);
 bool SaveChunk(Chunk* chunk);
 bool TryLoadChunk(Chunk* chunk);
 void TryLoadEntities(Chunk* chunk);
+
+bool SaveWorldData(GameWorld* world);
+bool LoadWorldData(GameWorld* world);
 
 bool SaveWorld(GameWorld* world);

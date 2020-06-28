@@ -15,6 +15,8 @@ void EntityInfoInit(EntityInfo* info) {
     info->nullEntity.name = "null";
     info->nullEntity.Create = CreateNullEntity;
     info->nullEntity.kind = EntityKind::Block;
+    info->nullEntity.size = 1;
+    info->nullEntity.alignment = 1;
 
     info->nullItem.name = "null";
     info->nullItem.convertsToBlock = true;
@@ -26,13 +28,18 @@ void EntityInfoInit(EntityInfo* info) {
     info->nullTrait.name = "null";
 };
 
-EntityInfoEntry* EntityInfoRegisterEntity(EntityInfo* info, EntityKind kind) {
+EntityInfoEntry* EntityInfoRegisterEntity(EntityInfo* info, EntityKind kind, u32 size, u32 alignment) {
+    assert(size);
+    assert(alignment);
+
     EntityInfoEntry* entry = FlatArrayPush(&info->entityTable);
     ClearMemory(entry);
     entry->typeID = info->entityTable.count;
     entry->Create = CreateNullEntity;
     entry->DropPickup = nullptr;
     entry->kind = kind;
+    entry->size = size;
+    entry->alignment = alignment;
     switch (kind) {
     case EntityKind::Spatial: {
         entry->ProcessOverlap = SpatialEntityProcessOverlap;

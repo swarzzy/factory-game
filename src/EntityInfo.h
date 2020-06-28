@@ -17,10 +17,15 @@ struct EntityInfoEntry {
     EntityProcessOverlapFn* ProcessOverlap;
     SpatialEntityCollisionResponseFn* CollisionResponse;
     EntityUpdateAndRenderUIFn* UpdateAndRenderUI;
+    EntitySerializeFn* Serialize;
+    EntityDeserializeFn* Deserialize;
     const char* name;
     EntityKind kind;
     bool hasUI;
     u32 typeID;
+
+    u32 size;
+    u32 alignment;
 
     u32 traitCount;
     u16 traits[16];
@@ -69,10 +74,15 @@ struct EntityInfo {
 // TODO: Make entity info global
 void EntityInfoInit(EntityInfo* info);
 
-EntityInfoEntry* EntityInfoRegisterEntity(EntityInfo* info, EntityKind kind);
+EntityInfoEntry* EntityInfoRegisterEntity(EntityInfo* info, EntityKind kind, u32 size, u32 alignment);
 ItemInfoEntry* EntityInfoRegisterItem(EntityInfo* info);
 BlockInfoEntry* EntityInfoRegisterBlock(EntityInfo* info);
 EntityTraitInfoEntry* EntityInfoRegisterTrait(EntityInfo* info);
+
+template <typename T>
+inline EntityInfoEntry* EntityInfoRegisterEntity(EntityInfo* info, EntityKind kind) {
+    return EntityInfoRegisterEntity(info, kind, sizeof(T), alignof(T));
+}
 
 #define REGISTER_ENTITY_TRAIT(info, entityType, traitMember, traitID) do { auto result = EntityInfoAddTrait(info, (TraitID)traitID, offset_of(entityType, traitMember)); assert(result); } while (false)
 bool EntityInfoAddTrait(EntityInfoEntry* info, u16 traitID, u16 offset);

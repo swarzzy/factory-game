@@ -5,6 +5,7 @@
 #include "Item.h"
 #include "Inventory.h"
 #include "Block.h"
+#include "BinaryBlob.h"
 
 struct Material;
 struct GameWorld;
@@ -125,6 +126,30 @@ struct CollisionInfo {
 };
 
 typedef void(SpatialEntityCollisionResponseFn)(SpatialEntity* entity, const CollisionInfo* info);
+
+template<typename T>
+void WriteField(BinaryBlob* blob, const T* field) {
+    auto data = blob->Write(sizeof(T));
+    memcpy(data, field, sizeof(T));
+}
+
+struct EntitySerializedData {
+    void* data;
+    u32 size;
+    u32 at;
+};
+
+template<typename T>
+void ReadField(EntitySerializedData* data, T* field) {
+    auto fieldSize = sizeof(T);
+    assert(fieldSize <= (data->size - data->at));
+    auto serializedField = (T*)((u8*)data->data + data->at);
+    *field = *serializedField;
+    data->at += (u32)fieldSize;
+}
+
+typedef void(EntitySerializeFn)(Entity* entity, BinaryBlob* output);
+typedef void(EntityDeserializeFn)(Entity* entity, EntitySerializedData data);
 
 // TODO: Make one call out of these
 typedef void(EntityDeleteFn)(Entity* entity);

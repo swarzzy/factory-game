@@ -130,11 +130,12 @@ void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed
     FlatArrayInit(&world->entitiesToMove, MakeAllocator(PlatformAlloc, PlatformFree, nullptr), 128);
     InitChunkPool(&world->chunkPool, world, mesher, GameWorld::ViewDistance, seed);
 
-    wchar_t nameBuffer[256];
-    swprintf_s(nameBuffer, 128, L"%hs/*.entities", world->name);
-    auto successfullyReadAll = PlatformForEachFile(nameBuffer, nullptr, [] (auto info, void* data) {
-        log_print("File: %S\n", info->name);
-    });
+    auto result = LoadWorldData(world);
+    if (result) {
+        log_print("[World] Loaded exsisting world %s\n", world->name);
+    } else {
+        log_print("[World] Creating new world %s\n", world->name);
+    }
 }
 
 template <typename T>
@@ -148,8 +149,8 @@ T* AddSpatialEntity(GameWorld* world, WorldPos p) {
     auto chunk = GetChunk(world, chunkP.x, chunkP.y, chunkP.z);
     if (chunk) {
         entity = (T*)PlatformAlloc(sizeof(T), alignof(T), nullptr);
-        ClearMemory(entity);
         if (entity) {
+            ClearMemory(entity);
             EntityStorageInsert(&chunk->entityStorage, entity);
             entity->id = GenEntityID(world, EntityKind::Spatial);
             entity->kind = EntityKind::Spatial;
@@ -164,6 +165,46 @@ T* AddSpatialEntity(GameWorld* world, WorldPos p) {
                 RegisterEntity(world, entity);
             }
         }
+    }
+    return entity;
+}
+// TODO: Clean this args
+SpatialEntity* RestoreSpatialEntity(GameWorld* world, EntityID id, u32 type, u32 flags, WorldPos p, v3 velocity, f32 scale, f32 acceleration, f32 friction) {
+    timed_scope();
+    SpatialEntity* entity = nullptr;
+    auto info = GetEntityInfo(type);
+    if (info->kind == EntityKind::Spatial) {
+        auto worldPos = WorldPos::Normalize(p);
+        auto chunkP = WorldPos::ToChunk(worldPos).chunk;
+        auto chunk = GetChunk(world, chunkP.x, chunkP.y, chunkP.z);
+
+        if (chunk) {
+            entity = (SpatialEntity*)PlatformAlloc(info->size, info->alignment, nullptr);
+            if (entity) {
+                memset(entity, 0, info->size);
+                EntityStorageInsert(&chunk->entityStorage, entity);
+                // TODO: Validate id;
+                entity->id = id;
+                entity->kind = EntityKind::Spatial;
+                entity->type = (EntityType)type;
+                // NOTE: All spatial entitites propagates sim for now
+                entity->flags = flags;
+                // TODO: Entity default params
+                entity->p = worldPos;
+                entity->world = world;
+                entity->friction = friction;
+                entity->velocity = velocity;
+                entity->scale = scale;
+                entity->acceleration = acceleration;
+                entity->currentChunk = chunk->p;
+                chunk->simPropagationCount++;
+                if (chunk->active) {
+                    RegisterEntity(world, entity);
+                }
+            }
+        }
+    } else {
+        log_print("[Warn] Trying to create a spatial entity of non-spatial type %lu\n", type);
     }
     return entity;
 }
@@ -226,6 +267,45 @@ T* AddBlockEntity(GameWorld* world, iv3 p) {
                 PostEntityNeighborhoodUpdate(world, entity);
             }
         }
+    }
+    return entity;
+}
+
+BlockEntity* RestoreBlockEntity(GameWorld* world, EntityID id, u32 type, u32 flags, iv3 p) {
+    timed_scope();
+    // TODO: Validate position
+    BlockEntity* entity = nullptr;
+    auto info = GetEntityInfo(type);
+    if (info->kind == EntityKind::Block) {
+
+        auto chunkP = WorldPos::ToChunk(p);
+        auto chunk = GetChunk(world, chunkP.chunk);
+
+        if (chunk) {
+            auto block = GetBlock(chunk, chunkP.block);
+            if (!IsBlockCollider(&block) && (block.entity == nullptr)) {
+                entity = (BlockEntity*)PlatformAlloc(info->size, info->alignment, nullptr);
+                if (entity) {
+                    memset(entity, 0, info->size);
+                    EntityStorageInsert(&chunk->entityStorage, entity);
+                    // TODO: Validate id
+                    entity->id = id;
+                    entity->kind = EntityKind::Block;
+                    entity->type = (EntityType)type;
+                    entity->p = p;
+                    entity->flags = flags;
+                    entity->world = world;
+                    auto occupied = OccupyBlock(chunk, entity, chunkP.block);
+                    assert(occupied);
+                    if (chunk->active) {
+                        RegisterEntity(world, entity);
+                    }
+                    PostEntityNeighborhoodUpdate(world, entity);
+                }
+            }
+        }
+    } else {
+        log_print("[Warn] Trying to create block entity of non-block type %lu\n", type);
     }
     return entity;
 }

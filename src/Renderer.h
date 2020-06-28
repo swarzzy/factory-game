@@ -65,7 +65,7 @@ struct CubeTexture {
 
 enum struct NormalFormat {
     OpenGL = 0, DirectX = 1
-        };
+};
 
 const char* ToString(NormalFormat value) {
     static const char* strings[] = {
