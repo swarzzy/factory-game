@@ -27,3 +27,6 @@ void PipeDelete(Entity* entity, GameWorld* world);
 void PipeUpdateAndRender(Entity* entity, EntityBehaviorInvoke reason, void* data);
 void PipeDropPickup(Entity* entity, GameWorld* world, WorldPos p);
 void PipeUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason);
+
+void PipeSerialize(Entity* entity, BinaryBlob* out);
+void PipeDeserialize(Entity* entity, EntitySerializedData data);

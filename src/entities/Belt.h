@@ -16,6 +16,7 @@ struct BeltTrait {
     constant f32 HorzSpeed = Speed * 5.0f;
     constant u32 FirstSlot = 0;
     constant u32 LastSlot = Capacity - 1;
+
     Direction direction;
     u32 items[Capacity];
     f32 itemPositions[Capacity];
@@ -24,6 +25,10 @@ struct BeltTrait {
     f32 extractTimeout;
 };
 
+void SerializeBeltTrait(BeltTrait* trait, BinaryBlob* out);
+void DeserializeBeltTrait(BeltTrait* trait, EntitySerializedData data);
+
+attrib (RegisterEntity("kind: block, type: Belt, name: Belt"))
 struct Belt : BlockEntity {
     BeltTrait belt;
 };
@@ -35,3 +40,13 @@ void BeltDropPickup(Entity* entity, GameWorld* world, WorldPos p);
 
 bool BeltInsertItem(Entity* entity, Direction dir, u32 itemID, f32 callerItemPos);
 u32 BeltGrabItem(Entity* entity, Direction dir);
+
+inline void BeltSerialize(Entity* entity, BinaryBlob* out) {
+    auto belt = (Belt*)entity;
+    SerializeBeltTrait(&belt->belt, out);
+}
+
+inline void BeltDeserialize(Entity* entity, EntitySerializedData data) {
+    auto belt = (Belt*)entity;
+    DeserializeBeltTrait(&belt->belt, data);
+}

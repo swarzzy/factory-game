@@ -16,3 +16,6 @@ void ContainerUpdateAndRenderUI(Entity* entity, EntityUIInvoke reason);
 
 EntityPopItemResult ContainerPopItem(Entity* entity, Direction dir, u32 itemID, u32 count);
 u32 ContainerPushItem(Entity* entity, Direction dir, u32 itemID, u32 count);
+
+void ContainerSerialize(Entity* entity, BinaryBlob* out);
+void ContainerDeserialize(Entity* entity, EntitySerializedData data);

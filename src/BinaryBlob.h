@@ -12,10 +12,10 @@ struct BinaryBlob {
     Allocator allocator;
 
     void* Write(usize size) {
-        if (size < this->free) {
+        if (size > this->free) {
             auto newSize = (u32)((f32)this->size * GrowFactor);
             if ((newSize - this->at) < size) {
-                newSize = size - (this->size - this->at);
+                newSize = this->size + size - (this->size - this->at);
             }
             // TODO: Realloc or something
             auto newMem = this->allocator.Alloc(newSize, DefaultAligment);
@@ -27,7 +27,7 @@ struct BinaryBlob {
             this->free = newSize - this->at;
         }
 
-        assert(size < this->free);
+        assert(size <= this->free);
 
         void* result = ((u8*)this->data + this->at);
         this->at += size;

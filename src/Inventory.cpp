@@ -80,3 +80,30 @@ Item EntityInventoryPopItem(EntityInventory* inventory, u32 slotIndex) {
     }
     return item;
 }
+
+void EntityInventorySerialize(EntityInventory* inventory, BinaryBlob* out) {
+    WriteField(out, &inventory->slotCapacity);
+    WriteField(out, &inventory->slotCount);
+    for (u32 i = 0; i < inventory->slotCount; i++) {
+        auto slot = inventory->slots + i;
+        WriteField(out, &slot->item);
+        WriteField(out, &slot->count);
+    }
+}
+
+EntityInventory* EntityInventoryDeserialize(EntitySerializedData data) {
+    EntityInventory* inventory;
+    u32 slotCapacity;
+    u32 slotCount;
+    ReadField(&data, &slotCapacity);
+    ReadField(&data, &slotCount);
+    inventory = AllocateEntityInventory(slotCount, slotCapacity);
+    if (inventory) {
+        for (u32 i = 0; i < inventory->slotCount; i++) {
+            auto slot = inventory->slots + i;
+            ReadField(&data, &slot->item);
+            ReadField(&data, &slot->count);
+        }
+    }
+    return inventory;
+}

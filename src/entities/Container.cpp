@@ -57,3 +57,16 @@ u32 ContainerPushItem(Entity* entity, Direction dir, u32 itemID, u32 count) {
     u32 result = EntityInventoryPushItem(container->inventory, (Item)itemID, count);
     return result;
 }
+
+void ContainerSerialize(Entity* entity, BinaryBlob* out) {
+    auto self = (Container*)entity;
+    EntityInventorySerialize(self->inventory, out);
+}
+
+void ContainerDeserialize(Entity* entity, EntitySerializedData data) {
+    auto self = (Container*)entity;
+    self->inventory = EntityInventoryDeserialize(data);
+    assert(self->inventory);
+    self->itemExchangeTrait.PopItem = ContainerPopItem;
+    self->itemExchangeTrait.PushItem = ContainerPushItem;
+}

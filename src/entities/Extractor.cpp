@@ -122,3 +122,18 @@ u32 ExtractorPushItem(Entity* entity, Direction dir, u32 itemID, u32 count) {
     }
     return count;
 }
+
+void ExtractorSerialize(Entity* entity, BinaryBlob* out) {
+    auto extractor = (Extractor*)entity;
+    WriteField(out, &extractor->direction);
+    WriteField(out, &extractor->extractTimeout);
+    WriteField(out, &extractor->bufferItemID);
+}
+void ExtractorDeserialize(Entity* entity, EntitySerializedData data) {
+    auto extractor = (Extractor*)entity;
+    ReadField(&data, &extractor->direction);
+    ReadField(&data, &extractor->extractTimeout);
+    ReadField(&data, &extractor->bufferItemID);
+    extractor->itemExchangeTrait.PushItem = ExtractorPushItem;
+    extractor->itemExchangeTrait.PopItem = ExtractorPopItem;
+}

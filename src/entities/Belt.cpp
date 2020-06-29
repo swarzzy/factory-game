@@ -1,5 +1,23 @@
 #include "Belt.h"
 
+void SerializeBeltTrait(BeltTrait* trait, BinaryBlob* out) {
+    WriteField(out, &trait->direction);
+    WriteField(out, &trait->items);
+    WriteField(out, &trait->itemPositions);
+    WriteField(out, &trait->itemTurnDirections);
+    WriteField(out, &trait->extractTimeout);
+}
+
+void DeserializeBeltTrait(BeltTrait* trait, EntitySerializedData data) {
+    ReadField(&data, &trait->direction);
+    ReadField(&data, &trait->items);
+    ReadField(&data, &trait->itemPositions);
+    ReadField(&data, &trait->itemTurnDirections);
+    ReadField(&data, &trait->extractTimeout);
+    trait->InsertItem = BeltInsertItem;
+    trait->GrabItem = BeltGrabItem;
+}
+
 void OrientBelt(Belt* belt) {
     i32 directions[4] {};
 

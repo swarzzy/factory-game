@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Common.h"
+#include "Entity.h"
+
+struct BinaryBlob;
 
 // TODO: Convert Item to u32 id's
 
@@ -40,3 +43,6 @@ InventoryPopItemResult EntityInventoryPopItem(EntityInventory* inventory, Item f
 Item EntityInventoryPopItem(EntityInventory* inventory, u32 slotIndex);
 EntityInventory* AllocateEntityInventory(u32 slotCount, u32 slotCapacity);
 void DeleteEntityInventory(EntityInventory* inventory);
+
+void EntityInventorySerialize(EntityInventory* inventory, BinaryBlob* out);
+EntityInventory* EntityInventoryDeserialize(EntitySerializedData data);

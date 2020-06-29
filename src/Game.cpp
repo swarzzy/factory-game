@@ -61,6 +61,8 @@ void RegisterBuiltInEntities(Context* context) {
         container->Behavior = ContainerUpdateAndRender;
         container->UpdateAndRenderUI = ContainerUpdateAndRenderUI;
         container->Delete = DeleteContainer;
+        container->Serialize = ContainerSerialize;
+        container->Deserialize = ContainerDeserialize;
         container->hasUI = true;
         REGISTER_ENTITY_TRAIT(container, Container, itemExchangeTrait, Trait::ItemExchange);
 
@@ -71,6 +73,8 @@ void RegisterBuiltInEntities(Context* context) {
         pipe->DropPickup = PipeDropPickup;
         pipe->Behavior = PipeUpdateAndRender;
         pipe->UpdateAndRenderUI = PipeUpdateAndRenderUI;
+        pipe->Serialize = PipeSerialize;
+        pipe->Deserialize = PipeDeserialize;
 
         auto belt = EntityInfoRegisterEntity<Belt>(entityInfo, EntityKind::Block);
         assert(belt->typeID == (u32)EntityType::Belt);
@@ -78,6 +82,8 @@ void RegisterBuiltInEntities(Context* context) {
         belt->name = "Belt";
         belt->DropPickup = BeltDropPickup;
         belt->Behavior = BeltBehavior;
+        belt->Serialize = BeltSerialize;
+        belt->Deserialize = BeltDeserialize;
         REGISTER_ENTITY_TRAIT(belt, Belt, belt, Trait::Belt);
 
         auto extractor = EntityInfoRegisterEntity<Extractor>(entityInfo, EntityKind::Block);
@@ -87,6 +93,8 @@ void RegisterBuiltInEntities(Context* context) {
         extractor->DropPickup = ExtractorDropPickup;
         extractor->Behavior = ExtractorBehavior;
         extractor->UpdateAndRenderUI = ExtractorUpdateAndRenderUI;
+        extractor->Serialize = ExtractorSerialize;
+        extractor->Deserialize = ExtractorDeserialize;
         REGISTER_ENTITY_TRAIT(extractor, Extractor, itemExchangeTrait, Trait::ItemExchange);
         //REGISTER_ENTITY_TRAIT(extractor, Extractor, testTrait, Trait::Test);
 

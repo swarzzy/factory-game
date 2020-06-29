@@ -393,3 +393,22 @@ void OrientPipe(GameWorld* world, Pipe* pipe) {
         }
     }
 }
+
+void PipeSerialize(Entity* entity, BinaryBlob* out) {
+    auto self = (Pipe*)entity;
+    WriteField(out, &self->filled);
+    WriteField(out, &self->liquid);
+    WriteField(out, &self->amount);
+    WriteField(out, &self->pressure);
+}
+
+void PipeDeserialize(Entity* entity, EntitySerializedData data) {
+    auto self = (Pipe*)entity;
+    ReadField(&data, &self->filled);
+    ReadField(&data, &self->liquid);
+    ReadField(&data, &self->amount);
+    ReadField(&data, &self->pressure);
+    //NeighborhoodChangedUpdate(self);
+    self->dirtyNeighborhood = true;
+    PostEntityNeighborhoodUpdate(self->world, self);
+}

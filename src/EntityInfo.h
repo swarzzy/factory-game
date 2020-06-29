@@ -9,6 +9,8 @@ struct Logger;
 struct Mesh;
 struct Material;
 
+#define attrib(...)
+
 struct EntityInfoEntry {
     CreateEntityFn* Create;
     EntityDeleteFn* Delete;

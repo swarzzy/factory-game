@@ -3,7 +3,7 @@
 #include "Common.h"
 #include "Math.h"
 #include "Item.h"
-#include "Inventory.h"
+//#include "Inventory.h"
 #include "Block.h"
 #include "BinaryBlob.h"
 
@@ -144,7 +144,7 @@ void ReadField(EntitySerializedData* data, T* field) {
     auto fieldSize = sizeof(T);
     assert(fieldSize <= (data->size - data->at));
     auto serializedField = (T*)((u8*)data->data + data->at);
-    *field = *serializedField;
+    memcpy(field, serializedField, sizeof(T));
     data->at += (u32)fieldSize;
 }
 
