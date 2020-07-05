@@ -26,6 +26,24 @@ u32 AtomicLoad(u32 volatile* value) {
     return *value;
 }
 
+u64 GetTimeStamp() {
+    LARGE_INTEGER count;
+    auto result = QueryPerformanceCounter(&count);
+    return count.QuadPart;
+}
+
+static u64 _TicksPerSecond = 0;
+
+u64 GetTicksPerSecond() {
+    if (_TicksPerSecond == 0) {
+        LARGE_INTEGER frequency;
+        QueryPerformanceFrequency(&frequency);
+        _TicksPerSecond = frequency.QuadPart;
+        assert(_TicksPerSecond);
+    }
+    return _TicksPerSecond;
+}
+
 
 
 #endif

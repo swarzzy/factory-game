@@ -10,8 +10,6 @@
 #error Unsupported OS
 #endif
 
-#define GetCycleCount() __rdtsc()
-
 #include "Intrinsics.h"
 #include "Math.h"
 #include "OpenGL.h"
@@ -61,8 +59,6 @@ typedef b32(DebugCopyFileFn)(const wchar_t* source, const wchar_t* dest, bool ov
 typedef FileHandle(DebugOpenFileFn)(const wchar_t* filename);
 typedef bool(DebugCloseFileFn)(FileHandle handle);
 typedef u32(DebugWriteToOpenedFileFn)(FileHandle handle, void* data, u32 size);
-
-typedef f64(GetTimeStampFn)();
 
 struct FileInfo {
     const wchar_t* name;
@@ -180,8 +176,6 @@ struct PlatformCalls
     PushWorkFn* PushWork;
     CompleteAllWorkFn* CompleteAllWork;
     SetSaveThreadWorkFn* SetSaveThreadWork;
-
-    GetTimeStampFn* GetTimeStamp;
 
     ResourceLoaderLoadImageFn* ResourceLoaderLoadImage;
     ResourceLoaderValidateImageFileFn* ResourceLoaderValidateImageFile;

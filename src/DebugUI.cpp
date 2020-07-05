@@ -1,6 +1,6 @@
 #include "DebugUI.h"
 
-#include "Debug.h"
+#include "Profile.h"
 
 void ChunkToolMain(DebugUI* ui) {
     auto context = GetContext();
@@ -235,12 +235,7 @@ void DebugUIUpdateAndRender(DebugUI* ui) {
         auto windowFlags = ImGuiWindowFlags_HorizontalScrollbar; //ImGuiWindowFlags_NoResize; //ImGuiWindowFlags_AlwaysAutoResize;
         if (ImGui::Begin("Perf counters", &ui->perfCountersState, windowFlags)) {
             auto context = GetContext();
-            for (usize i = 0; i < array_count(context->debugProfiler.records); i++) {
-                auto record = context->debugProfiler.records + i;
-                if (record->func) {
-                    ImGui::BulletText("%s(%lu): %lucy %luinv %lucy/inv", record->func, record->line, record->cyclesAvg, record->invokeCountAvg, record->cyclesPerCallAvg);
-                }
-            }
+            DrawDebugProfiler(&context->debugProfiler);
         }
         ImGui::End();
         if (!ui->perfCountersState) {

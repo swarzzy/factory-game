@@ -8,7 +8,7 @@
 #include "Console.h"
 #include "UI.h"
 #include "DebugUI.h"
-#include "Debug.h"
+#include "Profile.h"
 #include "EntityInfo.h"
 
 struct Context {

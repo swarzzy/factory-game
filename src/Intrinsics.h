@@ -13,6 +13,9 @@ u32 AtomicLoad(u32 volatile* value);
 
 u32 ThreadSleep(u32 ms);
 
+u64 GetTimeStamp();
+u64 GetTicksPerSecond();
+
 // NOTE: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 constexpr u32 NextPowerOfTwo(u32 v) {
     v--;

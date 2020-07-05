@@ -1,5 +1,5 @@
 #include "Platform.h"
-#include "Debug.h"
+#include "Profile.h"
 #include "Game.h"
 #include "Memory.h"
 
@@ -273,8 +273,8 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         FluxReload(context);
     } break;
     case GameInvoke::Update: {
-        //bool show = true;
-        //ImGui::ShowDemoWindow(&show);
+        bool show = true;
+        ImGui::ShowDemoWindow(&show);
         FluxUpdate((Context*)(*data));
     } break;
     case GameInvoke::Render: {
@@ -351,6 +351,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "FlatArray.cpp"
 #include "EntityInfo.cpp"
 #include "DebugUI.cpp"
+#include "Profile.cpp"
 #include "Block.cpp"
 #include "Chunk.cpp"
 #include "SaveAndLoad.cpp"

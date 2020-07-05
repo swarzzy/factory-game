@@ -1105,7 +1105,7 @@ void Win32Init(Win32Context* ctx)
     SetFocus(ctx->windowHandle);
 }
 
-f64 GetTimeStamp()
+f64 Win32GetTimeStamp()
 {
     f64 time = 0.0;
     LARGE_INTEGER currentTime = {};
@@ -1394,8 +1394,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     app->state.functions.CompleteAllWork = Win32CompleteAllWork;
     app->state.functions.SetSaveThreadWork = Win32SetSaveThreadWork;
 
-    app->state.functions.GetTimeStamp = GetTimeStamp;
-
     app->state.functions.ForEachFile = Win32ForEachFile;
 
     app->state.lowPriorityQueue = lowQueue;
@@ -1437,7 +1435,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     while (GlobalRunning)
     {
         app->state.tickCount++;
-        auto tickStartTime = GetTimeStamp();
+        auto tickStartTime = Win32GetTimeStamp();
 
         WindowPollEvents(app);
 
@@ -1486,7 +1484,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         app->state.input.mouseFrameOffsetX = 0;
         app->state.input.mouseFrameOffsetY = 0;
 
-        auto tickEndTime = GetTimeStamp();
+        auto tickEndTime = Win32GetTimeStamp();
         auto timeElapsed = tickEndTime - tickStartTime;
         while (timeElapsed < SECONDS_PER_TICK)
         {
@@ -1498,7 +1496,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
                     Sleep(waitTime);
                 }
             }
-            auto nowTime = GetTimeStamp();
+            auto nowTime = Win32GetTimeStamp();
             timeElapsed = nowTime - tickStartTime;
         }
 
