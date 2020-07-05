@@ -486,6 +486,9 @@ m4x4 OrthoGLRH(f32 left, f32 right, f32 bottom, f32 top, f32 near, f32 far) {
     return m;
 }
 
+// [http://www.songho.ca/opengl/gl_projectionmatrix.html]
+// [Tomas Akenine-Moller, Eric Haines "Real-Time Rendering, Fourth Edition", p.99]
+// [http://perry.cz/articles/ProjectionMatrix.xhtml]
 m4x4 PerspectiveGLRH(f32 near, f32 far, f32 fov, f32 aRatio) {
     m4x4 m = {};
     f32 c = 1.0f / Tan(ToRad(fov) / 2.0f);
@@ -497,6 +500,7 @@ m4x4 PerspectiveGLRH(f32 near, f32 far, f32 fov, f32 aRatio) {
     return m;
 }
 
+// [Tomas Akenine-Moller, Eric Haines "Real-Time Rendering, Fourth Edition", p.67]
 m4x4 LookAtGLRH(v3 eye, v3 front, v3 up) {
     m4x4 m = {};
 

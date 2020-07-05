@@ -25,7 +25,7 @@ void ContainerUpdateAndRender(Entity* _entity, EntityBehaviorInvoke reason, void
         auto context = GetContext();
         RenderCommandDrawMesh command{};
         command.transform = Translate(WorldPos::Relative(data->camera->targetWorldPosition, WorldPos::Make(entity->p)));
-        command.mesh = context->containerMesh;;
+        command.mesh = context->containerMesh;
         command.material = &context->containerMaterial;
         Push(data->group, &command);
     }
