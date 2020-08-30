@@ -2,6 +2,8 @@
 
 #include "Common.h"
 
+#include "RendererAPI.h"
+
 #if defined(PLATFORM_WINDOWS)
 #define GAME_CODE_ENTRY __declspec(dllexport)
 #elif defined(PLATFORM_LINUX)
@@ -93,39 +95,6 @@ typedef void(CompleteAllWorkFn)(WorkQueue* queue);
 typedef void(SaveThreadWorkFn)(void* data);
 typedef void(SetSaveThreadWorkFn)(SaveThreadWorkFn* func, void* data, u32 timeoutMs);
 
-struct Mesh {
-    char name[32];
-    void* base;
-    Mesh* head;
-    Mesh* next;
-    u32 vertexCount;
-    u32 indexCount;
-    v3* vertices;
-    v3* normals;
-    v2* uvs;
-    v3* tangents;
-    v3* bitangents;
-    v3* colors;
-    u32* indices;
-    BBoxAligned aabb;
-    u32 gpuVertexBufferHandle;
-    u32 gpuIndexBufferHandle;
-};
-
-static_assert(sizeof(Mesh) % 8 == 0);
-
-enum struct DynamicRange : u32 {
-    LDR, HDR
-};
-
-const char* ToString(DynamicRange value) {
-    switch (value) {
-    case DynamicRange::LDR: { return "LDR"; } break;
-    case DynamicRange::HDR: { return "HDR"; } break;
-        invalid_default();
-    }
-    return "";
-}
 
 struct LoadedImage {
     void* base;
@@ -258,10 +227,16 @@ struct InputState
 
 struct ImGuiContext;
 
+struct RendererAPI {
+    RendererGetInfoFn* RendererGetInfo;
+    RendererExecuteCommandFn* RendererExecuteCommand;
+};
+
 struct PlatformState
 {
     PlatformCalls functions;
-    OpenGL* gl;
+    RendererAPI rendererAPI;
+    OpenGL gl;
     volatile b32 supportsAsyncGPUTransfer;
     WorkQueue* lowPriorityQueue;
     WorkQueue* highPriorityQueue;

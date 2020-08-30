@@ -622,7 +622,7 @@ void RendererExecuteCommandImmediately(Renderer* renderer, RendererCommand comma
     } break;
     case RendererCommand::SetBlockTexture: {
         auto data = (SetBlockTextureArgs*)args;
-        SetBlockTexture(renderer, data->value, data->imageBits);
+        SetBlockTexture(renderer, (BlockValue)data->value, data->imageBits);
     } break;
     case RendererCommand::RecompileShaders: {
         RecompileShaders(renderer);

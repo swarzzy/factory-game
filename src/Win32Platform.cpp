@@ -71,8 +71,7 @@ void* OpenGLGetProcAddress(const char* name)
 
 OpenGLLoadResult LoadOpenGL()
 {
-    OpenGL* context = (OpenGL*)VirtualAlloc(0, sizeof(OpenGL), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    panic(context);
+    OpenGL* context = &GlobalContext.state.gl;
 
     log_print("[Info] Loading OpenGL functions...\n");
     log_print("[Info] Functions defined: %d\n", (int)OpenGL::FunctionCount);
@@ -1168,7 +1167,7 @@ void ImguiFreeWrapper(void* ptr, void*_) { Deallocate(ptr, nullptr); }
 
 #include "../ext/imgui/imgui_impl_opengl3.h"
 
-#define gl_function(func) GlobalContext.state.gl->functions.fn. func
+#define gl_function(func) GlobalContext.state.gl.functions.fn. func
 
 #define glViewport gl_function(glViewport)
 #define glClearColor gl_function(glClearColor)
@@ -1368,7 +1367,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     OpenGLLoadResult glResult = LoadOpenGL();
     panic(glResult.success, "Failed to load OpenGL functions");
-    app->state.gl = glResult.context;
 
     LoadResourceLoader(app);
 
@@ -1402,8 +1400,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     //SetupDirs(&app->gameLib);
 
-    b32 codeLoaded = UpdateGameCode(&app->gameLib);
+    b32 codeLoaded = UpdateGameLib(&app->gameLib);
     assert(codeLoaded, "Failed to load game lib");
+
+    auto rendererLoaded = UpdateRendererLib(&app->gameLib);
+    assert(codeLoaded, "Failed to load renderer library");
+
+    app->state.rendererAPI.RendererGetInfo = app->gameLib.RendererGetInfo;
+    app->state.rendererAPI.RendererExecuteCommand = app->gameLib.RendererExecuteCommand;
 
     IMGUI_CHECKVERSION();
     ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, 0);
@@ -1453,10 +1457,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
         app->state.localTime = GetLocalTime();
 
-        bool codeReloaded = UpdateGameCode(&app->gameLib);
-        if (codeReloaded)
-        {
+        bool codeReloaded = UpdateGameLib(&app->gameLib);
+        if (codeReloaded) {
             app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Reload, &GlobalGameData);
+        }
+
+        bool rendererReloaded = UpdateGameLib(&app->gameLib);
+        if (rendererReloaded) {
+            app->state.rendererAPI.RendererGetInfo = app->gameLib.RendererGetInfo;
+            app->state.rendererAPI.RendererExecuteCommand = app->gameLib.RendererExecuteCommand;
         }
 
         updatesSinceLastTick++;

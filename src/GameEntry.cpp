@@ -93,9 +93,9 @@ void* PlatformAllocClear(uptr size) {
 #define PlatformSetSaveThreadWork platform_call(SetSaveThreadWork)
 
 #if defined(COMPILER_MSVC)
-#define gl_call(func) _GlobalPlatform->gl->functions.fn.##func
+#define gl_call(func) _GlobalPlatform->gl.functions.fn.##func
 #else
-#define gl_call(func) _GlobalPlatform->gl->functions.fn. func
+#define gl_call(func) _GlobalPlatform->gl.functions.fn. func
 #endif
 
 #define glGenTextures gl_call(glGenTextures)
