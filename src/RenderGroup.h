@@ -82,12 +82,6 @@ struct RenderGroup {
     u32 commandQueueCapacity;
     u32 commandQueueAt;
 
-    b32 drawSkybox;
-    u32 skyboxHandle;
-
-    u32 irradanceMapHandle;
-    u32 envMapHandle;
-
     static RenderGroup Make(MemoryArena* arena, uptr renderBufferSize, u32 commandQueueCapacity);
 };
 

@@ -151,11 +151,11 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
 void ChunkMesherWork(void* data0, void* data1, void* data2, u32 threadID) {
     auto chunk = (Chunk*)data0;
     auto mesh = chunk->primaryMesh;
+    auto renderer = (Renderer*)data1;
     GenMesh(mesh->mesher, chunk);
     if (GetPlatform()->supportsAsyncGPUTransfer) {
         if (chunk->primaryMesh->vertexCount) {
-            auto uploaded = UploadToGPU(chunk->primaryMesh, false);
-            assert(uploaded);
+            RendererLoadResource(renderer, chunk->primaryMesh, false);
         }
         auto prevState = AtomicExchange((volatile u32*)&chunk->state, (u32)ChunkState::MeshingFinished);
         assert(prevState == (u32)ChunkState::Meshing);
@@ -165,14 +165,14 @@ void ChunkMesherWork(void* data0, void* data1, void* data2, u32 threadID) {
     }
 }
 
-bool ScheduleChunkMeshing(GameWorld* world, Chunk* chunk) {
+bool ScheduleChunkMeshing(GameWorld* world, Renderer* renderer, Chunk* chunk) {
     assert(chunk->primaryMesh);
     assert(chunk->state == ChunkState::Complete);
     bool result = true;
     auto queue = chunk->priority == ChunkPriority::High ? PlatformHighPriorityQueue : PlatformLowPriorityQueue;
     chunk->state = ChunkState::Meshing;
     WriteFence();
-    if (!PlatformPushWork(queue, ChunkMesherWork, chunk, nullptr, nullptr)) {
+    if (!PlatformPushWork(queue, ChunkMesherWork, chunk, renderer, nullptr)) {
         chunk->state = ChunkState::Complete;
         result = false;
     }
@@ -221,7 +221,7 @@ void UploadChunkMeshToGPUWork(void* data0, void* data1, void* data2, u32 threadI
     assert(prevState == (u32)ChunkState::UploadingMesh);
 }
 
-void ScheduleChunkMeshUpload(Chunk* chunk) {
+void ScheduleChunkMeshUpload(Chunk* chunk, Renderer* renderer) {
     assert(chunk->state == ChunkState::WaitsForUpload);
     BeginGPUUpload(chunk->primaryMesh);
     assert(chunk->primaryMesh->gpuBufferPtr);
@@ -231,14 +231,14 @@ void ScheduleChunkMeshUpload(Chunk* chunk) {
     if (!PlatformPushWork(queue, UploadChunkMeshToGPUWork, chunk, nullptr, nullptr)) {
         // TODO: This is not a particulary good workaround for this problem
         // If we failed to push work then we need to wait while vertex buffer is unmapped
-        EndGPUpload(chunk->primaryMesh);
+        RendererEndLoadResource(renderer, chunk->primaryMesh);
         chunk->state = ChunkState::FailedToPushUploadWork;
     }
 }
 
-void CompleteChunkMeshUpload(Chunk* chunk) {
+void CompleteChunkMeshUpload(Chunk* chunk, Renderer* renderer) {
     assert(chunk->state == ChunkState::MeshUploadingFinished);
-    bool completed = EndGPUpload(chunk->primaryMesh);
+    bool completed = RendererEndLoadResource(renderer, chunk->primaryMesh);
     if (completed) {
         chunk->state = ChunkState::MeshingFinished;
     }

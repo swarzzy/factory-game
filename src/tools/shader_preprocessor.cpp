@@ -1,4 +1,4 @@
-#define PLATFORM_WINDOWS
+//#define PLATFORM_WINDOWS
 #include <windows.h>
 #include "../Common.h"
 #include "../Intrinsics.cpp"
@@ -39,9 +39,9 @@ static i32x _IDENT_LEVEL = 0;
 #define IDENT_RESET() (_IDENT_LEVEL = 0)
 static FILE* OutFile = 0;
 // NOTE: Out line
-#define L(format,...) do {assert(_IDENT_LEVEL >= 0); for (i32x i = 0; i < _IDENT_LEVEL; i++) fprintf(OutFile, "    "); fprintf(OutFile, concat(format, "\n"), __VA_ARGS__);} while(false)
+#define L(format,...) do {assert(_IDENT_LEVEL >= 0); for (i32x i = 0; i < _IDENT_LEVEL; i++) fprintf(OutFile, "    "); fprintf(OutFile, concat(format, "\n"), ##__VA_ARGS__);} while(false)
 // NOTE: Out line no eol
-#define O(format, ...) do {assert(_IDENT_LEVEL >= 0); for (i32x i = 0; i < _IDENT_LEVEL; i++) fprintf(OutFile, "    "); fprintf(OutFile, format, __VA_ARGS__);} while(false)
+#define O(format, ...) do {assert(_IDENT_LEVEL >= 0); for (i32x i = 0; i < _IDENT_LEVEL; i++) fprintf(OutFile, "    "); fprintf(OutFile, format, ##__VA_ARGS__);} while(false)
 // NOTE: Append line
 #define A(...) fprintf(OutFile, __VA_ARGS__)
 

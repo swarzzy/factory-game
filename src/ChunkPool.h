@@ -41,7 +41,7 @@ void InitChunkPool(ChunkPool* pool, GameWorld* world, ChunkMesher* mesher, u32 n
 
 void DrawChunks(ChunkPool* pool, RenderGroup* renderGroup, Camera* camera);
 void UpdateChunkEntities(ChunkPool* pool, RenderGroup* renderGroup, Camera* camera);
-void UpdateChunks(ChunkPool* region);
+void UpdateChunks(ChunkPool* region, Renderer* renderer);
 
 template <typename F>
 void ForEachEntity(ChunkPool* pool, F func);

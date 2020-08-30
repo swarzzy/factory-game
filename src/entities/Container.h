@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Entity.h"
-#include "EntityTraits.h"
+#include "../Entity.h"
+#include "../EntityTraits.h"
 
 struct Container : BlockEntity {
     EntityInventory* inventory;

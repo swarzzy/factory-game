@@ -6,6 +6,19 @@
 #include "Std140.h"
 #include "Shaders.h"
 
+void Begin(Renderer* renderer, RenderGroup* group);
+void ShadowPass(Renderer* renderer, RenderGroup* group);
+void MainPass(Renderer* renderer, RenderGroup* group);
+void End(Renderer* renderer);
+void UploadToGPU(CubeTexture* texture);
+void UploadToGPU(Mesh* mesh);
+void UploadToGPU(ChunkMesh* mesh, bool async);
+void UploadToGPU(Texture* texture);
+void BeginGPUUpload(ChunkMesh* mesh);
+bool EndGPUUpload(ChunkMesh* mesh);
+void SetBlockTexture(Renderer* renderer, BlockValue value, void* data);
+Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 renderRes, u32 sampleCount);
+
 struct Renderer {
     union {
         Shaders shaders;
@@ -89,6 +102,12 @@ struct Renderer {
     // TODO: Chunk rendering
     static constexpr u32 TerrainTextureSize = 256;
     GLuint terrainTexArray;
+
+    // TODO(swarzzy): They are temporary live here
+    CubeTexture hdrMap;
+    CubeTexture irradianceMap;
+    CubeTexture environmentMap;
+
 
     UniformBuffer<ShaderFrameData, ShaderFrameData::Binding> frameUniformBuffer;
     UniformBuffer<ShaderMeshData, ShaderMeshData::Binding> meshUniformBuffer;
@@ -243,7 +262,7 @@ void BeginGPUUpload(ChunkMesh* mesh) {
     mesh->gpuBufferPtr = result;
 }
 
-bool EndGPUpload(ChunkMesh* mesh) {
+bool EndGPUUpload(ChunkMesh* mesh) {
     assert(mesh->gpuMemoryMapped);
     bool completed = false;
     //log_print("End gpu upload for mesh with buffer %llu\n", mesh->gpuHandle);
@@ -271,7 +290,7 @@ bool EndGPUpload(ChunkMesh* mesh) {
     return completed;
 }
 
-bool UploadToGPU(ChunkMesh* mesh, bool async) {
+void UploadToGPU(ChunkMesh* mesh, bool async) {
     if (!mesh->gpuHandle) {
         GLuint handle;
         glCreateBuffers(1, &handle);
@@ -329,9 +348,6 @@ bool UploadToGPU(ChunkMesh* mesh, bool async) {
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         //GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
     }
-
-    result = true;
-    return result;
 }
 
 
@@ -498,40 +514,221 @@ void ReloadShadowMaps(Renderer* renderer, u32 newResolution = 0) {
     glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 }
 
-uv2 GetRenderResolution(Renderer* renderer) {
-    return renderer->renderRes;
+RendererInfo GetRendererInfo(Renderer* renderer) {
+    RendererInfo info {};
+    info.state.wRenderResolution = renderer->renderRes.x;
+    info.state.hRenderResolution = renderer->renderRes.y;
+    info.state.sampleCount = renderer->sampleCount;
+    info.caps.maxSampleCount = renderer->maxSupportedSampleCount;
+
+    return info;
 }
 
-u32 GetRenderSampleCount(Renderer* renderer) {
-    return renderer->sampleCount;
-}
-
-u32 GetRenderMaxSampleCount(Renderer* renderer) {
-    return renderer->maxSupportedSampleCount;
-}
-
-void ChangeRenderResolution(Renderer* renderer, uv2 newRes, u32 newSampleCount) {
+void ChangeRenderResolution(Renderer* renderer, u32 wNew, u32 hNew, u32 newSampleCount) {
     // TODO: There are maybe could be a problems on some drivers
     // with changing framebuffer attachments so this code needs to be checked
     // on different GPUs and drivers
     if (newSampleCount <= renderer->maxSupportedSampleCount) {
-        renderer->renderRes = newRes;
+        renderer->renderRes = UV2(wNew, hNew);
         renderer->sampleCount = newSampleCount;
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, renderer->offscreenColorTarget);
-        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, newSampleCount, GL_RGBA16F, renderer->renderRes.x, renderer->renderRes.y, GL_FALSE);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, newSampleCount, GL_RGBA16F, wNew, hNew, GL_FALSE);
 
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, renderer->offscreenDepthTarget);
-        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, newSampleCount, GL_DEPTH_COMPONENT32, renderer->renderRes.x, renderer->renderRes.y, GL_FALSE);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, newSampleCount, GL_DEPTH_COMPONENT32, wNew, hNew, GL_FALSE);
 
         glBindTexture(GL_TEXTURE_2D, renderer->offscreenDownsampledColorTarget);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, renderer->renderRes.x, renderer->renderRes.y, 0, GL_RGBA, GL_FLOAT, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, wNew, hNew, 0, GL_RGBA, GL_FLOAT, 0);
 
         glBindTexture(GL_TEXTURE_2D, renderer->srgbColorTarget);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, renderer->renderRes.x, renderer->renderRes.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, wNew, hNew, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
+}
+
+void RendererExecuteCommandImmediately(Renderer* renderer, RendererCommand command, void* args) {
+    switch (command) {
+    case RendererCommand::ChangeRenderResolution: {
+        auto data = (ChangeRenderResolutionArgs*)args;
+        ChangeRenderResolution(renderer, data->wRenderResolution, data->hRenderResolution, data->sampleCount);
+    } break;
+    case RendererCommand::BeginFrame: {
+        auto data = (BeginFrameArgs*)args;
+        Begin(renderer, data->group);
+    } break;
+    case RendererCommand::ShadowPass: {
+        auto data = (ShadowPassArgs*)args;
+        ShadowPass(renderer, data->group);
+    } break;
+    case RendererCommand::MainPass: {
+        auto data = (MainPassArgs*)args;
+        MainPass(renderer, data->group);
+    } break;
+    case RendererCommand::EndFrame: {
+        End(renderer);
+    } break;
+    case RendererCommand::LoadResource: {
+        auto data = (LoadResourceArgs*)args;
+        switch (data->type) {
+        case RenderResourceType::CubeTexture: {
+            UploadToGPU(data->cubeTexture.texture);
+        } break;
+        case RenderResourceType::Mesh: {
+            UploadToGPU(data->mesh.mesh);
+        } break;
+        case RenderResourceType::ChunkMesh: {
+            UploadToGPU(data->chunkMesh.mesh, data->chunkMesh.async);
+        } break;
+        case RenderResourceType::Texture: {
+            UploadToGPU(data->texture.texture);
+        } break;
+            invalid_default();
+        }
+    } break;
+    case RendererCommand::BeginLoadResource: {
+        auto data = (BeginLoadResourceArgs*)args;
+        BeginGPUUpload(data->mesh);
+    } break;
+    case RendererCommand::EndLoadResource: {
+        auto data = (EndLoadResourceArgs*)args;
+        // TODO(swarzzy): Stop returning result a hacky way
+        auto result = EndGPUUpload(data->mesh);
+        data->result = (b32)result;
+    } break;
+    case RendererCommand::FreeResource: {
+        auto data = (FreeResourceArgs*)args;
+        switch (data->type) {
+        case RenderResourceType::CubeTexture: { unreachable(); } break;
+        case RenderResourceType::Mesh:
+        case RenderResourceType::ChunkMesh: {
+            FreeGPUBuffer((u32)data->handle);
+        } break;
+        case RenderResourceType::Texture: {
+            FreeGPUTexture((u32)data->handle);
+        } break;
+            invalid_default();
+        }
+    } break;
+    case RendererCommand::BeginLoadTexture: {
+        auto data = (BeginLoadTextureArgs*)args;
+        auto info = GetTextureTransferBuffer(renderer, (u32)data->bufferSize);
+        data->bufferInfo = info;
+    } break;
+    case RendererCommand::EndLoadTexture: {
+        auto data = (EndLoadTextureArgs*)args;
+        CompleteTextureTransfer(&data->bufferInfo, data->result);
+    } break;
+    case RendererCommand::SetBlockTexture: {
+        auto data = (SetBlockTextureArgs*)args;
+        SetBlockTexture(renderer, data->value, data->imageBits);
+    } break;
+    case RendererCommand::RecompileShaders: {
+        RecompileShaders(renderer);
+    } break;
+    case RendererCommand::Initialize: {
+        auto data = (InitializeArgs*)args;
+        auto result = InitializeRenderer(data->arena, data->tempArena, UV2(data->wResolution, data->hResolution), data->sampleCount);
+        data->renderer = result;
+    } break;
+
+
+
+    default: { log_print("[Renderer] Unknown command with code %lu was submitted", (unsigned long)command); } break;
+    }
+}
+
+void GenIrradianceMap(Renderer* renderer, CubeTexture* t, GLuint sourceHandle) {
+    assert(t->gpuHandle);
+
+    // TODO: Make this constexpr
+    static auto projInv = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f));
+    static m3x3 capViews[] = {
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f)))),
+    };
+
+    auto prog = renderer->shaders.IrradanceConvolver;
+    glUseProgram(prog);
+
+    glDisable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->captureFramebuffer);
+
+    glBindTextureUnit(IrradanceConvolver::SourceCubemap, sourceHandle);
+
+    for (u32 i = 0; i < 6; i++) {
+        glViewport(0, 0, t->width, t->height);
+        auto buffer = UniformBufferMap(&renderer->frameUniformBuffer);
+        buffer->invProjMatrix = projInv;
+        buffer->invViewMatrix = M4x4(capViews[i]);
+        UniformBufferUnmap(&renderer->frameUniformBuffer);
+
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, t->gpuHandle, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glFlush();
+}
+
+void GenEnvPrefiliteredMap(Renderer* renderer, CubeTexture* t, GLuint sourceHandle, u32 mipLevels) {
+    assert(t->gpuHandle);
+    assert(t->useMips);
+    assert(t->filter == TextureFilter::Trilinear);
+
+    const m4x4 capProj = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f));
+    const m3x3 capViews[] = {
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f)))),
+    };
+
+    auto prog = renderer->shaders.EnvMapPrefilter;
+    glUseProgram(prog);
+    glDisable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->captureFramebuffer);
+
+    assert(t->width == t->height);
+    glUniform1i(EnvMapPrefilterShader::Resolution, t->width);
+
+    glBindTextureUnit(EnvMapPrefilterShader::SourceCubemap, sourceHandle);
+
+    // TODO: There are still visible seams on low mip levels
+
+    for (u32 mipLevel = 0; mipLevel < mipLevels; mipLevel++) {
+        // TODO: Pull texture size out of imges and put to a cubemap itself
+        // all sides should havethe same size
+        u32 w = (u32)(t->width * Pow(0.5f, (f32)mipLevel));
+        u32 h = (u32)(t->height * Pow(0.5f, (f32)mipLevel));
+
+        glViewport(0, 0, w, h);
+        f32 roughness = (f32)mipLevel / (f32)(mipLevels - 1);
+        glUniform1f(EnvMapPrefilterShader::Roughness, roughness);
+
+        for (u32 i = 0; i < 6; i++) {
+            // TODO: Use another buffer for this
+            auto buffer = UniformBufferMap(&renderer->frameUniformBuffer);
+            buffer->invViewMatrix = M4x4(capViews[i]);
+            buffer->invProjMatrix = capProj;
+            UniformBufferUnmap(&renderer->frameUniformBuffer);
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                   GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, t->gpuHandle, mipLevel);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
+    }
+    glFlush();
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 renderRes, u32 sampleCount) {
@@ -539,7 +736,7 @@ Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 ren
     renderer = (Renderer*)PushSize(arena, sizeof(Renderer));
     *renderer = {};
 
-    RecompileShaders(tempArena, renderer);
+    RecompileShaders(renderer);
 
     GLint maxSamples = 1;
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
@@ -786,19 +983,17 @@ Renderer* InitializeRenderer(MemoryArena* arena, MemoryArena* tempArena, uv2 ren
     glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
     renderer->terrainTexArray = terrainTexArray;
 
-    return renderer;
-}
+    renderer->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
+    UploadToGPU(&renderer->hdrMap);
+    renderer->irradianceMap = MakeEmptyCubemap(64, 64, TextureFormat::RGB16F, TextureFilter::Bilinear, TextureWrapMode::ClampToEdge, false);
+    UploadToGPU(&renderer->irradianceMap);
+    renderer->environmentMap = MakeEmptyCubemap(256, 256, TextureFormat::RGB16F, TextureFilter::Trilinear, TextureWrapMode::ClampToEdge, true);
+    UploadToGPU(&renderer->environmentMap);
 
-u16 BlockValueToTerrainIndex(BlockValue value) {
-    u16 index = 0;
-    switch(value) {
-    case BlockValue::Stone: { index = 0; } break;
-    case BlockValue::Grass: { index = 1; } break;
-    case BlockValue::CoalOre: { index = 2; } break;
-    case BlockValue::Water: { index = 3; } break;
-    invalid_default();
-    }
-    return index;
+    GenIrradianceMap(renderer, &renderer->irradianceMap, renderer->hdrMap.gpuHandle);
+    GenEnvPrefiliteredMap(renderer, &renderer->environmentMap, renderer->hdrMap.gpuHandle, 6);
+
+    return renderer;
 }
 
 void SetBlockTexture(Renderer* renderer, BlockValue value, void* data) {
@@ -810,109 +1005,6 @@ void SetBlockTexture(Renderer* renderer, BlockValue value, void* data) {
     glBindTexture(GL_TEXTURE_2D_ARRAY, renderer->terrainTexArray);
 }
 
-void GenIrradanceMap(Renderer* renderer, CubeTexture* t, GLuint sourceHandle) {
-    assert(t->gpuHandle);
-#if defined(PROFILE_IRRADANCE_GEN)
-    SOKO_INFO("Generating irradance map...");
-    glFinish();
-    i64 beginTime = GetTimeStamp();
-#endif
-
-    // TODO: Make this constexpr
-    static auto projInv = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f));
-    static m3x3 capViews[] = {
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f)))),
-    };
-
-    auto prog = renderer->shaders.IrradanceConvolver;
-    glUseProgram(prog);
-
-    glDisable(GL_DEPTH_TEST);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->captureFramebuffer);
-
-    glBindTextureUnit(IrradanceConvolver::SourceCubemap, sourceHandle);
-
-    for (u32 i = 0; i < 6; i++) {
-        glViewport(0, 0, t->width, t->height);
-        auto buffer = UniformBufferMap(&renderer->frameUniformBuffer);
-        buffer->invProjMatrix = projInv;
-        buffer->invViewMatrix = M4x4(capViews[i]);
-        UniformBufferUnmap(&renderer->frameUniformBuffer);
-
-        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                               GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, t->gpuHandle, 0);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-    }
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glFlush();
-#if defined (PROFILE_IRRADANCE_GEN)
-    glFinish();
-    i64 timeElapsed = GetTimeStamp() - beginTime;
-    SOKO_INFO("Time: %i64 us", timeElapsed);
-#endif
-
-}
-
-void GenEnvPrefiliteredMap(Renderer* renderer, CubeTexture* t, GLuint sourceHandle, u32 mipLevels) {
-    assert(t->gpuHandle);
-    assert(t->useMips);
-    assert(t->filter == TextureFilter::Trilinear);
-
-    const m4x4 capProj = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f));
-    const m3x3 capViews[] = {
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f)))),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f)))),
-    };
-
-    auto prog = renderer->shaders.EnvMapPrefilter;
-    glUseProgram(prog);
-    glDisable(GL_DEPTH_TEST);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->captureFramebuffer);
-
-    assert(t->width == t->height);
-    glUniform1i(EnvMapPrefilterShader::Resolution, t->width);
-
-    glBindTextureUnit(EnvMapPrefilterShader::SourceCubemap, sourceHandle);
-
-    // TODO: There are still visible seams on low mip levels
-
-    for (u32 mipLevel = 0; mipLevel < mipLevels; mipLevel++) {
-        // TODO: Pull texture size out of imges and put to a cubemap itself
-        // all sides should havethe same size
-        u32 w = (u32)(t->width * Pow(0.5f, (f32)mipLevel));
-        u32 h = (u32)(t->height * Pow(0.5f, (f32)mipLevel));
-
-        glViewport(0, 0, w, h);
-        f32 roughness = (f32)mipLevel / (f32)(mipLevels - 1);
-        glUniform1f(EnvMapPrefilterShader::Roughness, roughness);
-
-        for (u32 i = 0; i < 6; i++) {
-            // TODO: Use another buffer for this
-            auto buffer = UniformBufferMap(&renderer->frameUniformBuffer);
-            buffer->invViewMatrix = M4x4(capViews[i]);
-            buffer->invProjMatrix = capProj;
-            UniformBufferUnmap(&renderer->frameUniformBuffer);
-            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                                   GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, t->gpuHandle, mipLevel);
-            glClear(GL_COLOR_BUFFER_BIT);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-        }
-    }
-    glFlush();
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-}
-
 void DrawSkybox(Renderer* renderer, RenderGroup* group, const m4x4* invView, const m4x4* invProj) {
     timed_scope();
     glDepthMask(GL_FALSE);
@@ -921,7 +1013,7 @@ void DrawSkybox(Renderer* renderer, RenderGroup* group, const m4x4* invView, con
     auto prog = renderer->shaders.Skybox;
     glUseProgram(prog);
 
-    glBindTextureUnit(SkyboxShader::CubeTexture, group->skyboxHandle);
+    glBindTextureUnit(SkyboxShader::CubeTexture, renderer->irradianceMap.gpuHandle);
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
@@ -1318,16 +1410,14 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                             mesh = mesh->next;
                         }
                     } else if (material->workflow == Material::PBR) {
-                        assert(group->irradanceMapHandle);
-
                         auto meshProg = renderer->shaders.PbrMesh;
                         glUseProgram(meshProg);
 
                         auto meshBuffer = UniformBufferMap(&renderer->meshUniformBuffer);
 
                         // TODO: Are they need to be binded every shader invocation?
-                        glBindTextureUnit(MeshPBRShader::IrradanceMap, group->irradanceMapHandle);
-                        glBindTextureUnit(MeshPBRShader::EnviromentMap, group->envMapHandle);
+                        glBindTextureUnit(MeshPBRShader::IrradanceMap, renderer->irradianceMap.gpuHandle);
+                        glBindTextureUnit(MeshPBRShader::EnviromentMap, renderer->environmentMap.gpuHandle);
                         glBindTextureUnit(MeshPBRShader::ShadowMap, renderer->shadowMapDepthTarget);
 
                         // Getting materials
@@ -1481,11 +1571,9 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
         Reset(group);
     }
 
-    if (group->drawSkybox) {
-        glDepthFunc(GL_EQUAL);
-        DrawSkybox(renderer, group, &camera->invViewMatrix, &camera->invProjectionMatrix);
-        glDepthFunc(GL_LESS);
-    }
+    glDepthFunc(GL_EQUAL);
+    DrawSkybox(renderer, group, &camera->invViewMatrix, &camera->invProjectionMatrix);
+    glDepthFunc(GL_LESS);
 }
 
 void Begin(Renderer* renderer, RenderGroup* group) {

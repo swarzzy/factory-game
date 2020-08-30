@@ -111,7 +111,7 @@ void ConsoleEchoCommand(Console* console, Context* context, ConsoleCommandArgs* 
 }
 
 void RecompileShadersCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
-    RecompileShaders(context->tempArena, context->renderer);
+    RendererRecompileShaders(context->renderer);
 }
 
 void ResetPlayerPositionCommand(Console* console, Context* context, ConsoleCommandArgs* args) {

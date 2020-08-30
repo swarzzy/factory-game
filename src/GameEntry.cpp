@@ -1,5 +1,8 @@
 #include "Platform.h"
 #include "Profile.h"
+
+void* PlatformAllocClear(uptr size);
+
 #include "Game.h"
 #include "Memory.h"
 
@@ -92,7 +95,7 @@ void* PlatformAllocClear(uptr size) {
 #if defined(COMPILER_MSVC)
 #define gl_call(func) _GlobalPlatform->gl->functions.fn.##func
 #else
-#define platform_call(func) _GlobalPlatform->gl->functions.fn. func
+#define gl_call(func) _GlobalPlatform->gl->functions.fn. func
 #endif
 
 #define glGenTextures gl_call(glGenTextures)
@@ -249,7 +252,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 
         log_print("[Info] Asynchronous GPU memory transfer supported: %s\n", platform->supportsAsyncGPUTransfer ? "true" : "false");
 
-        context->renderer = InitializeRenderer(gameArena, tempArena, UV2(GetPlatform()->windowWidth, GetPlatform()->windowHeight), 8);
+        context->renderer = RendererInitialize(gameArena, tempArena, UV2(GetPlatform()->windowWidth, GetPlatform()->windowHeight), 8);
 
         //context->renderer->clearColor = V4(0.8f, 0.8f, 0.8f, 1.0f);
         context->renderGroup = RenderGroup::Make(gameArena, Megabytes(32), 8192 * 2 * 2);
@@ -268,7 +271,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         glDebugMessageCallback(OpenglDebugCallback, 0);
 #endif
-        RecompileShaders(context->tempArena, context->renderer);
+        RendererRecompileShaders(context->renderer);
         log_print("[Info] Game was hot-reloaded\n");
         FluxReload(context);
     } break;

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Entity.h"
-#include "Inventory.h"
-#include "World.h"
+#include "../Entity.h"
+#include "../Inventory.h"
+#include "../World.h"
 
 struct Projectile : SpatialEntity {
 };

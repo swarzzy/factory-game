@@ -1,5 +1,5 @@
 #include "Container.h"
-#include "RenderGroup.h"
+#include "../RenderGroup.h"
 
 Entity* CreateContainerEntity(GameWorld* world, WorldPos p) {
     Container* entity = AddBlockEntity<Container>(world, p.block);

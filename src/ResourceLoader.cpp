@@ -30,20 +30,6 @@ inline void AssertHandler(void* data, const char* file, const char* func, u32 li
 AssertHandlerFn* GlobalAssertHandler = AssertHandler;
 void* GlobalAssertHandlerData = nullptr;
 
-f64 GetTimeStamp() {
-    if (GlobalPerformanceFrequency.QuadPart == 0) {
-        QueryPerformanceFrequency(&GlobalPerformanceFrequency);
-    }
-    f64 time = 0.0;
-    LARGE_INTEGER currentTime = {};
-    if (QueryPerformanceCounter(&currentTime))
-    {
-        time = (f64)(currentTime.QuadPart) / (f64)GlobalPerformanceFrequency.QuadPart;
-    }
-    return time;
-}
-#else
-f64 GetTimeStamp() { return 0; }
 #endif
 
 extern "C" GAME_CODE_ENTRY ImageInfo __cdecl ResourceLoaderValidateImageFile(const char* filename, LoggerFn* logger, void* loggerData) {
@@ -127,3 +113,4 @@ extern "C" GAME_CODE_ENTRY LoadedImage* __cdecl ResourceLoaderLoadImage(const ch
 
     return header;
 }
+#include "Intrinsics.cpp"

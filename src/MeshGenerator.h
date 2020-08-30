@@ -4,6 +4,7 @@
 #include "World.h"
 
 struct Chunk;
+struct Renderer;
 
 struct ChunkMeshBlock {
     static const u32 Size = 4096;
@@ -43,6 +44,6 @@ struct ChunkMesher {
 void GenMesh(ChunkMesher* mesher, Chunk* chunk);
 void FreeChunkMesh(ChunkMesher* mesher, ChunkMesh* mesh);
 
-bool ScheduleChunkMeshing(GameWorld* world, Chunk* chunk);
-void ScheduleChunkMeshUpload(Chunk* chunk);
-void CompleteChunkMeshUpload(Chunk* chunk);
+bool ScheduleChunkMeshing(GameWorld* world, Renderer* renderer, Chunk* chunk);
+void ScheduleChunkMeshUpload(Chunk* chunk, Renderer* renderer);
+void CompleteChunkMeshUpload(Chunk* chunk, Renderer* renderer);

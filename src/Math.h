@@ -227,7 +227,7 @@ Vector<T, Size>& operator+=(Vector<T, Size>& v, T s) {
     for (u32x i = 0; i < Size; i++) {
         v.data[i] += s;
     }
-    return l;
+    return v;
 }
 
 template <typename T, u32 Size>
@@ -331,7 +331,7 @@ Vector<T, Size>& operator/=(Vector<T, Size>& v, T s) {
     for (u32x i = 0; i < Size; i++) {
         v.data[i] /= s;
     }
-    return l;
+    return v;
 }
 
 template <typename T, u32 Size>

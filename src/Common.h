@@ -9,22 +9,30 @@
 
 #if defined(_MSC_VER)
 #define COMPILER_MSVC
+
+// unknown attribute
+#pragma warning(disable: 5030)
+
+#define debug_break() __debugbreak()
+#define WriteFence() (_WriteBarrier(), _mm_sfence())
+#define ReadFence() (_ReadBarrier(), _mm_lfence())
+
 #elif defined(__clang__)
 #define COMPILER_CLANG
+
+#pragma clang diagnostic ignored "-Wparentheses-equality"
+
+#define debug_break() __builtin_debugtrap()
+// TODO: Fences
+#define WriteFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_sfence())
+#define ReadFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_lfence())
+
 #else
 #error Unsupported compiler
 #endif
 
-#if defined(PLATFORM_WINDOWS)
-#define debug_break() __debugbreak()
-#elif defined(PLATFORM_LINUX)
-#define debug_break() __builtin_debugtrap()
-#endif
-
-// TODO: Define these on other platforms
 #include <intrin.h>
-#define WriteFence() (_WriteBarrier(), _mm_sfence())
-#define ReadFence() (_ReadBarrier(), _mm_lfence())
+
 
 #define constant static inline const
 #define array_count(arr) ((uint)(sizeof(arr) / sizeof(arr[0])))
@@ -146,10 +154,10 @@ extern void* GlobalLoggerData;
 extern AssertHandlerFn* GlobalAssertHandler;
 extern void* GlobalAssertHandlerData;
 
-#define log_print(fmt, ...) _GlobalLoggerWithArgs(GlobalLoggerData, fmt, __VA_ARGS__)
-#define assert(expr, ...) do { if (!(expr)) {_GlobalAssertHandler(GlobalAssertHandlerData, __FILE__, __func__, __LINE__, #expr, __VA_ARGS__);}} while(false)
+#define log_print(fmt, ...) _GlobalLoggerWithArgs(GlobalLoggerData, fmt, ##__VA_ARGS__)
+#define assert(expr, ...) do { if (!(expr)) {_GlobalAssertHandler(GlobalAssertHandlerData, __FILE__, __func__, __LINE__, #expr, ##__VA_ARGS__);}} while(false)
 // NOTE: Defined always
-#define panic(expr, ...) do { if (!(expr)) {_GlobalAssertHandler(GlobalAssertHandlerData, __FILE__, __func__, __LINE__, #expr, __VA_ARGS__);}} while(false)
+#define panic(expr, ...) do { if (!(expr)) {_GlobalAssertHandler(GlobalAssertHandlerData, __FILE__, __func__, __LINE__, #expr, ##__VA_ARGS__);}} while(false)
 
 inline void _GlobalLoggerWithArgs(void* data, const char* fmt, ...) {
     va_list args;

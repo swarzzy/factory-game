@@ -81,9 +81,6 @@ struct Context {
     Renderer* renderer;
     RenderGroup renderGroup;
     //CubeTexture skybox;
-    CubeTexture hdrMap;
-    CubeTexture irradanceMap;
-    CubeTexture enviromentMap;
     b32 consoleEnabled;
     Logger logger;
     Console console;

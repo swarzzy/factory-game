@@ -1,5 +1,5 @@
 #include "Projectile.h"
-#include "RenderGroup.h"
+#include "../RenderGroup.h"
 
 Projectile* CreateProjectile(WorldPos p) {
     auto world = GetWorld();

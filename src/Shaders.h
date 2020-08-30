@@ -12,8 +12,8 @@ struct ShaderProgramSource  {
 constexpr u32 ShaderCount = sizeof(Shaders) / sizeof(GLuint);
 static_assert(ShaderCount == array_count(ShaderSources));
 
-GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vert, const char* frag);
-void RecompileShaders(MemoryArena* tempArena, Renderer* renderer);
+GLuint CompileGLSL(const char* name, const char* vert, const char* frag);
+void RecompileShaders(Renderer* renderer);
 inline void DeleteProgram(GLuint handle) { glDeleteProgram(handle); }
 
 template <typename T, u32 Binding>

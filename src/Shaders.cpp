@@ -1,6 +1,6 @@
 #include "Shaders.h"
 
-GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexSource, const char* fragmentSource)
+GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragmentSource)
 {
     GLuint resultHandle = 0;
 
@@ -45,12 +45,13 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexS
                         {
                             i32 logLength;
                             glGetProgramiv(programHandle, GL_INFO_LOG_LENGTH, &logLength);
-                            // TODO: Stop using alloca
-                            auto frame = BeginTemporaryMemory(tempArena);
-                            defer { EndTemporaryMemory(&frame); };
-                            char* message = (char*)PushSize(tempArena, logLength);
-                            glGetProgramInfoLog(programHandle, logLength, 0, message);
-                            log_print("[Error]: Failed to link shader program (%s) \n%s\n", name, message);
+                            char* message = (char*)StackAlloc(logLength);
+                            if (message) {
+                                glGetProgramInfoLog(programHandle, logLength, 0, message);
+                                log_print("[Error]: Failed to link shader program (%s) \n%s\n", name, message);
+                            } else {
+                                log_print("[Error]: Failed to link shader program (%s) \n", name);
+                            }
                         }
                     }
                     else
@@ -62,11 +63,13 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexS
                 {
                     GLint logLength;
                     glGetShaderiv(fragmentHandle, GL_INFO_LOG_LENGTH, &logLength);
-                    auto frame = BeginTemporaryMemory(tempArena);
-                    defer { EndTemporaryMemory(&frame); };
-                    char* message = (char*)PushSize(tempArena, logLength);
-                    glGetShaderInfoLog(fragmentHandle, logLength, nullptr, message);
-                    log_print("[Error]: Failed to compile frag shader (%s)\n%s\n", name, message);
+                    char* message = (char*)StackAlloc(logLength);
+                    if (message) {
+                        glGetProgramInfoLog(fragmentHandle, logLength, 0, message);
+                        log_print("[Error]: Failed to compile frag shader (%s) \n%s\n", name, message);
+                    } else {
+                        log_print("[Error]: Failed to compile frag shader (%s) \n", name);
+                    }
                 }
             }
             else
@@ -78,11 +81,13 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexS
         {
             GLint logLength;
             glGetShaderiv(vertexHandle, GL_INFO_LOG_LENGTH, &logLength);
-            auto frame = BeginTemporaryMemory(tempArena);
-            defer { EndTemporaryMemory(&frame); };
-            char* message = (char*)PushSize(tempArena, logLength);
-            glGetShaderInfoLog(vertexHandle, logLength, nullptr, message);
-            log_print("[Error]: Failed to compile vertex shader (%s)\n%s", name, message);
+            char* message = (char*)StackAlloc(logLength);
+            if (message) {
+                glGetProgramInfoLog(vertexHandle, logLength, 0, message);
+                log_print("[Error]: Failed to compile vert shader (%s) \n%s\n", name, message);
+            } else {
+                log_print("[Error]: Failed to compile vert shader (%s) \n", name);
+            }
         }
     }
     else
@@ -92,7 +97,7 @@ GLuint CompileGLSL(MemoryArena* tempArena, const char* name, const char* vertexS
     return resultHandle;
 }
 
-void RecompileShaders(MemoryArena* tempArena, Renderer* renderer)
+void RecompileShaders(Renderer* renderer)
 {
     log_print("[Renderer] Recompiling %lu shaders\n", array_count(renderer->shaderHandles));
     for (u32x i = 0; i < array_count(renderer->shaderHandles); i++)
@@ -102,7 +107,7 @@ void RecompileShaders(MemoryArena* tempArena, Renderer* renderer)
         {
             DeleteProgram(handle);
         }
-        renderer->shaderHandles[i] = CompileGLSL(tempArena, ShaderNames[i], ShaderSources[i].vert, ShaderSources[i].frag);
+        renderer->shaderHandles[i] = CompileGLSL(ShaderNames[i], ShaderSources[i].vert, ShaderSources[i].frag);
     }
 }
 

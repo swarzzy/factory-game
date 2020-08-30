@@ -8,7 +8,7 @@ goto end
 )
 
 set BuildShaderPreprocessor=false
-set BuildResourceLoader=false
+set BuildResourceLoader=true
 set BuildVarParser=false
 
 set ObjOutDir=build\obj\

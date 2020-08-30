@@ -11,7 +11,8 @@
 #include "Memory.h"
 
 #include <intrin.h>
-#include <timeapi.h>
+// For timeBeginPeriod
+#include <mmsystem.h>
 #include <tchar.h>
 #include <stdlib.h>
 
@@ -1167,7 +1168,7 @@ void ImguiFreeWrapper(void* ptr, void*_) { Deallocate(ptr, nullptr); }
 
 #include "../ext/imgui/imgui_impl_opengl3.h"
 
-#define gl_function(func) GlobalContext.state.gl->functions.fn.##func
+#define gl_function(func) GlobalContext.state.gl->functions.fn. func
 
 #define glViewport gl_function(glViewport)
 #define glClearColor gl_function(glClearColor)

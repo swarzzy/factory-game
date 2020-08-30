@@ -44,6 +44,16 @@ u64 GetTicksPerSecond() {
     return _TicksPerSecond;
 }
 
+void* StackAlloc(usize size) {
+    void* result = nullptr;
+    if (size <= _ALLOCA_S_THRESHOLD) {
+        result = _malloca(size);
+    }
+    return result;
+}
 
+void StackFree(void* ptr) {
+    _freea(ptr);
+}
 
 #endif

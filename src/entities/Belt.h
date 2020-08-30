@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Entity.h"
-#include "World.h"
-#include "EntityTraits.h"
+#include "../Entity.h"
+#include "../World.h"
+#include "../EntityTraits.h"
 
 typedef bool(BeltTraitInsertItemFn)(Entity* entity, Direction dir, u32 itemID, f32 callerItemPos);
 typedef u32(BeltTraitGrabItemFn)(Entity* entity, Direction dir);

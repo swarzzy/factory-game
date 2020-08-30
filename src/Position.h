@@ -5,7 +5,7 @@
 
 struct ChunkPos;
 
-struct WorldPos {
+struct [[Reflect]] WorldPos {
     iv3 block;
     v3 offset;
 
@@ -29,7 +29,7 @@ struct ChunkPos {
     uv3 block;
 
     static inline ChunkPos Make(iv3 chunk, uv3 voxel) { return ChunkPos{chunk, voxel}; }
-    static WorldPos ChunkPos::ToWorld(ChunkPos p);
+    static WorldPos ToWorld(ChunkPos p);
 };
 
 enum struct Winding {

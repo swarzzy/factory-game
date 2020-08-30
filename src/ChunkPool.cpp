@@ -274,7 +274,7 @@ void ScheduleSimChunkEviction(ChunkPool* pool, Chunk* chunk) {
     pool->simChunkEvictList = chunk;
 }
 
-void UpdateChunks(ChunkPool* pool) {
+void UpdateChunks(ChunkPool* pool, Renderer* renderer) {
     timed_scope();
     Chunk* chunk = pool->firstSimChunk;
     // TODO: Maybe cache chunks that are not filled or smth and update them in a separate loop.
@@ -352,7 +352,7 @@ void UpdateChunks(ChunkPool* pool) {
 
                         chunk->locked = true;
 
-                        if (!ScheduleChunkMeshing(pool->world, chunk)) {
+                        if (!ScheduleChunkMeshing(pool->world, renderer, chunk)) {
                             SwapChunkMeshes(chunk);
                             chunk->priority = ChunkPriority::Low;
                             chunk->remeshingAfterEdit = false;
@@ -369,7 +369,7 @@ void UpdateChunks(ChunkPool* pool) {
                     }
                 } else if (!chunk->primaryMeshValid) {
                     chunk->locked = true;
-                    if (!ScheduleChunkMeshing(pool->world, chunk)) {
+                    if (!ScheduleChunkMeshing(pool->world, renderer, chunk)) {
                         chunk->locked = false;
                     }
                 }
@@ -394,19 +394,19 @@ void UpdateChunks(ChunkPool* pool) {
             } break;
             case ChunkState::WaitsForUpload: {
                 if (chunk->primaryMesh->vertexCount) {
-                    ScheduleChunkMeshUpload(chunk);
+                    ScheduleChunkMeshUpload(chunk, renderer);
                 } else {
                     chunk->state = ChunkState::MeshingFinished;
                 }
             } break;
             case ChunkState::FailedToPushUploadWork: {
-                bool completed = EndGPUpload(chunk->primaryMesh);
+                bool completed = RendererEndLoadResource(renderer, chunk->primaryMesh);
                 if (completed) {
                     chunk->state = ChunkState::WaitsForUpload;
                 }
             } break;
             case ChunkState::MeshUploadingFinished: {
-                CompleteChunkMeshUpload(chunk);
+                CompleteChunkMeshUpload(chunk, renderer);
             } break;
             case ChunkState::Filling: {} break;
             case ChunkState::Meshing: {} break;

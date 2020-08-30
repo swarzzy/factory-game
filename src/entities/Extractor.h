@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Entity.h"
-#include "EntityTraits.h"
+#include "../Entity.h"
+#include "../EntityTraits.h"
 
 attrib (RegisterEntity("kind: block, type: Extractor, name: Extractor"))
 struct Extractor : BlockEntity {

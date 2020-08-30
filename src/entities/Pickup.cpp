@@ -1,5 +1,5 @@
 #include "Pickup.h"
-#include "RenderGroup.h"
+#include "../RenderGroup.h"
 
 Pickup* CreatePickup(WorldPos p, ItemID item, u32 count) {
     auto world = GetWorld();

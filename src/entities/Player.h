@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Entity.h"
+#include "../Entity.h"
 
 struct Player : SpatialEntity {
     SpatialEntity base;
