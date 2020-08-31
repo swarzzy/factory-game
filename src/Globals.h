@@ -11,6 +11,10 @@ namespace Globals {
     constant f32 PickupScale = 0.23f;
     constant f32 DefaultBeltItemMeshAlign = 0.32f;
 
+    constant u32 ChunkBitShift = 5;
+    constant u32 ChunkBitMask = (1 << ChunkBitShift) - 1;
+    constant u32 ChunkSize = 1 << ChunkBitShift;
+
     constant char* DebugWorldName = "test_world";
 
     static bool DrawCollisionVolumes = true;

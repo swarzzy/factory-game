@@ -37,13 +37,13 @@ void EntityStorageUnlink(EntityStorage* storage, Entity* entity) {
 }
 
 BlockValue* GetBlockValueRaw(Chunk* chunk, u32 x, u32 y, u32 z) {
-    BlockValue* result = chunk->blocks + (x + Chunk::Size * y + Chunk::Size * Chunk::Size * z);
+    BlockValue* result = chunk->blocks + (x + Globals::ChunkSize * y + Globals::ChunkSize * Globals::ChunkSize * z);
     return result;
 }
 
 BlockValue GetBlockValue(Chunk* chunk, u32 x, u32 y, u32 z) {
     const BlockValue* result = nullptr;
-    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+    if (x < Globals::ChunkSize && y < Globals::ChunkSize && z < Globals::ChunkSize) {
         result = GetBlockValueRaw(chunk, x, y, z);
     } else {
         result = &chunk->nullBlockValue;
@@ -53,13 +53,13 @@ BlockValue GetBlockValue(Chunk* chunk, u32 x, u32 y, u32 z) {
 
 BlockEntity** GetBlockEntityRaw(Chunk* chunk, u32 x, u32 y, u32 z) {
     BlockEntity** result = nullptr;
-    result = chunk->livingEntities + (x + Chunk::Size * y + Chunk::Size * Chunk::Size * z);
+    result = chunk->livingEntities + (x + Globals::ChunkSize * y + Globals::ChunkSize * Globals::ChunkSize * z);
     return result;
 }
 
 BlockEntity* GetBlockEntity(Chunk* chunk, u32 x, u32 y, u32 z) {
     BlockEntity* result = nullptr;
-    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+    if (x < Globals::ChunkSize && y < Globals::ChunkSize && z < Globals::ChunkSize) {
         result = *GetBlockEntityRaw(chunk, x, y, z);
     }
     return result;
@@ -67,7 +67,7 @@ BlockEntity* GetBlockEntity(Chunk* chunk, u32 x, u32 y, u32 z) {
 
 Block GetBlock(Chunk* chunk, u32 x, u32 y, u32 z) {
     Block block { chunk->nullBlockValue, nullptr };
-    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+    if (x < Globals::ChunkSize && y < Globals::ChunkSize && z < Globals::ChunkSize) {
         auto value = GetBlockValueRaw(chunk, x, y, z);
         auto entity = GetBlockEntityRaw(chunk, x, y, z);
         block.value = *value;
@@ -78,7 +78,7 @@ Block GetBlock(Chunk* chunk, u32 x, u32 y, u32 z) {
 
 bool OccupyBlock(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
     bool result = false;
-    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+    if (x < Globals::ChunkSize && y < Globals::ChunkSize && z < Globals::ChunkSize) {
         auto livingEntity = GetBlockEntityRaw(chunk, x, y, z);
         if (!(*livingEntity)) {
             *livingEntity = entity;
@@ -93,7 +93,7 @@ bool OccupyBlock(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
 
 bool ReleaseBlock(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
     bool result = false;
-    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+    if (x < Globals::ChunkSize && y < Globals::ChunkSize && z < Globals::ChunkSize) {
         auto ptr = GetBlockEntityRaw(chunk, x, y, z);
         assert(*ptr);
         auto livingEntity = *ptr;
@@ -113,7 +113,7 @@ bool ReleaseBlock(Chunk* chunk, BlockEntity* entity, u32 x, u32 y, u32 z) {
 
 BlockValue* GetBlockForModification(Chunk* chunk, u32 x, u32 y, u32 z) {
     BlockValue* result = nullptr;
-    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size) {
+    if (x < Globals::ChunkSize && y < Globals::ChunkSize && z < Globals::ChunkSize) {
         result = GetBlockValueRaw(chunk, x, y, z);
         chunk->shouldBeRemeshedAfterEdit = true;
         chunk->lastModificationTick = GetPlatform()->tickCount;

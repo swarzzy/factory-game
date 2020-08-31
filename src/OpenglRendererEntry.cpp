@@ -1,32 +1,256 @@
 #include "Common.h"
 #include "Platform.h"
 
-#include "RendererAPI.h"
+#define DEBUG_OPENGL
 
-static LoggerFn* GlobalLogger;
-static void* GlobalLoggerData;
+#if defined(COMPILER_MSVC)
+#define platform_call(func) _GlobalPlatform->functions.##func
+#else
+#define platform_call(func) _GlobalPlatform->functions. func
+#endif
 
-static AssertHandlerFn* GlobalAssertHandler;
-static void* GlobalAssertHandlerData;
+#define PlatformAlloc platform_call(Allocate)
+#define PlatformFree platform_call(Deallocate)
+#define PlatformRealloc platform_call(Reallocate)
+#define PlatformDebugGetFileSize platform_call(DebugGetFileSize)
+#define PlatformDebugReadFile platform_call(DebugReadFile)
+#define PlatformDebugWriteFile platform_call(DebugWriteFile)
+#define PlatformDebugCopyFile platform_call(DebugCopyFile)
+#define ResourceLoaderLoadImage platform_call(ResourceLoaderLoadImage)
+#define ResourceLoaderValidateImageFile platform_call(ResourceLoaderValidateImageFile)
+#define PlatformGetTimeStamp platform_call(GetTimeStamp)
+#define PlatformAllocateArena platform_call(AllocateArena)
+#define PlatformFreeArena platform_call(FreeArena)
+#define PlatformForEachFile platform_call(ForEachFile)
+
+#define PlatformAllocatePages platform_call(AllocatePages)
+#define PlatformDeallocatePages platform_call(DeallocatePages)
+
+#define PlatformPushWork platform_call(PushWork)
+#define PlatformCompleteAllWork platform_call(CompleteAllWork)
+#define PlatformSetSaveThreadWork platform_call(SetSaveThreadWork)
+
+// TODO(swarzzy): Use logger from the game
+void Logger(void* data, const char* fmt, va_list* args) {
+    vprintf(fmt, *args);
+}
+
+inline void AssertHandler(void* data, const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, va_list* args) {
+    log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
+    if (args) {
+        GlobalLogger(GlobalLoggerData, fmt, args);
+    }
+    debug_break();
+}
+
+static LoggerFn* GlobalLogger = Logger;
+static void* GlobalLoggerData = nullptr;;
+
+static AssertHandlerFn* GlobalAssertHandler = AssertHandler;
+static void* GlobalAssertHandlerData = nullptr;
+
+static PlatformState* _GlobalPlatform = nullptr;
+static OpenGL* _GlobalAPI = nullptr;
+static struct RendererContext* _GlobalContext = nullptr;
+
+#include "OpenglDefs.h"
+#include "OpenglRenderer.h"
+
+// NOTE(swarzzy): For memcpy
+#include <string.h>
+
+struct RendererContext {
+    Renderer renderer;
+};
+
+inline const PlatformState* GetPlatform() { return _GlobalPlatform; }
+inline const InputState* GetInput() { return &_GlobalPlatform->input; }
+inline Renderer* GetRenderer() { return &_GlobalContext->renderer; }
+
+#define Platform (*(const PlatformCalls*)(&_GlobalPlatform->functions))
+
+void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
+
+extern "C" GAME_CODE_ENTRY void __cdecl RendererPlatformInvoke(RendererInvoke invoke, PlatformState* platform, void* apiData, void** rendererData) {
+    switch (invoke) {
+    case RendererInvoke::Init: {
+        _GlobalPlatform = platform;
+        _GlobalAPI = (OpenGL*)apiData;
+        _GlobalContext = (RendererContext*)Platform.Allocate(sizeof(RendererContext), alignof(RendererContext), nullptr);
+        (*_GlobalContext) = {};
+        assert(_GlobalContext);
+        *rendererData = (void*)_GlobalContext;
+
+#if defined(DEBUG_OPENGL)
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(OpenglDebugCallback, 0);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, 0, GL_TRUE);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, 0, GL_FALSE);
+        glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_OTHER, GL_DEBUG_SEVERITY_LOW, 0, 0, GL_FALSE);
+#endif
+
+    } break;
+    case RendererInvoke::Reload: {
+        _GlobalPlatform = platform;
+        _GlobalAPI = (OpenGL*)apiData;
+        _GlobalContext = (RendererContext*)(*rendererData);
+
+#if defined(DEBUG_OPENGL)
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(OpenglDebugCallback, 0);
+#endif
+
+    } break;
+    invalid_default();
+    }
+}
 
 extern "C" GAME_CODE_ENTRY RendererInfo __cdecl RendererGetInfo() {
     RendererInfo info {};
-    info.state.wRenderResolution = 1;
-    info.state.hRenderResolution = 2;
-    info.state.sampleCount = 3;
+    auto renderer = GetRenderer();
+    info.state.wRenderResolution = renderer->renderRes.x;
+    info.state.hRenderResolution = renderer->renderRes.y;
+    info.state.sampleCount = renderer->sampleCount;
+    info.caps.maxSampleCount = renderer->maxSupportedSampleCount;
+
     return info;
 }
 
 extern "C" GAME_CODE_ENTRY void __cdecl RendererExecuteCommand(RendererCommand command, void* args) {
+    auto renderer = GetRenderer();
     switch (command) {
-    case RendererCommand::LibraryReload: {
-        auto data = (LibraryReloadArgs*)args;
-        GlobalLogger = data->globalLogger;
-        GlobalLoggerData = data->globalLoggerData;
-        GlobalAssertHandler = data->globalAssertHandler;
-        GlobalAssertHandlerData = data->globalAssertHandlerData;
+    case RendererCommand::ChangeRenderResolution: {
+        auto data = (ChangeRenderResolutionArgs*)args;
+        ChangeRenderResolution(renderer, data->wRenderResolution, data->hRenderResolution, data->sampleCount);
     } break;
+    case RendererCommand::BeginFrame: {
+        auto data = (BeginFrameArgs*)args;
+        Begin(renderer, data->group);
+    } break;
+    case RendererCommand::ShadowPass: {
+        auto data = (ShadowPassArgs*)args;
+        ShadowPass(renderer, data->group);
+    } break;
+    case RendererCommand::MainPass: {
+        auto data = (MainPassArgs*)args;
+        MainPass(renderer, data->group);
+    } break;
+    case RendererCommand::EndFrame: {
+        End(renderer);
+    } break;
+    case RendererCommand::LoadResource: {
+        auto data = (LoadResourceArgs*)args;
+        switch (data->type) {
+        case RenderResourceType::CubeTexture: {
+            UploadToGPU(data->cubeTexture.texture);
+        } break;
+        case RenderResourceType::Mesh: {
+            UploadToGPU(data->mesh.mesh);
+        } break;
+        case RenderResourceType::ChunkMesh: {
+            UploadToGPU(data->chunkMesh.mesh, data->chunkMesh.async);
+        } break;
+        case RenderResourceType::Texture: {
+            UploadToGPU(data->texture.texture);
+        } break;
+            invalid_default();
+        }
+    } break;
+    case RendererCommand::BeginLoadResource: {
+        auto data = (BeginLoadResourceArgs*)args;
+        BeginGPUUpload(data->mesh);
+    } break;
+    case RendererCommand::EndLoadResource: {
+        auto data = (EndLoadResourceArgs*)args;
+        // TODO(swarzzy): Stop returning result a hacky way
+        auto result = EndGPUUpload(data->mesh);
+        data->result = (b32)result;
+    } break;
+    case RendererCommand::FreeResource: {
+        auto data = (FreeResourceArgs*)args;
+        switch (data->type) {
+        case RenderResourceType::CubeTexture: { unreachable(); } break;
+        case RenderResourceType::Mesh:
+        case RenderResourceType::ChunkMesh: {
+            FreeGPUBuffer((u32)data->handle);
+        } break;
+        case RenderResourceType::Texture: {
+            FreeGPUTexture((u32)data->handle);
+        } break;
+            invalid_default();
+        }
+    } break;
+    case RendererCommand::BeginLoadTexture: {
+        auto data = (BeginLoadTextureArgs*)args;
+        auto info = GetTextureTransferBuffer(renderer, (u32)data->bufferSize);
+        data->bufferInfo = info;
+    } break;
+    case RendererCommand::EndLoadTexture: {
+        auto data = (EndLoadTextureArgs*)args;
+        CompleteTextureTransfer(&data->bufferInfo, data->result);
+    } break;
+    case RendererCommand::SetBlockTexture: {
+        auto data = (SetBlockTextureArgs*)args;
+        SetBlockTexture(renderer, data->value, data->imageBits);
+    } break;
+    case RendererCommand::RecompileShaders: {
+        RecompileShaders(renderer);
+    } break;
+    case RendererCommand::Initialize: {
+        auto data = (InitializeArgs*)args;
+        InitializeRenderer(renderer, data->tempArena, UV2(data->wResolution, data->hResolution), data->sampleCount);
+    } break;
+
+
+
+    default: { log_print("[Renderer] Unknown command with code %lu was submitted", (unsigned long)command); } break;
+    }
+}
+
+void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam) {
+    const char* sourceStr;
+    const char* typeStr;
+    const char* severityStr;
+
+    switch (source) {
+    case GL_DEBUG_SOURCE_API: { sourceStr = "API"; } break;
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM: { sourceStr = "window system"; } break;
+    case GL_DEBUG_SOURCE_SHADER_COMPILER: { sourceStr = "shader compiler"; } break;
+    case GL_DEBUG_SOURCE_THIRD_PARTY: { sourceStr = "third party"; } break;
+    case GL_DEBUG_SOURCE_APPLICATION: { sourceStr = "application"; } break;
+    case GL_DEBUG_SOURCE_OTHER: { sourceStr = "other"; } break;
     invalid_default();
     }
 
+    switch (type) {
+    case GL_DEBUG_TYPE_ERROR: { typeStr = "error"; } break;
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: { typeStr = "deprecated behavior"; } break;
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: { typeStr = "undefined behavior"; } break;
+    case GL_DEBUG_TYPE_PORTABILITY: { typeStr = "portability problem"; } break;
+    case GL_DEBUG_TYPE_PERFORMANCE: { typeStr = "performance problem"; } break;
+    case GL_DEBUG_TYPE_OTHER: { typeStr = "other"; } break;
+    invalid_default();
+    }
+
+    switch (severity) {
+    case GL_DEBUG_SEVERITY_HIGH: { severityStr = "high"; } break;
+    case GL_DEBUG_SEVERITY_MEDIUM: { severityStr = "medium"; } break;
+    case GL_DEBUG_SEVERITY_LOW: { severityStr = "low"; } break;
+    case GL_DEBUG_SEVERITY_NOTIFICATION: { severityStr = "notification"; } break;
+    default: { severityStr = "unknown"; } break;
+    }
+    log_print("[OpenGL] Debug message (source: %s, type: %s, severity: %s): %s\n", sourceStr, typeStr, severityStr, message);
+    //assert(false);
 }
+
+#include "OpenglRenderer.cpp"
+#include "Resource.cpp"
+#include "Shaders.cpp"
+
+// NOTE: Platform specific intrinsics implementation begins here
+#if defined(PLATFORM_WINDOWS)
+#include <windows.h>
+#else
+#error Unsupported OS
+#endif
+#include "Intrinsics.cpp"

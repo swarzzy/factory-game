@@ -1,19 +1,10 @@
 #include "Win32CodeLoader.h"
 #include <stdlib.h>
 
-static void __cdecl GameUpdateAndRenderDummy(PlatformState*, GameInvoke, void**)
-{
-
-}
-
-static RendererInfo __cdecl RendererGetInfoDummy()
-{
-    return {};
-}
-
-static void __cdecl RendererExecuteCommandDummy(RendererCommand command, void* args)
-{
-}
+static void __cdecl GameUpdateAndRenderDummy(PlatformState*, GameInvoke, void**) {}
+static void __cdecl RendererPlatformInvokeDummy(RendererInvoke invoke, PlatformState* platform, void* apiData, void** rendererData) {}
+static RendererInfo __cdecl RendererGetInfoDummy() { return {}; }
+static void __cdecl RendererExecuteCommandDummy(RendererCommand command, void* args) {}
 
 void UnloadGameLib(LibraryData* lib)
 {
@@ -25,6 +16,7 @@ void UnloadGameLib(LibraryData* lib)
 void UnloadRendererLib(LibraryData* lib)
 {
     FreeLibrary(lib->rendererLibHandle);
+    lib->RendererPlatformInvoke = RendererPlatformInvokeDummy;
     lib->RendererGetInfo = RendererGetInfoDummy;
     lib->RendererExecuteCommand = RendererExecuteCommandDummy;
     DeleteFile(LibraryData::TempRendererLibName);
@@ -91,12 +83,15 @@ b32 UpdateRendererLib(LibraryData* lib)
         if (result) {
             lib->rendererLibHandle = LoadLibrary(LibraryData::TempRendererLibName);
             if (lib->rendererLibHandle) {
+
                 auto rendererGetInfo = (RendererGetInfoFn*)GetProcAddress(lib->rendererLibHandle, "RendererGetInfo");
                 auto rendererExecuteCommand = (RendererExecuteCommandFn*)GetProcAddress(lib->rendererLibHandle, "RendererExecuteCommand");
+                auto rendererPlatformInvoke = (RendererPlatformInvokeFn*)GetProcAddress(lib->rendererLibHandle, "RendererPlatformInvoke");
 
-                if (rendererGetInfo && rendererExecuteCommand) {
+                if (rendererGetInfo && rendererExecuteCommand && rendererPlatformInvoke) {
                     lib->RendererGetInfo = rendererGetInfo;
                     lib->RendererExecuteCommand = rendererExecuteCommand;
+                    lib->RendererPlatformInvoke = rendererPlatformInvoke;
                     updated = true;
                     lib->rendererLibLastChangeTime = fileTime.time;
                 } else {

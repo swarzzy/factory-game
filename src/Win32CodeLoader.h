@@ -22,6 +22,7 @@ struct LibraryData
 
     GameUpdateAndRenderFn* GameUpdateAndRender;
 
+    RendererPlatformInvokeFn* RendererPlatformInvoke;
     RendererGetInfoFn* RendererGetInfo;
     RendererExecuteCommandFn* RendererExecuteCommand;
 

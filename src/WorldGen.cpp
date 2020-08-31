@@ -89,8 +89,8 @@ bool ScheduleChunkFill(WorldGen* gen, Chunk* chunk) {
 
 void GenChunk(WorldGen* gen, Chunk* chunk) {
     if (chunk->p.y == 0) {
-        for (u32 bz = 0; bz < Chunk::Size; bz++) {
-            for (u32 bx = 0; bx < Chunk::Size; bx++) {
+        for (u32 bz = 0; bz < Globals::ChunkSize; bz++) {
+            for (u32 bx = 0; bx < Globals::ChunkSize; bx++) {
                 auto wp = ChunkPos::ToWorld(ChunkPos{chunk->p, UV3(bx, 0, bz)});
                 u32 grassHeight = GetHeightFromNoise(&gen->noise, wp.block.x, wp.block.z, 10);
                 u32 rockHeight = GetHeightFromNoise(&gen->anotherNoise, wp.block.x, wp.block.z, 8);
@@ -113,9 +113,9 @@ void GenChunk(WorldGen* gen, Chunk* chunk) {
             }
         }
     } else if (chunk->p.y < 0) {
-        for (u32 bz = 0; bz < Chunk::Size; bz++) {
-            for (u32 by = 0; by < Chunk::Size; by++) {
-                for (u32 bx = 0; bx < Chunk::Size; bx++) {
+        for (u32 bz = 0; bz < Globals::ChunkSize; bz++) {
+            for (u32 by = 0; by < Globals::ChunkSize; by++) {
+                for (u32 bx = 0; bx < Globals::ChunkSize; bx++) {
                     auto block = GetBlockValueRaw(chunk, bx, by, bz);
                     *block = BlockValue::Stone;
                 }

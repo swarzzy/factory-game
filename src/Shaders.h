@@ -14,7 +14,7 @@ static_assert(ShaderCount == array_count(ShaderSources));
 
 GLuint CompileGLSL(const char* name, const char* vert, const char* frag);
 void RecompileShaders(Renderer* renderer);
-inline void DeleteProgram(GLuint handle) { glDeleteProgram(handle); }
+void DeleteProgram(GLuint handle);
 
 template <typename T, u32 Binding>
 struct UniformBuffer {

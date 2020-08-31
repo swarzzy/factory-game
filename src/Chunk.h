@@ -35,10 +35,6 @@ template <typename F>
 void ForEach(EntityStorage* storage, F func);
 
 struct Chunk {
-    static const u32 BitShift = 5;
-    static const u32 BitMask = (1 << BitShift) - 1;
-    static const u32 Size = 1 << BitShift;
-
     volatile u64 lastSaveTick;
     volatile ChunkState state;
     volatile u32 saving;
@@ -75,14 +71,14 @@ struct Chunk {
     EntityStorage entityStorage;
 
     // TODO: Is separating block values and living entities actually a good idea?
-    BlockValue blocks[Size * Size * Size];
+    BlockValue blocks[Globals::ChunkSize * Globals::ChunkSize * Globals::ChunkSize];
     // NOTE: Just go bananas and storing pointer to block entity that lives in this voxel
     // TODO: In the future we probably need some sophisticated structure for
     // fast retrieval of entities by coords without storing 8 BYTE POINTER IN EVERY VOXEL WHICH
     // MAKES EVERY CHUNK AT LEAST 0.25 MB BIGGER. Just static grid subdivision might be enough
     // or there might be an octree in chunk of smth...
     // TODO: Make this BlockEntity*
-    BlockEntity* livingEntities[Size * Size * Size];
+    BlockEntity* livingEntities[Globals::ChunkSize * Globals::ChunkSize * Globals::ChunkSize];
     BlockValue nullBlockValue;
 };
 

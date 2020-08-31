@@ -274,83 +274,81 @@ void FluxInit(Context* context) {
     InitWorld(&context->gameWorld, context, &context->chunkMesher, 293847, Globals::DebugWorldName);
 
     auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    RendererSetBlockTexture(context->renderer, BlockValue::Stone, stone->bits);
+    RendererSetBlockTexture(BlockValueToTerrainIndex(BlockValue::Stone), stone->bits);
     auto grass = ResourceLoaderLoadImage("../res/tile_grass.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    RendererSetBlockTexture(context->renderer, BlockValue::Grass, grass->bits);
+    RendererSetBlockTexture(BlockValueToTerrainIndex(BlockValue::Grass), grass->bits);
     auto coalOre = ResourceLoaderLoadImage("../res/tile_coal_ore.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    RendererSetBlockTexture(context->renderer, BlockValue::CoalOre, coalOre->bits);
+    RendererSetBlockTexture(BlockValueToTerrainIndex(BlockValue::CoalOre), coalOre->bits);
     auto water = ResourceLoaderLoadImage("../res/tile_water.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    RendererSetBlockTexture(context->renderer, BlockValue::Water, water->bits);
-
-    auto renderer = context->renderer;
+    RendererSetBlockTexture(BlockValueToTerrainIndex(BlockValue::Water), water->bits);
 
     context->coalIcon = LoadTextureFromFile("../res/coal_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
     assert(context->coalIcon.base);
-    RendererLoadResource(renderer, &context->coalIcon);
+    RendererLoadResource(&context->coalIcon);
 
     context->containerIcon = LoadTextureFromFile("../res/chest_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
     assert(context->containerIcon.base);
-    RendererLoadResource(renderer, &context->containerIcon);
+    RendererLoadResource(&context->containerIcon);
 
     context->beltIcon = LoadTextureFromFile("../res/belt_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
     assert(context->beltIcon.base);
-    RendererLoadResource(renderer, &context->beltIcon);
+    RendererLoadResource(&context->beltIcon);
 
     context->extractorIcon = LoadTextureFromFile("../res/extractor_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
     assert(context->extractorIcon.base);
-    RendererLoadResource(renderer, &context->extractorIcon);
+    RendererLoadResource(&context->extractorIcon);
 
     context->pipeIcon = LoadTextureFromFile("../res/pipe_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
     assert(context->pipeIcon.base);
-    RendererLoadResource(renderer, &context->pipeIcon);
+    RendererLoadResource(&context->pipeIcon);
 
     context->grenadeIcon = LoadTextureFromFile("../res/grenade_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
     assert(context->grenadeIcon.base);
-    RendererLoadResource(renderer, &context->grenadeIcon);
+    RendererLoadResource(&context->grenadeIcon);
 
     context->cubeMesh = LoadMeshFlux("../res/cube.mesh");
     assert(context->cubeMesh);
-    RendererLoadResource(renderer, context->cubeMesh);
+    RendererLoadResource(context->cubeMesh);
 
     context->coalOreMesh = LoadMeshFlux("../res/coal_ore/coal_ore.mesh");
     assert(context->coalOreMesh);
-    RendererLoadResource(renderer, context->coalOreMesh);
+    RendererLoadResource(context->coalOreMesh);
 
     context->containerMesh = LoadMeshFlux("../res/container/container.mesh");
     assert(context->containerMesh);
-    RendererLoadResource(renderer, context->containerMesh);
+    RendererLoadResource(context->containerMesh);
 
     context->pipeStraightMesh = LoadMeshFlux("../res/pipesss/pipe_straight.mesh");
     assert(context->pipeStraightMesh);
-    RendererLoadResource(renderer, context->pipeStraightMesh);
+    RendererLoadResource(context->pipeStraightMesh);
 
     context->pipeTurnMesh = LoadMeshFlux("../res/pipesss/pipe_turn.mesh");
     assert(context->pipeTurnMesh);
-    RendererLoadResource(renderer, context->pipeTurnMesh);
+    RendererLoadResource(context->pipeTurnMesh);
 
     context->pipeTeeMesh = LoadMeshFlux("../res/pipesss/pipe_Tee.mesh");
     assert(context->pipeTeeMesh);
-    RendererLoadResource(renderer, context->pipeTeeMesh);
+    RendererLoadResource(context->pipeTeeMesh);
 
     context->pipeCrossMesh = LoadMeshFlux("../res/pipesss/pipe_cross.mesh");
     assert(context->pipeCrossMesh);
-    RendererLoadResource(renderer, context->pipeCrossMesh);
+    RendererLoadResource(context->pipeCrossMesh);
 
     context->barrelMesh = LoadMeshFlux("../res/barrel/barrel.mesh");
     assert(context->barrelMesh);
-    RendererLoadResource(renderer, context->barrelMesh);
+    RendererLoadResource(context->barrelMesh);
 
     context->beltStraightMesh = LoadMeshFlux("../res/belt/belt_straight.mesh");
     assert(context->beltStraightMesh);
-    RendererLoadResource(renderer, context->beltStraightMesh);
+    RendererLoadResource(context->beltStraightMesh);
 
     context->extractorMesh = LoadMeshFlux("../res/extractor/extractor.mesh");
     assert(context->extractorMesh);
-    RendererLoadResource(renderer, context->extractorMesh);
+    RendererLoadResource(context->extractorMesh);
 
     context->grenadeMesh = LoadMeshFlux("../res/grenade/grenade.mesh");
     assert(context->grenadeMesh);
-    RendererLoadResource(renderer, context->grenadeMesh);
+    RendererLoadResource(context->grenadeMesh);
 
     context->playerMaterial.workflow = Material::Workflow::PBR;
     context->playerMaterial.pbr.albedoValue = V3(0.8f, 0.0f, 0.0f);
@@ -362,16 +360,16 @@ void FluxInit(Context* context) {
 
     context->containerAlbedo = LoadTextureFromFile("../res/container/albedo_1024.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->containerAlbedo.base);
-    RendererLoadResource(renderer, &context->containerAlbedo);
+    RendererLoadResource(&context->containerAlbedo);
     context->containerMetallic = LoadTextureFromFile("../res/container/metallic_1024.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->containerMetallic.base);
-    RendererLoadResource(renderer, &context->containerMetallic);
+    RendererLoadResource(&context->containerMetallic);
     context->containerNormal = LoadTextureFromFile("../res/container/normal_1024.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->containerNormal.base);
-    RendererLoadResource(renderer, &context->containerNormal);
+    RendererLoadResource(&context->containerNormal);
     context->containerAO = LoadTextureFromFile("../res/container/AO_1024.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->containerAO.base);
-    RendererLoadResource(renderer, &context->containerAO);
+    RendererLoadResource(&context->containerAO);
     context->containerMaterial.workflow = Material::Workflow::PBR;
     context->containerMaterial.pbr.useAlbedoMap = true;
     context->containerMaterial.pbr.useMetallicMap = true;
@@ -386,19 +384,19 @@ void FluxInit(Context* context) {
 
     context->pipeAlbedo = LoadTextureFromFile("../res/pipesss/textures/albedo.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->pipeAlbedo.base);
-    RendererLoadResource(renderer, &context->pipeAlbedo);
+    RendererLoadResource(&context->pipeAlbedo);
     context->pipeRoughness = LoadTextureFromFile("../res/pipesss/textures/roughness.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->pipeRoughness.base);
-    RendererLoadResource(renderer, &context->pipeRoughness);
+    RendererLoadResource(&context->pipeRoughness);
     context->pipeMetallic = LoadTextureFromFile("../res/pipesss/textures/metallic.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->pipeMetallic.base);
-    RendererLoadResource(renderer, &context->pipeMetallic);
+    RendererLoadResource(&context->pipeMetallic);
     context->pipeNormal = LoadTextureFromFile("../res/pipesss/textures/normal.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->pipeNormal.base);
-    RendererLoadResource(renderer, &context->pipeNormal);
+    RendererLoadResource(&context->pipeNormal);
     context->pipeAO = LoadTextureFromFile("../res/pipesss/textures/AO.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->pipeAO.base);
-    RendererLoadResource(renderer, &context->pipeAO);
+    RendererLoadResource(&context->pipeAO);
     context->pipeMaterial.workflow = Material::Workflow::PBR;
     context->pipeMaterial.pbr.useAlbedoMap = true;
     context->pipeMaterial.pbr.useMetallicMap = true;
@@ -414,16 +412,16 @@ void FluxInit(Context* context) {
 
     context->barrelAlbedo = LoadTextureFromFile("../res/barrel/albedo.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->barrelAlbedo.base);
-    RendererLoadResource(renderer, &context->barrelAlbedo);
+    RendererLoadResource(&context->barrelAlbedo);
     context->barrelRoughness = LoadTextureFromFile("../res/barrel/roughness.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->barrelRoughness.base);
-    RendererLoadResource(renderer, &context->barrelRoughness);
+    RendererLoadResource(&context->barrelRoughness);
     context->barrelNormal = LoadTextureFromFile("../res/barrel/normal.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->barrelNormal.base);
-    RendererLoadResource(renderer, &context->barrelNormal);
+    RendererLoadResource(&context->barrelNormal);
     context->barrelAO = LoadTextureFromFile("../res/barrel/AO.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->barrelAO.base);
-    RendererLoadResource(renderer, &context->barrelAO);
+    RendererLoadResource(&context->barrelAO);
     context->barrelMaterial.workflow = Material::Workflow::PBR;
     context->barrelMaterial.pbr.useAlbedoMap = true;
     context->barrelMaterial.pbr.useRoughnessMap = true;
@@ -438,7 +436,7 @@ void FluxInit(Context* context) {
 
     context->beltDiffuse = LoadTextureFromFile("../res/belt/diffuse.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->beltDiffuse.base);
-    RendererLoadResource(renderer, &context->beltDiffuse);
+    RendererLoadResource(&context->beltDiffuse);
     context->beltMaterial.workflow = Material::Workflow::PBR;
     context->beltMaterial.pbr.useAlbedoMap = true;
     context->beltMaterial.pbr.albedoMap = &context->beltDiffuse;
@@ -447,7 +445,7 @@ void FluxInit(Context* context) {
 
     context->extractorDiffuse = LoadTextureFromFile("../res/extractor/diffuse.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->extractorDiffuse.base);
-    RendererLoadResource(renderer, &context->extractorDiffuse);
+    RendererLoadResource(&context->extractorDiffuse);
     context->extractorMaterial.workflow = Material::Workflow::PBR;
     context->extractorMaterial.pbr.useAlbedoMap = true;
     context->extractorMaterial.pbr.albedoMap = &context->extractorDiffuse;
@@ -456,7 +454,7 @@ void FluxInit(Context* context) {
 
     context->stoneDiffuse = LoadTextureFromFile("../res/tile_stone.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->stoneDiffuse.base);
-    RendererLoadResource(renderer, &context->stoneDiffuse);
+    RendererLoadResource(&context->stoneDiffuse);
     context->stoneMaterial.workflow = Material::Workflow::PBR;
     context->stoneMaterial.pbr.useAlbedoMap = true;
     context->stoneMaterial.pbr.albedoMap = &context->stoneDiffuse;
@@ -465,7 +463,7 @@ void FluxInit(Context* context) {
 
     context->grassDiffuse = LoadTextureFromFile("../res/tile_grass.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->grassDiffuse.base);
-    RendererLoadResource(renderer, &context->grassDiffuse);
+    RendererLoadResource(&context->grassDiffuse);
     context->grassMaterial.workflow = Material::Workflow::PBR;
     context->grassMaterial.pbr.useAlbedoMap = true;
     context->grassMaterial.pbr.albedoMap = &context->grassDiffuse;
@@ -474,7 +472,7 @@ void FluxInit(Context* context) {
 
     context->coalOreBlockDiffuse = LoadTextureFromFile("../res/tile_coal_ore.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->coalOreBlockDiffuse.base);
-    RendererLoadResource(renderer, &context->coalOreBlockDiffuse);
+    RendererLoadResource(&context->coalOreBlockDiffuse);
     context->coalOreBlockMaterial.workflow = Material::Workflow::PBR;
     context->coalOreBlockMaterial.pbr.useAlbedoMap = true;
     context->coalOreBlockMaterial.pbr.albedoMap = &context->coalOreBlockDiffuse;
@@ -483,7 +481,7 @@ void FluxInit(Context* context) {
 
     context->waterDiffuse = LoadTextureFromFile("../res/tile_water.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->waterDiffuse.base);
-    RendererLoadResource(renderer, &context->waterDiffuse);
+    RendererLoadResource(&context->waterDiffuse);
     context->waterMaterial.workflow = Material::Workflow::PBR;
     context->waterMaterial.pbr.useAlbedoMap = true;
     context->waterMaterial.pbr.albedoMap = &context->waterDiffuse;
@@ -492,19 +490,19 @@ void FluxInit(Context* context) {
 
     context->grenadeAlbedo = LoadTextureFromFile("../res/grenade/textures_256/albedo.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->grenadeAlbedo.base);
-    RendererLoadResource(renderer, &context->grenadeAlbedo);
+    RendererLoadResource(&context->grenadeAlbedo);
     context->grenadeRoughness = LoadTextureFromFile("../res/grenade/textures_256/roughness.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->grenadeRoughness.base);
-    RendererLoadResource(renderer, &context->grenadeRoughness);
+    RendererLoadResource(&context->grenadeRoughness);
     context->grenadeMetallic = LoadTextureFromFile("../res/grenade/textures_256/metallic.png", TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->grenadeMetallic.base);
-    RendererLoadResource(renderer, &context->grenadeMetallic);
+    RendererLoadResource(&context->grenadeMetallic);
     context->grenadeNormal = LoadTextureFromFile("../res/grenade/textures_256/normal.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->grenadeNormal.base);
-    RendererLoadResource(renderer, &context->grenadeNormal);
+    RendererLoadResource(&context->grenadeNormal);
     context->grenadeAO = LoadTextureFromFile("../res/grenade/textures_256/AO.png", TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Default, DynamicRange::LDR);
     assert(context->grenadeAO.base);
-    RendererLoadResource(renderer, &context->grenadeAO);
+    RendererLoadResource(&context->grenadeAO);
     context->grenadeMaterial.workflow = Material::Workflow::PBR;
     context->grenadeMaterial.pbr.useAlbedoMap = true;
     context->grenadeMaterial.pbr.useRoughnessMap = true;
@@ -558,14 +556,13 @@ void FluxUpdate(Context* context) {
             EntityInventoryPushItem(player->toolbelt, Item::Extractor, 128);
             EntityInventoryPushItem(player->toolbelt, Item::Grenade, 128);
         }
-        UpdateChunks(&world->chunkPool, context->renderer);
+        UpdateChunks(&world->chunkPool);
         return;
     }
 
     auto player = static_cast<Player*>(GetEntity(&context->gameWorld, context->gameWorld.playerID));
     assert(player);
 
-    auto renderer = context->renderer;
     auto camera = &context->camera;
 
     if (KeyPressed(Key::F5)) {
@@ -598,16 +595,16 @@ void FluxUpdate(Context* context) {
         DrawConsole(&context->console);
     }
 
-    auto info = GetRendererInfo(renderer);
+    auto info = Renderer.GetInfo();
     i32 rendererSampleCount = info.state.sampleCount;
     DEBUG_OVERLAY_SLIDER(rendererSampleCount, 0, info.caps.maxSampleCount);
     if (rendererSampleCount != info.state.sampleCount) {
-        RendererChangeResolution(renderer, info.state.wRenderResolution, info.state.hRenderResolution, rendererSampleCount);
+        RendererChangeResolution(info.state.wRenderResolution, info.state.hRenderResolution, rendererSampleCount);
     }
 
     if (info.state.wRenderResolution != GetPlatform()->windowWidth ||
         info.state.hRenderResolution != GetPlatform()->windowHeight) {
-        RendererChangeResolution(renderer, GetPlatform()->windowWidth, GetPlatform()->windowHeight, info.state.sampleCount);
+        RendererChangeResolution(GetPlatform()->windowWidth, GetPlatform()->windowHeight, info.state.sampleCount);
     }
 
     auto ui = &context->ui;
@@ -641,8 +638,6 @@ void FluxUpdate(Context* context) {
     UIUpdateAndRender(ui);
 
     Update(&context->camera, player, 1.0f / 60.0f);
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     DrawDebugPerformanceCounters();
 
 
@@ -662,7 +657,7 @@ void FluxUpdate(Context* context) {
     UpdateChunkEntities(&world->chunkPool, group, camera);
 
 
-    UpdateChunks(&world->chunkPool, context->renderer);
+    UpdateChunks(&world->chunkPool);
 
     DrawChunks(&world->chunkPool, group, camera);
 
@@ -823,10 +818,12 @@ void FluxUpdate(Context* context) {
     BucketArrayClear(&context->gameWorld.entitiesToDelete);
 
 
-    RendererBeginFrame(renderer, group);
-    RendererShadowPass(renderer, group);
-    RendererMainPass(renderer, group);
-    RendererEndFrame(renderer);
+    RendererBeginFrame(group);
+    RendererShadowPass(group);
+    RendererMainPass(group);
+    // TODO(swarzzy): Maybe renderer should reset command queue itself?
+    Reset(group);
+    RendererEndFrame();
 
     UpdateDebugProfiler(&context->debugProfiler);
     DebugUIUpdateAndRender(debugUI);

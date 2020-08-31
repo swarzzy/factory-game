@@ -83,7 +83,7 @@ bool SaveChunk(Chunk* chunk) {
     auto world = GetWorld();
     wchar_t nameBuffer[256];
     swprintf_s(nameBuffer, 128, L"%hs\\%ld.%ld.%ld.chunk", world->name, chunk->p.x, chunk->p.y, chunk->p.z);
-    auto dataSize = Chunk::Size * Chunk::Size * Chunk::Size * sizeof(BlockValue);
+    auto dataSize = Globals::ChunkSize * Globals::ChunkSize * Globals::ChunkSize * sizeof(BlockValue);
     auto blockDataWriteResult = PlatformDebugWriteFile(nameBuffer, chunk->blocks, (u32)dataSize);
 
     if (blockDataWriteResult && chunk->entityStorage.count) {
@@ -149,7 +149,7 @@ bool TryLoadChunk(Chunk* chunk) {
     auto world = GetWorld();
     wchar_t nameBuffer[256];
     swprintf_s(nameBuffer, 128, L"%hs\\%ld.%ld.%ld.chunk", world->name, chunk->p.x, chunk->p.y, chunk->p.z);
-    auto dataSize = Chunk::Size * Chunk::Size * Chunk::Size * sizeof(BlockValue);
+    auto dataSize = Globals::ChunkSize * Globals::ChunkSize * Globals::ChunkSize * sizeof(BlockValue);
     auto blockDataLoadResult = PlatformDebugReadFile(chunk->blocks, (u32)dataSize, nameBuffer);
     return blockDataLoadResult;
 }

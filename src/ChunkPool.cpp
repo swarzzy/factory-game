@@ -18,7 +18,7 @@ void ReturnChunkMeshToPool(ChunkPool* pool, u32 index) {
     auto mesh = pool->chunkMeshPool + index;
     assert(!mesh->gpuMemoryMapped);
     FreeChunkMesh(pool->mesher, mesh);
-    mesh->chunk = nullptr;
+    //mesh->chunk = nullptr;
 }
 
 void RemoveChunkFromRenderPool(ChunkPool* pool, Chunk* chunk) {
@@ -227,7 +227,7 @@ void AddChunkToRenderPool(ChunkPool* pool, Chunk* chunk) {
     assert(!chunk->primaryMesh);
     chunk->primaryMesh = mesh.mesh;
     chunk->primaryMeshPoolIndex = mesh.index;
-    mesh.mesh->chunk = chunk;
+    //mesh.mesh->chunk = chunk;
 
 
     ForEach(&chunk->entityStorage, [&](Entity* it) {
@@ -274,7 +274,7 @@ void ScheduleSimChunkEviction(ChunkPool* pool, Chunk* chunk) {
     pool->simChunkEvictList = chunk;
 }
 
-void UpdateChunks(ChunkPool* pool, Renderer* renderer) {
+void UpdateChunks(ChunkPool* pool) {
     timed_scope();
     Chunk* chunk = pool->firstSimChunk;
     // TODO: Maybe cache chunks that are not filled or smth and update them in a separate loop.
@@ -337,7 +337,7 @@ void UpdateChunks(ChunkPool* pool, Renderer* renderer) {
                     }
                     auto mesh = GetChunkMeshFromPool(pool);
                     if (mesh.mesh) {
-                        mesh.mesh->chunk = chunk;
+                        //mesh.mesh->chunk = chunk;
                         chunk->secondaryMesh = mesh.mesh;
                         chunk->secondaryMeshPoolIndex = mesh.index;
                         chunk->secondaryMeshValid = false;
@@ -352,7 +352,7 @@ void UpdateChunks(ChunkPool* pool, Renderer* renderer) {
 
                         chunk->locked = true;
 
-                        if (!ScheduleChunkMeshing(pool->world, renderer, chunk)) {
+                        if (!ScheduleChunkMeshing(pool->world, chunk)) {
                             SwapChunkMeshes(chunk);
                             chunk->priority = ChunkPriority::Low;
                             chunk->remeshingAfterEdit = false;
@@ -369,7 +369,7 @@ void UpdateChunks(ChunkPool* pool, Renderer* renderer) {
                     }
                 } else if (!chunk->primaryMeshValid) {
                     chunk->locked = true;
-                    if (!ScheduleChunkMeshing(pool->world, renderer, chunk)) {
+                    if (!ScheduleChunkMeshing(pool->world, chunk)) {
                         chunk->locked = false;
                     }
                 }
@@ -394,19 +394,19 @@ void UpdateChunks(ChunkPool* pool, Renderer* renderer) {
             } break;
             case ChunkState::WaitsForUpload: {
                 if (chunk->primaryMesh->vertexCount) {
-                    ScheduleChunkMeshUpload(chunk, renderer);
+                    ScheduleChunkMeshUpload(chunk);
                 } else {
                     chunk->state = ChunkState::MeshingFinished;
                 }
             } break;
             case ChunkState::FailedToPushUploadWork: {
-                bool completed = RendererEndLoadResource(renderer, chunk->primaryMesh);
+                bool completed = RendererEndLoadResource(chunk->primaryMesh);
                 if (completed) {
                     chunk->state = ChunkState::WaitsForUpload;
                 }
             } break;
             case ChunkState::MeshUploadingFinished: {
-                CompleteChunkMeshUpload(chunk, renderer);
+                CompleteChunkMeshUpload(chunk);
             } break;
             case ChunkState::Filling: {} break;
             case ChunkState::Meshing: {} break;
@@ -512,7 +512,7 @@ void DrawChunks(ChunkPool* pool, RenderGroup* renderGroup, Camera* camera) {
                 assert(chunk->primaryMesh);
                 RenderCommandPushChunk chunkCommand = {};
                 chunkCommand.mesh = mesh;
-                chunkCommand.offset = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(chunk->p * (i32)Chunk::Size));
+                chunkCommand.offset = WorldPos::Relative(camera->targetWorldPosition, WorldPos::Make(chunk->p * (i32)Globals::ChunkSize));
                 Push(renderGroup, &chunkCommand);
             }
         }

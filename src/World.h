@@ -63,8 +63,8 @@ Chunk* AllocateWorldChunk(WorldMemory* memory);
 void FreeWorldChunk(WorldMemory* memory, Chunk* chunk);
 
 struct GameWorld {
-    static const i32 MinHeight = -(i32)Chunk::Size * 3;
-    static const i32 MaxHeight = (i32)Chunk::Size * 3 - 1;
+    static const i32 MinHeight = -(i32)Globals::ChunkSize * 3;
+    static const i32 MaxHeight = (i32)Globals::ChunkSize * 3 - 1;
     static const i32 MinHeightChunk = -3;
     static const i32 MaxHeightChunk = 2;
     static const i32 InvalidCoord = I32::Max;

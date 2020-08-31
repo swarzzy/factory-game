@@ -2,11 +2,11 @@
 
 #include "Common.h"
 #include "Math.h"
+#include "ChunkMesh.h"
 
 struct RenderGroup;
-struct Renderer;
-struct ChunkMesh;
 struct MemoryArena;
+struct PlatformState;
 
 struct Mesh {
     char name[32];
@@ -162,7 +162,6 @@ struct Material {
 struct TexTransferBufferInfo {
     u32 index;
     void* ptr;
-    Renderer* renderer;
 };
 
 struct RendererState {
@@ -272,20 +271,16 @@ struct SetBlockTextureArgs {
 };
 
 struct InitializeArgs {
-    MemoryArena* arena;
     MemoryArena* tempArena;
     u32 wResolution;
     u32 hResolution;
     u32 sampleCount;
-    Renderer* renderer;
 };
 
-struct LibraryReloadArgs {
-    LoggerFn* globalLogger;
-    void* globalLoggerData;
-    AssertHandlerFn* globalAssertHandler;
-    void* globalAssertHandlerData;
+enum struct RendererInvoke : u32 {
+    Init, Reload
 };
 
 typedef RendererInfo(__cdecl RendererGetInfoFn)();
 typedef void(__cdecl RendererExecuteCommandFn)(RendererCommand command, void* args);
+typedef void(__cdecl RendererPlatformInvokeFn)(RendererInvoke invoke, PlatformState* platform, void* apiData, void** rendererData);

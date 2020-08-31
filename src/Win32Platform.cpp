@@ -27,7 +27,8 @@ extern "C" { __declspec(dllexport) DWORD AmdPowerXpressRequestHighPerformance = 
 static Win32Context GlobalContext = {};
 static bool GlobalRunning = true;
 static LARGE_INTEGER GlobalPerformanceFrequency = {};
-static void* GlobalGameData = 0;
+static void* GlobalGameData = nullptr;
+static void* GlobalRendererData = nullptr;
 
 // TODO: Logger
 void Logger(void* data, const char* fmt, va_list* args) {
@@ -1406,8 +1407,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     auto rendererLoaded = UpdateRendererLib(&app->gameLib);
     assert(codeLoaded, "Failed to load renderer library");
 
-    app->state.rendererAPI.RendererGetInfo = app->gameLib.RendererGetInfo;
-    app->state.rendererAPI.RendererExecuteCommand = app->gameLib.RendererExecuteCommand;
+    app->state.rendererAPI.GetInfo = app->gameLib.RendererGetInfo;
+    app->state.rendererAPI.ExecuteCommand = app->gameLib.RendererExecuteCommand;
 
     IMGUI_CHECKVERSION();
     ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, 0);
@@ -1434,6 +1435,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     u32 updatesSinceLastTick = 0;
 
     app->state.localTime = GetLocalTime();
+
+    app->gameLib.RendererPlatformInvoke(RendererInvoke::Init, &app->state, &app->state.rendererAPI, &GlobalRendererData);
 
     app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Init, &GlobalGameData);
 
@@ -1464,8 +1467,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
         bool rendererReloaded = UpdateGameLib(&app->gameLib);
         if (rendererReloaded) {
-            app->state.rendererAPI.RendererGetInfo = app->gameLib.RendererGetInfo;
-            app->state.rendererAPI.RendererExecuteCommand = app->gameLib.RendererExecuteCommand;
+            app->gameLib.RendererPlatformInvoke(RendererInvoke::Reload, &app->state, &app->state.rendererAPI, &GlobalRendererData);
+            app->state.rendererAPI.GetInfo = app->gameLib.RendererGetInfo;
+            app->state.rendererAPI.ExecuteCommand = app->gameLib.RendererExecuteCommand;
         }
 
         updatesSinceLastTick++;

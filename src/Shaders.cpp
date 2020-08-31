@@ -111,6 +111,11 @@ void RecompileShaders(Renderer* renderer)
     }
 }
 
+void DeleteProgram(GLuint handle) {
+    glDeleteProgram(handle);
+}
+
+
 template <typename T, u32 Binding>
 void UniformBufferInit(UniformBuffer<T, Binding>* buffer) {
     buffer->mapped = false;

@@ -228,8 +228,8 @@ struct InputState
 struct ImGuiContext;
 
 struct RendererAPI {
-    RendererGetInfoFn* RendererGetInfo;
-    RendererExecuteCommandFn* RendererExecuteCommand;
+    RendererGetInfoFn* GetInfo;
+    RendererExecuteCommandFn* ExecuteCommand;
 };
 
 struct PlatformState

@@ -5,7 +5,7 @@
 bool IsBlockOccluder(Chunk* chunk, i32 x, i32 y, i32 z) {
     bool occluder = false;
     // NOTE: Assuming blocks on chunk edges always visible
-    if (x < Chunk::Size && y < Chunk::Size && z < Chunk::Size &&
+    if (x < Globals::ChunkSize && y < Globals::ChunkSize && z < Globals::ChunkSize &&
         x >= 0 && y >= 0 && z >= 0) {
         auto block = GetBlockValue(chunk, (u32)x, (u32)y, (u32)z);
         if (block != BlockValue::Empty) {
@@ -106,9 +106,9 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
     assert(chunk->primaryMesh);
     ChunkMesh* mesh = chunk->primaryMesh;
 
-    for (u32 z = 0; z < Chunk::Size; z++) {
-        for (u32 y = 0; y < Chunk::Size; y++) {
-            for (u32 x = 0; x < Chunk::Size; x++) {
+    for (u32 z = 0; z < Globals::ChunkSize; z++) {
+        for (u32 y = 0; y < Globals::ChunkSize; y++) {
+            for (u32 x = 0; x < Globals::ChunkSize; x++) {
                 auto block = GetBlockValueRaw(chunk, x, y, z);
                 if (*block != BlockValue::Empty) {
                     auto value = *block;
@@ -151,11 +151,10 @@ void GenMesh(ChunkMesher* mesher, Chunk* chunk) {
 void ChunkMesherWork(void* data0, void* data1, void* data2, u32 threadID) {
     auto chunk = (Chunk*)data0;
     auto mesh = chunk->primaryMesh;
-    auto renderer = (Renderer*)data1;
     GenMesh(mesh->mesher, chunk);
     if (GetPlatform()->supportsAsyncGPUTransfer) {
         if (chunk->primaryMesh->vertexCount) {
-            RendererLoadResource(renderer, chunk->primaryMesh, false);
+            RendererLoadResource(chunk->primaryMesh, false);
         }
         auto prevState = AtomicExchange((volatile u32*)&chunk->state, (u32)ChunkState::MeshingFinished);
         assert(prevState == (u32)ChunkState::Meshing);
@@ -165,14 +164,14 @@ void ChunkMesherWork(void* data0, void* data1, void* data2, u32 threadID) {
     }
 }
 
-bool ScheduleChunkMeshing(GameWorld* world, Renderer* renderer, Chunk* chunk) {
+bool ScheduleChunkMeshing(GameWorld* world, Chunk* chunk) {
     assert(chunk->primaryMesh);
     assert(chunk->state == ChunkState::Complete);
     bool result = true;
     auto queue = chunk->priority == ChunkPriority::High ? PlatformHighPriorityQueue : PlatformLowPriorityQueue;
     chunk->state = ChunkState::Meshing;
     WriteFence();
-    if (!PlatformPushWork(queue, ChunkMesherWork, chunk, renderer, nullptr)) {
+    if (!PlatformPushWork(queue, ChunkMesherWork, chunk, nullptr, nullptr)) {
         chunk->state = ChunkState::Complete;
         result = false;
     }
@@ -221,9 +220,9 @@ void UploadChunkMeshToGPUWork(void* data0, void* data1, void* data2, u32 threadI
     assert(prevState == (u32)ChunkState::UploadingMesh);
 }
 
-void ScheduleChunkMeshUpload(Chunk* chunk, Renderer* renderer) {
+void ScheduleChunkMeshUpload(Chunk* chunk) {
     assert(chunk->state == ChunkState::WaitsForUpload);
-    BeginGPUUpload(chunk->primaryMesh);
+    RendererBeginLoadResource(chunk->primaryMesh);
     assert(chunk->primaryMesh->gpuBufferPtr);
     auto queue = chunk->priority == ChunkPriority::High ? PlatformHighPriorityQueue : PlatformLowPriorityQueue;
     chunk->state = ChunkState::UploadingMesh;
@@ -231,14 +230,14 @@ void ScheduleChunkMeshUpload(Chunk* chunk, Renderer* renderer) {
     if (!PlatformPushWork(queue, UploadChunkMeshToGPUWork, chunk, nullptr, nullptr)) {
         // TODO: This is not a particulary good workaround for this problem
         // If we failed to push work then we need to wait while vertex buffer is unmapped
-        RendererEndLoadResource(renderer, chunk->primaryMesh);
+        RendererEndLoadResource(chunk->primaryMesh);
         chunk->state = ChunkState::FailedToPushUploadWork;
     }
 }
 
-void CompleteChunkMeshUpload(Chunk* chunk, Renderer* renderer) {
+void CompleteChunkMeshUpload(Chunk* chunk) {
     assert(chunk->state == ChunkState::MeshUploadingFinished);
-    bool completed = RendererEndLoadResource(renderer, chunk->primaryMesh);
+    bool completed = RendererEndLoadResource(chunk->primaryMesh);
     if (completed) {
         chunk->state = ChunkState::MeshingFinished;
     }

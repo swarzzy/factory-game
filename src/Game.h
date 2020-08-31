@@ -1,6 +1,5 @@
 #pragma once
 #include "Camera.h"
-#include "Renderer.h"
 #include "RenderGroup.h"
 #include "World.h"
 #include "MeshGenerator.h"
@@ -78,7 +77,6 @@ struct Context {
 
 
     Camera camera;
-    Renderer* renderer;
     RenderGroup renderGroup;
     //CubeTexture skybox;
     b32 consoleEnabled;

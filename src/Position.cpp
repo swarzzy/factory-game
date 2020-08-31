@@ -41,17 +41,17 @@ v3 WorldPos::Relative(WorldPos origin, WorldPos target) {
 
 iv3 WorldPos::ChunkCoord(iv3 block) {
     iv3 result;
-    result.x = block.x >> Chunk::BitShift;
-    result.y = block.y >> Chunk::BitShift;
-    result.z = block.z >> Chunk::BitShift;
+    result.x = block.x >> Globals::ChunkBitShift;
+    result.y = block.y >> Globals::ChunkBitShift;
+    result.z = block.z >> Globals::ChunkBitShift;
     return result;
 }
 
 uv3 WorldPos::BlockInChunk(iv3 block) {
     uv3 result;
-    result.x = block.x & Chunk::BitMask;
-    result.y = block.y & Chunk::BitMask;
-    result.z = block.z & Chunk::BitMask;
+    result.x = block.x & Globals::ChunkBitMask;
+    result.y = block.y & Globals::ChunkBitMask;
+    result.z = block.z & Globals::ChunkBitMask;
     return result;
 }
 
@@ -70,9 +70,9 @@ ChunkPos WorldPos::ToChunk(WorldPos p) {
 
 WorldPos ChunkPos::ToWorld(ChunkPos p) {
     WorldPos result = {};
-    result.block.x = p.chunk.x * Chunk::Size + p.block.x;
-    result.block.y = p.chunk.y * Chunk::Size + p.block.y;
-    result.block.z = p.chunk.z * Chunk::Size + p.block.z;
+    result.block.x = p.chunk.x * Globals::ChunkSize + p.block.x;
+    result.block.y = p.chunk.y * Globals::ChunkSize + p.block.y;
+    result.block.z = p.chunk.z * Globals::ChunkSize + p.block.z;
     return result;
 }
 
