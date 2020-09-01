@@ -273,13 +273,13 @@ void FluxInit(Context* context) {
     auto gameWorld = &context->gameWorld;
     InitWorld(&context->gameWorld, context, &context->chunkMesher, 293847, Globals::DebugWorldName);
 
-    auto stone = ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
+    auto stone = Platform.ResourceLoaderLoadImage("../res/tile_stone.png", DynamicRange::LDR, true, 3, Platform.Allocate, GlobalLogger, GlobalLoggerData);
     RendererSetBlockTexture(BlockValueToTerrainIndex(BlockValue::Stone), stone->bits);
-    auto grass = ResourceLoaderLoadImage("../res/tile_grass.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
+    auto grass = Platform.ResourceLoaderLoadImage("../res/tile_grass.png", DynamicRange::LDR, true, 3, Platform.Allocate, GlobalLogger, GlobalLoggerData);
     RendererSetBlockTexture(BlockValueToTerrainIndex(BlockValue::Grass), grass->bits);
-    auto coalOre = ResourceLoaderLoadImage("../res/tile_coal_ore.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
+    auto coalOre = Platform.ResourceLoaderLoadImage("../res/tile_coal_ore.png", DynamicRange::LDR, true, 3, Platform.Allocate, GlobalLogger, GlobalLoggerData);
     RendererSetBlockTexture(BlockValueToTerrainIndex(BlockValue::CoalOre), coalOre->bits);
-    auto water = ResourceLoaderLoadImage("../res/tile_water.png", DynamicRange::LDR, true, 3, PlatformAlloc, GlobalLogger, GlobalLoggerData);
+    auto water = Platform.ResourceLoaderLoadImage("../res/tile_water.png", DynamicRange::LDR, true, 3, Platform.Allocate, GlobalLogger, GlobalLoggerData);
     RendererSetBlockTexture(BlockValueToTerrainIndex(BlockValue::Water), water->bits);
 
     context->coalIcon = LoadTextureFromFile("../res/coal_icon.png", TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::None, DynamicRange::LDR);
@@ -535,7 +535,7 @@ void FluxInit(Context* context) {
     PlatformSetInputMode(InputMode::FreeCursor);
     context->camera.inputMode = GameInputMode::Game;
 
-    PlatformSetSaveThreadWork(SaveThreadWork, nullptr, 3000);
+    Platform.SetSaveThreadWork(SaveThreadWork, nullptr, 3000);
 }
 
 void FluxReload(Context* context) {

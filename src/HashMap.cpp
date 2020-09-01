@@ -41,7 +41,7 @@ void Grow(hash_map_template* map) {
             *v = oldBucket->value;
         }
     }
-    PlatformFree(map->table, nullptr);
+    Platform.Deallocate(map->table, nullptr);
     map->table = newMap.table;
     map->size = newSize;
 }

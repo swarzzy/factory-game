@@ -29,12 +29,11 @@ inline GameWorld* GetWorld() { return &_GlobalContext->gameWorld; }
 inline const PlatformState* GetPlatform() { return _GlobalPlatform; }
 inline const InputState* GetInput() { return &_GlobalPlatform->input; }
 inline void PlatformSetInputMode(InputMode mode) { _GlobalPlatform->inputMode = mode; }
+
 // TODO: Remove this
 inline Context* GetContext() { return _GlobalContext; }
 
-
-#define PlatformLowPriorityQueue (_GlobalPlatform->lowPriorityQueue)
-#define PlatformHighPriorityQueue (_GlobalPlatform->highPriorityQueue)
+#define Platform (*(const PlatformCalls*)(&_GlobalPlatform->functions))
 
 LoggerFn* GlobalLogger = LogMessageAPI;
 void* GlobalLoggerData;
@@ -65,32 +64,11 @@ bool MouseButtonPressed(MouseButton button) {
 #define platform_call(func) _GlobalPlatform->functions. func
 #endif
 
-#define PlatformAlloc platform_call(Allocate)
-#define PlatformFree platform_call(Deallocate)
-#define PlatformRealloc platform_call(Reallocate)
-#define PlatformDebugGetFileSize platform_call(DebugGetFileSize)
-#define PlatformDebugReadFile platform_call(DebugReadFile)
-#define PlatformDebugWriteFile platform_call(DebugWriteFile)
-#define PlatformDebugCopyFile platform_call(DebugCopyFile)
-#define ResourceLoaderLoadImage platform_call(ResourceLoaderLoadImage)
-#define ResourceLoaderValidateImageFile platform_call(ResourceLoaderValidateImageFile)
-#define PlatformGetTimeStamp platform_call(GetTimeStamp)
-#define PlatformAllocateArena platform_call(AllocateArena)
-#define PlatformFreeArena platform_call(FreeArena)
-#define PlatformForEachFile platform_call(ForEachFile)
-
-#define PlatformAllocatePages platform_call(AllocatePages)
-#define PlatformDeallocatePages platform_call(DeallocatePages)
-
 void* PlatformAllocClear(uptr size) {
-    void* memory = PlatformAlloc(size, 0, nullptr);
+    void* memory = Platform.Allocate(size, 0, nullptr);
     memset(memory, 0, size);
     return memory;
 }
-
-#define PlatformPushWork platform_call(PushWork)
-#define PlatformCompleteAllWork platform_call(CompleteAllWork)
-#define PlatformSetSaveThreadWork platform_call(SetSaveThreadWork)
 
 #if defined(COMPILER_MSVC)
 #define renderer_call(func) _GlobalPlatform->rendererAPI.##func
@@ -103,13 +81,13 @@ void* PlatformAllocClear(uptr size) {
 #include "Memory.h"
 // NOTE: Libs
 
-void* PlatformCalloc(uptr num, uptr size) { void* ptr = PlatformAlloc(num * size, 0, nullptr); memset(ptr, 0, num * size); return ptr; }
+void* PlatformCalloc(uptr num, uptr size) { void* ptr = Platform.Allocate(num * size, 0, nullptr); memset(ptr, 0, num * size); return ptr; }
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "../ext/imgui/imgui.h"
 
-void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size, 0, nullptr); }
-void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr, nullptr); }
+void* ImguiAllocWrapper(size_t size, void* _) { return Platform.Allocate((uptr)size, 0, nullptr); }
+void ImguiFreeWrapper(void* ptr, void*_) { Platform.Deallocate(ptr, nullptr); }
 
 #include "../ext/imgui/imgui_internal.h"
 
@@ -127,7 +105,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 
         // NOTE: Looks like this syntax actually incorrect and somehow leads to stack owerflow in this case!
         //*context = {};
-        auto gameArena = PlatformAllocateArena(Megabytes(1024));
+        auto gameArena = Platform.AllocateArena(Megabytes(1024));
         auto tempArena = AllocateSubArena(gameArena, gameArena->size / 2, true);
         auto contextMemory = PushSize(gameArena, sizeof(Context));
         auto context = new(contextMemory) Context();
@@ -143,9 +121,9 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 
         log_print("[Info] Asynchronous GPU memory transfer supported: %s\n", platform->supportsAsyncGPUTransfer ? "true" : "false");
 
+        RendererSetLogger(GlobalLogger, GlobalLoggerData, GlobalAssertHandler, GlobalAssertHandlerData);
         RendererInitialize(tempArena, UV2(GetPlatform()->windowWidth, GetPlatform()->windowHeight), 8);
 
-        //context->renderer->clearColor = V4(0.8f, 0.8f, 0.8f, 1.0f);
         context->renderGroup = RenderGroup::Make(gameArena, Megabytes(32), 8192 * 2 * 2);
 
         FluxInit(context);

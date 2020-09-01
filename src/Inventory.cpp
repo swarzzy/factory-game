@@ -10,9 +10,9 @@ void ForEach(EntityInventory* inventory, F func) {
 
 EntityInventory* AllocateEntityInventory(u32 slotCount, u32 slotCapacity) {
     // TODO: Joint allocation
-    auto inventory = (EntityInventory*)PlatformAlloc(sizeof(EntityInventory) * slotCount, 0, nullptr);
+    auto inventory = (EntityInventory*)Platform.Allocate(sizeof(EntityInventory) * slotCount, 0, nullptr);
     assert(inventory);
-    auto slots = (InventorySlot*)PlatformAlloc(sizeof(InventorySlot) * slotCount, 0, nullptr);
+    auto slots = (InventorySlot*)Platform.Allocate(sizeof(InventorySlot) * slotCount, 0, nullptr);
     ClearArray(slots, slotCount);
     assert(slots);
     inventory->slots = slots;
@@ -22,8 +22,8 @@ EntityInventory* AllocateEntityInventory(u32 slotCount, u32 slotCapacity) {
 }
 
 void DeleteEntityInventory(EntityInventory* inventory) {
-    PlatformFree(inventory->slots, nullptr);
-    PlatformFree(inventory, nullptr);
+    Platform.Deallocate(inventory->slots, nullptr);
+    Platform.Deallocate(inventory, nullptr);
 }
 
 u32 EntityInventoryPushItem(EntityInventory* inventory, Item item, u32 count) {

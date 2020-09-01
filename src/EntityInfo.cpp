@@ -8,10 +8,10 @@ Entity* CreateNullEntity(GameWorld* world, WorldPos p) {
 };
 
 void EntityInfoInit(EntityInfo* info) {
-    FlatArrayInit(&info->entityTable, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
-    FlatArrayInit(&info->itemTable, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
-    FlatArrayInit(&info->blockTable, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
-    FlatArrayInit(&info->traitTable, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+    FlatArrayInit(&info->entityTable, MakeAllocator(Platform.Allocate, Platform.Deallocate, nullptr));
+    FlatArrayInit(&info->itemTable, MakeAllocator(Platform.Allocate, Platform.Deallocate, nullptr));
+    FlatArrayInit(&info->blockTable, MakeAllocator(Platform.Allocate, Platform.Deallocate, nullptr));
+    FlatArrayInit(&info->traitTable, MakeAllocator(Platform.Allocate, Platform.Deallocate, nullptr));
     info->nullEntity.name = "null";
     info->nullEntity.Create = CreateNullEntity;
     info->nullEntity.kind = EntityKind::Block;

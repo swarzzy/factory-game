@@ -120,3 +120,12 @@ void RendererInitialize(MemoryArena* tempArena, uv2 renderRes, u32 sampleCount) 
     args.sampleCount = sampleCount;
     Renderer.ExecuteCommand(RendererCommand::Initialize, &args);
 }
+
+void RendererSetLogger(LoggerFn* logger, void* loggerData, AssertHandlerFn* assertHandler, void* assertHandlerData) {
+    SetLoggerArgs args {};
+    args.logger = logger;
+    args.loggerData = loggerData;
+    args.assertHandler = assertHandler;
+    args.assertHandlerData = assertHandlerData;
+    Renderer.ExecuteCommand(RendererCommand::SetLogger, &args);
+}

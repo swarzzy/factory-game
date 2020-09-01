@@ -290,7 +290,7 @@ void UpdateChunks(ChunkPool* pool) {
                         chunk->saving = true;
                         AtomicIncrement(&pool->pendingSavesCount);
                         WriteFence();
-                        if (!PlatformPushWork(PlatformHighPriorityQueue, ChunkSaveWork, chunk, pool, nullptr)) {
+                        if (!Platform.PushWork(GetPlatform()->highPriorityQueue, ChunkSaveWork, chunk, pool, nullptr)) {
                             chunk->saving = false;
                             AtomicDecrement(&pool->pendingSavesCount);
                         } else {
@@ -439,8 +439,8 @@ void InitChunkPool(ChunkPool* pool, GameWorld* world, ChunkMesher* mesher, u32 n
     u32 regionHeight = GameWorld::MaxHeightChunk - GameWorld::MinHeightChunk + 1;
     pool->maxRenderedChunkCount = regionSide * regionSide * regionHeight + 16; // TODO: Formalize the number of extra chunks
     pool->maxSimChunkCount = regionSide * regionSide * regionHeight + 32; // TODO: Formalize the number of extra chunks
-    pool->chunkMeshPool = (ChunkMesh*)PlatformAlloc(sizeof(ChunkMesh) * pool->maxRenderedChunkCount, 0, nullptr);
-    pool->chunkMeshPoolUsage = (byte*)PlatformAlloc(sizeof(byte) * pool->maxRenderedChunkCount, 0, nullptr);
+    pool->chunkMeshPool = (ChunkMesh*)Platform.Allocate(sizeof(ChunkMesh) * pool->maxRenderedChunkCount, 0, nullptr);
+    pool->chunkMeshPoolUsage = (byte*)Platform.Allocate(sizeof(byte) * pool->maxRenderedChunkCount, 0, nullptr);
     ClearArray(pool->chunkMeshPool, pool->maxRenderedChunkCount);
     ClearArray(pool->chunkMeshPoolUsage, pool->maxRenderedChunkCount);
     pool->chunkMeshPoolFree = pool->maxRenderedChunkCount;

@@ -118,16 +118,16 @@ void InitWorld(GameWorld* world, Context* context, ChunkMesher* mesher, u32 seed
     world->chunkHashMap = HashMap<iv3, Chunk*, ChunkHashFunc, ChunkHashCompFunc>::Make();
     world->entityHashMap = HashMap<EntityID, Entity*, EntityRegionHashFunc, EntityRegionHashCompFunc>::Make();
 
-    world->memory.PageAlloc = PlatformAllocatePages;
-    world->memory.PageDealloc = PlatformDeallocatePages;
+    world->memory.PageAlloc = Platform.AllocatePages;
+    world->memory.PageDealloc = Platform.DeallocatePages;
 
     // nocheckin
     // TODO: Error checking
     strcpy_s(world->name, array_count(world->name), name);
 
     world->camera = &context->camera;
-    BucketArrayInit(&world->entitiesToDelete, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
-    FlatArrayInit(&world->entitiesToMove, MakeAllocator(PlatformAlloc, PlatformFree, nullptr), 128);
+    BucketArrayInit(&world->entitiesToDelete, MakeAllocator(Platform.Allocate, Platform.Deallocate, nullptr));
+    FlatArrayInit(&world->entitiesToMove, MakeAllocator(Platform.Allocate, Platform.Deallocate, nullptr), 128);
     InitChunkPool(&world->chunkPool, world, mesher, GameWorld::ViewDistance, seed);
 
     auto result = LoadWorldData(world);
@@ -148,7 +148,7 @@ T* AddSpatialEntity(GameWorld* world, WorldPos p) {
     auto chunkP = WorldPos::ToChunk(worldPos).chunk;
     auto chunk = GetChunk(world, chunkP.x, chunkP.y, chunkP.z);
     if (chunk) {
-        entity = (T*)PlatformAlloc(sizeof(T), alignof(T), nullptr);
+        entity = (T*)Platform.Allocate(sizeof(T), alignof(T), nullptr);
         if (entity) {
             ClearMemory(entity);
             EntityStorageInsert(&chunk->entityStorage, entity);
@@ -179,7 +179,7 @@ SpatialEntity* RestoreSpatialEntity(GameWorld* world, EntityID id, u32 type, u32
         auto chunk = GetChunk(world, chunkP.x, chunkP.y, chunkP.z);
 
         if (chunk) {
-            entity = (SpatialEntity*)PlatformAlloc(info->size, info->alignment, nullptr);
+            entity = (SpatialEntity*)Platform.Allocate(info->size, info->alignment, nullptr);
             if (entity) {
                 memset(entity, 0, info->size);
                 EntityStorageInsert(&chunk->entityStorage, entity);
@@ -250,7 +250,7 @@ T* AddBlockEntity(GameWorld* world, iv3 p) {
     if (chunk) {
         auto block = GetBlock(chunk, chunkP.block);
         if (!IsBlockCollider(&block) && (block.entity == nullptr)) {
-            entity = (T*)PlatformAlloc(sizeof(T), alignof(T), nullptr);
+            entity = (T*)Platform.Allocate(sizeof(T), alignof(T), nullptr);
             if (entity) {
                 ClearMemory(entity);
                 EntityStorageInsert(&chunk->entityStorage, entity);
@@ -284,7 +284,7 @@ BlockEntity* RestoreBlockEntity(GameWorld* world, EntityID id, u32 type, u32 fla
         if (chunk) {
             auto block = GetBlock(chunk, chunkP.block);
             if (!IsBlockCollider(&block) && (block.entity == nullptr)) {
-                entity = (BlockEntity*)PlatformAlloc(info->size, info->alignment, nullptr);
+                entity = (BlockEntity*)Platform.Allocate(info->size, info->alignment, nullptr);
                 if (entity) {
                     memset(entity, 0, info->size);
                     EntityStorageInsert(&chunk->entityStorage, entity);
@@ -348,7 +348,7 @@ void DeleteEntity(GameWorld* world, Entity* entity) {
 
     UnregisterEntity(world, entity->id);
     EntityStorageUnlink(&chunk->entityStorage, entity);
-    PlatformFree(entity, nullptr);
+    Platform.Deallocate(entity, nullptr);
 }
 
 void ScheduleEntityForDelete(GameWorld* world, Entity* entity) {
@@ -529,7 +529,7 @@ OverlapResolveResult TryResolveOverlaps(GameWorld* world, SpatialEntity* entity)
                             (bary.z > 0.0f && bary.z <= 1.0f)) {
 
                             overlaps = true;
-                            //log_print("PENETRATION DETECTED!!! at frame %llu\n", GlobalPlatform.tickCount);
+                            //log_print("PENETRATION DETECTED!!! at frame %llu\n", GlobalPlatform..tickCount);
 
                             iv3 penetratedBlock = IV3(x, y, z);
                             bool hasFreeNeighbor = false;

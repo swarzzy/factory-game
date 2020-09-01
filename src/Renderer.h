@@ -22,6 +22,7 @@ void RendererEndLoadTexture(TexTransferBufferInfo info, Texture* outTexture);
 void RendererSetBlockTexture(u32 value, void* data);
 void RendererRecompileShaders();
 void RendererInitialize(MemoryArena* tempArena, uv2 renderRes, u32 sampleCount);
+void RendererSetLogger(LoggerFn* logger, void* loggerData, AssertHandlerFn* assertHandler, void* assertHandlerData);
 
 u16 BlockValueToTerrainIndex(BlockValue value) {
     u16 index = 0;

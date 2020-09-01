@@ -3,39 +3,12 @@
 
 #define DEBUG_OPENGL
 
-#if defined(COMPILER_MSVC)
-#define platform_call(func) _GlobalPlatform->functions.##func
-#else
-#define platform_call(func) _GlobalPlatform->functions. func
-#endif
-
-#define PlatformAlloc platform_call(Allocate)
-#define PlatformFree platform_call(Deallocate)
-#define PlatformRealloc platform_call(Reallocate)
-#define PlatformDebugGetFileSize platform_call(DebugGetFileSize)
-#define PlatformDebugReadFile platform_call(DebugReadFile)
-#define PlatformDebugWriteFile platform_call(DebugWriteFile)
-#define PlatformDebugCopyFile platform_call(DebugCopyFile)
-#define ResourceLoaderLoadImage platform_call(ResourceLoaderLoadImage)
-#define ResourceLoaderValidateImageFile platform_call(ResourceLoaderValidateImageFile)
-#define PlatformGetTimeStamp platform_call(GetTimeStamp)
-#define PlatformAllocateArena platform_call(AllocateArena)
-#define PlatformFreeArena platform_call(FreeArena)
-#define PlatformForEachFile platform_call(ForEachFile)
-
-#define PlatformAllocatePages platform_call(AllocatePages)
-#define PlatformDeallocatePages platform_call(DeallocatePages)
-
-#define PlatformPushWork platform_call(PushWork)
-#define PlatformCompleteAllWork platform_call(CompleteAllWork)
-#define PlatformSetSaveThreadWork platform_call(SetSaveThreadWork)
-
 // TODO(swarzzy): Use logger from the game
-void Logger(void* data, const char* fmt, va_list* args) {
+void DefaultLogger(void* data, const char* fmt, va_list* args) {
     vprintf(fmt, *args);
 }
 
-inline void AssertHandler(void* data, const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, va_list* args) {
+inline void DefaultAssertHandler(void* data, const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, va_list* args) {
     log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
     if (args) {
         GlobalLogger(GlobalLoggerData, fmt, args);
@@ -43,10 +16,10 @@ inline void AssertHandler(void* data, const char* file, const char* func, u32 li
     debug_break();
 }
 
-static LoggerFn* GlobalLogger = Logger;
+static LoggerFn* GlobalLogger = DefaultLogger;
 static void* GlobalLoggerData = nullptr;;
 
-static AssertHandlerFn* GlobalAssertHandler = AssertHandler;
+static AssertHandlerFn* GlobalAssertHandler = DefaultAssertHandler;
 static void* GlobalAssertHandlerData = nullptr;
 
 static PlatformState* _GlobalPlatform = nullptr;
@@ -200,8 +173,13 @@ extern "C" GAME_CODE_ENTRY void __cdecl RendererExecuteCommand(RendererCommand c
         auto data = (InitializeArgs*)args;
         InitializeRenderer(renderer, data->tempArena, UV2(data->wResolution, data->hResolution), data->sampleCount);
     } break;
-
-
+    case RendererCommand::SetLogger: {
+        auto data = (SetLoggerArgs*)args;
+        GlobalLogger = data->logger;
+        GlobalLoggerData = data->loggerData;
+        GlobalAssertHandler = data->assertHandler;
+        GlobalAssertHandlerData = data->assertHandlerData;
+    } break;
 
     default: { log_print("[Renderer] Unknown command with code %lu was submitted", (unsigned long)command); } break;
     }

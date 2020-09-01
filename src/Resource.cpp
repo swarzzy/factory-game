@@ -40,7 +40,7 @@ Texture LoadTextureFromFile(const char* filename, TextureFormat format, TextureW
         desiredBpp = STBDesiredBPPFromTextureFormat(format);
     }
 
-    auto image = ResourceLoaderLoadImage(filename, range, true, desiredBpp, PlatformAlloc, GlobalLogger, GlobalLoggerData);
+    auto image = Platform.ResourceLoaderLoadImage(filename, range, true, desiredBpp, Platform.Allocate, GlobalLogger, GlobalLoggerData);
     assert(image);
 
     if (format == TextureFormat::Unknown) {
@@ -79,18 +79,18 @@ CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* 
 
     // TODO: Use memory arena
     // TODO: Free memory
-    auto back = ResourceLoaderLoadImage(backPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    //defer { PlatformFree(back->base); };
-    auto down = ResourceLoaderLoadImage(downPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    //defer { PlatformFree(down->base); };
-    auto front = ResourceLoaderLoadImage(frontPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    //defer { PlatformFree(front->base); };
-    auto left = ResourceLoaderLoadImage(leftPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    //defer { PlatformFree(left->base); };
-    auto right = ResourceLoaderLoadImage(rightPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    //defer { PlatformFree(right->base); };
-    auto up = ResourceLoaderLoadImage(upPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
-    //defer { PlatformFree(up->base); };
+    auto back = Platform.ResourceLoaderLoadImage(backPath, range, false, 0, Platform.Allocate, GlobalLogger, GlobalLoggerData);
+    //defer { Platform.Free(back->base); };
+    auto down = Platform.ResourceLoaderLoadImage(downPath, range, false, 0, Platform.Allocate, GlobalLogger, GlobalLoggerData);
+    //defer { Platform.Free(down->base); };
+    auto front = Platform.ResourceLoaderLoadImage(frontPath, range, false, 0, Platform.Allocate, GlobalLogger, GlobalLoggerData);
+    //defer { Platform.Free(front->base); };
+    auto left = Platform.ResourceLoaderLoadImage(leftPath, range, false, 0, Platform.Allocate, GlobalLogger, GlobalLoggerData);
+    //defer { Platform.Free(left->base); };
+    auto right = Platform.ResourceLoaderLoadImage(rightPath, range, false, 0, Platform.Allocate, GlobalLogger, GlobalLoggerData);
+    //defer { Platform.Free(right->base); };
+    auto up = Platform.ResourceLoaderLoadImage(upPath, range, false, 0, Platform.Allocate, GlobalLogger, GlobalLoggerData);
+    //defer { Platform.Free(up->base); };
 
     assert(back->width == down->width);
     assert(back->width == front->width);
@@ -131,7 +131,7 @@ CubeTexture MakeEmptyCubemap(u32 w, u32 h, TextureFormat format, TextureFilter f
 Mesh* ReadMeshFileFlux(void* file, u32 fileSize) {
     auto header = (FluxMeshHeader*)file;
     uptr memorySize = header->dataSize + sizeof(Mesh) * header->entryCount;
-    auto memory = PlatformAlloc(memorySize, 0, nullptr);
+    auto memory = Platform.Allocate(memorySize, 0, nullptr);
 
     auto entries = (FluxMeshEntry*)((byte*)file + header->entries);
     Mesh* loadedHeaders = (Mesh*)memory;
@@ -189,11 +189,11 @@ OpenMeshResult OpenMeshFileFlux(const char* filename) {
     if (strlen(filename) < MaxAssetPathSize) {
         wchar_t filenameW[MaxAssetPathSize];
         mbstowcs(filenameW, filename, array_count(filenameW));
-        auto fileSize = PlatformDebugGetFileSize(filenameW);
+        auto fileSize = Platform.DebugGetFileSize(filenameW);
 
         if (fileSize) {
-            void* file = PlatformAlloc(fileSize, 0, nullptr);
-            u32 bytesRead = PlatformDebugReadFile(file, fileSize, filenameW);
+            void* file = Platform.Allocate(fileSize, 0, nullptr);
+            u32 bytesRead = Platform.DebugReadFile(file, fileSize, filenameW);
 
             if (bytesRead == fileSize) {
 
@@ -205,11 +205,11 @@ OpenMeshResult OpenMeshFileFlux(const char* filename) {
 
                     result = { OpenMeshResult::Ok, file, fileSize};
                 } else {
-                    PlatformFree(file, nullptr);
+                    Platform.Deallocate(file, nullptr);
                     result = { OpenMeshResult::InvalidFileFormat, nullptr, 0};
                 }
             } else {
-                PlatformFree(file, nullptr);
+                Platform.Deallocate(file, nullptr);
                 result = { OpenMeshResult::ReadFileError, nullptr, 0 };
             }
         } else {
@@ -222,7 +222,7 @@ OpenMeshResult OpenMeshFileFlux(const char* filename) {
 }
 
 void CloseMeshFile(void* file) {
-    PlatformFree(file, nullptr);
+    Platform.Deallocate(file, nullptr);
 }
 
 Mesh* LoadMeshFlux(const char* filename) {

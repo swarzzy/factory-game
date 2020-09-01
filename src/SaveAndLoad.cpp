@@ -55,7 +55,7 @@ bool SaveWorldData(GameWorld* world) {
     data.version = WorldFile::LatestVersion;
     data.entitySerialCount = world->entitySerialCount;
 
-    auto writeResult = PlatformDebugWriteFile(nameBuffer, &data, sizeof(data));
+    auto writeResult = Platform.DebugWriteFile(nameBuffer, &data, sizeof(data));
 
     return writeResult;
 }
@@ -64,10 +64,10 @@ bool LoadWorldData(GameWorld* world) {
     bool result = false;
     wchar_t nameBuffer[256];
     swprintf_s(nameBuffer, 128, L"%hs\\%hs.world", world->name, world->name);
-    auto fileSize = PlatformDebugGetFileSize(nameBuffer);
+    auto fileSize = Platform.DebugGetFileSize(nameBuffer);
     if (fileSize == sizeof(WorldFile)) {
         WorldFile data;
-        auto readResult = PlatformDebugReadFile(&data, sizeof(data), nameBuffer);
+        auto readResult = Platform.DebugReadFile(&data, sizeof(data), nameBuffer);
         if (readResult == sizeof(data)) {
             if (data.magic == WorldFile::MagicValue && data.version == WorldFile::LatestVersion) {
                 world->entitySerialCount = data.entitySerialCount;
@@ -84,13 +84,13 @@ bool SaveChunk(Chunk* chunk) {
     wchar_t nameBuffer[256];
     swprintf_s(nameBuffer, 128, L"%hs\\%ld.%ld.%ld.chunk", world->name, chunk->p.x, chunk->p.y, chunk->p.z);
     auto dataSize = Globals::ChunkSize * Globals::ChunkSize * Globals::ChunkSize * sizeof(BlockValue);
-    auto blockDataWriteResult = PlatformDebugWriteFile(nameBuffer, chunk->blocks, (u32)dataSize);
+    auto blockDataWriteResult = Platform.DebugWriteFile(nameBuffer, chunk->blocks, (u32)dataSize);
 
     if (blockDataWriteResult && chunk->entityStorage.count) {
         BinaryBlob headerTable {};
         BinaryBlob entityData {};
-        BinaryBlob::Init(&headerTable, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
-        BinaryBlob::Init(&entityData, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+        BinaryBlob::Init(&headerTable, MakeAllocator(Platform.Allocate, Platform.Deallocate, nullptr));
+        BinaryBlob::Init(&entityData, MakeAllocator(Platform.Allocate, Platform.Deallocate, nullptr));
         defer {
             headerTable.Destroy();
             entityData.Destroy();
@@ -127,7 +127,7 @@ bool SaveChunk(Chunk* chunk) {
 
         if (headerTable.at) {
             swprintf_s(nameBuffer, 128, L"%hs\\%ld.%ld.%ld.entities", world->name, chunk->p.x, chunk->p.y, chunk->p.z);
-            auto entityHeadersWriteResult = PlatformDebugWriteFile(nameBuffer, headerTable.data, (u32)headerTable.at);
+            auto entityHeadersWriteResult = Platform.DebugWriteFile(nameBuffer, headerTable.data, (u32)headerTable.at);
             if (!entityHeadersWriteResult) {
                 result = false;
             }
@@ -135,7 +135,7 @@ bool SaveChunk(Chunk* chunk) {
 
         if (entityData.at) {
             swprintf_s(nameBuffer, 128, L"%hs\\%ld.%ld.%ld.data", world->name, chunk->p.x, chunk->p.y, chunk->p.z);
-            auto entityDataWriteResult = PlatformDebugWriteFile(nameBuffer, entityData.data, (u32)entityData.at);
+            auto entityDataWriteResult = Platform.DebugWriteFile(nameBuffer, entityData.data, (u32)entityData.at);
             if (!entityDataWriteResult) {
                 result = false;
             }
@@ -150,7 +150,7 @@ bool TryLoadChunk(Chunk* chunk) {
     wchar_t nameBuffer[256];
     swprintf_s(nameBuffer, 128, L"%hs\\%ld.%ld.%ld.chunk", world->name, chunk->p.x, chunk->p.y, chunk->p.z);
     auto dataSize = Globals::ChunkSize * Globals::ChunkSize * Globals::ChunkSize * sizeof(BlockValue);
-    auto blockDataLoadResult = PlatformDebugReadFile(chunk->blocks, (u32)dataSize, nameBuffer);
+    auto blockDataLoadResult = Platform.DebugReadFile(chunk->blocks, (u32)dataSize, nameBuffer);
     return blockDataLoadResult;
 }
 
@@ -159,22 +159,22 @@ void TryLoadEntities(Chunk* chunk) {
     auto world = GetWorld();
     wchar_t nameBuffer[256];
     swprintf_s(nameBuffer, 128, L"%hs\\%ld.%ld.%ld.entities", world->name, chunk->p.x, chunk->p.y, chunk->p.z);
-    auto headersSize = PlatformDebugGetFileSize(nameBuffer);
+    auto headersSize = Platform.DebugGetFileSize(nameBuffer);
     if (headersSize) {
-        auto data = PlatformAlloc(headersSize, 0, nullptr);
-        defer { PlatformFree(data, nullptr); };
+        auto data = Platform.Allocate(headersSize, 0, nullptr);
+        defer { Platform.Deallocate(data, nullptr); };
         assert(data);
-        auto readHeadersSize = PlatformDebugReadFile(data, (u32)headersSize, nameBuffer);
+        auto readHeadersSize = Platform.DebugReadFile(data, (u32)headersSize, nameBuffer);
         if (readHeadersSize == headersSize) {
             // Trying to find and read data file
             void* entityData = nullptr;
             usize entityDataSize = 0;
             swprintf_s(nameBuffer, 128, L"%hs\\%ld.%ld.%ld.data", world->name, chunk->p.x, chunk->p.y, chunk->p.z);
-            auto dataSize = PlatformDebugGetFileSize(nameBuffer);
+            auto dataSize = Platform.DebugGetFileSize(nameBuffer);
             if (dataSize) {
-                auto entityDataBlob = PlatformAlloc(dataSize, 0, nullptr);
+                auto entityDataBlob = Platform.Allocate(dataSize, 0, nullptr);
                 assert(entityDataBlob);
-                auto readDataSize = PlatformDebugReadFile(entityDataBlob, (u32)dataSize, nameBuffer);
+                auto readDataSize = Platform.DebugReadFile(entityDataBlob, (u32)dataSize, nameBuffer);
                 if (readDataSize == dataSize) {
                     entityData = entityDataBlob;
                     entityDataSize = dataSize;
@@ -215,7 +215,7 @@ void TryLoadEntities(Chunk* chunk) {
                 }
             }
             if (entityData) {
-                PlatformFree(entityData, nullptr);
+                Platform.Deallocate(entityData, nullptr);
             }
         }
     }

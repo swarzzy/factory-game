@@ -525,7 +525,7 @@ void GenEnvPrefiliteredMap(Renderer* renderer, CubeTexture* t, GLuint sourceHand
 }
 
 void InitializeRenderer(Renderer* renderer, MemoryArena* tempArena, uv2 renderRes, u32 sampleCount) {
-
+    log_print("[Renderer] Initialization...\n");
     RecompileShaders(renderer);
 
     GLint maxSamples = 1;

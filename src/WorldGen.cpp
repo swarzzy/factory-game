@@ -78,7 +78,7 @@ bool ScheduleChunkFill(WorldGen* gen, Chunk* chunk) {
     bool result = false;
     chunk->state = ChunkState::Filling;
     WriteFence();
-    if (PlatformPushWork(GetPlatform()->lowPriorityQueue, ChunkFillWork, gen, chunk, nullptr)) {
+    if (Platform.PushWork(GetPlatform()->lowPriorityQueue, ChunkFillWork, gen, chunk, nullptr)) {
         result = true;
     }
     else {

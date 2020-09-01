@@ -37,7 +37,7 @@ ChunkMeshBlock* GetChunkMeshBlock(ChunkMesher* mesher) {
         mesher->freeBlockList = block->next;
         mesher->freeBlockCount--;
     } else {
-        block = (ChunkMeshBlock*)PlatformAlloc(sizeof(ChunkMeshBlock), 0, nullptr);
+        block = (ChunkMeshBlock*)Platform.Allocate(sizeof(ChunkMeshBlock), 0, nullptr);
         mesher->totalBlockCount++;
     }
     ChunkMesherUnlock(mesher);
@@ -168,10 +168,10 @@ bool ScheduleChunkMeshing(GameWorld* world, Chunk* chunk) {
     assert(chunk->primaryMesh);
     assert(chunk->state == ChunkState::Complete);
     bool result = true;
-    auto queue = chunk->priority == ChunkPriority::High ? PlatformHighPriorityQueue : PlatformLowPriorityQueue;
+    auto queue = chunk->priority == ChunkPriority::High ? GetPlatform()->highPriorityQueue : GetPlatform()->lowPriorityQueue;
     chunk->state = ChunkState::Meshing;
     WriteFence();
-    if (!PlatformPushWork(queue, ChunkMesherWork, chunk, nullptr, nullptr)) {
+    if (!Platform.PushWork(queue, ChunkMesherWork, chunk, nullptr, nullptr)) {
         chunk->state = ChunkState::Complete;
         result = false;
     }
@@ -224,10 +224,10 @@ void ScheduleChunkMeshUpload(Chunk* chunk) {
     assert(chunk->state == ChunkState::WaitsForUpload);
     RendererBeginLoadResource(chunk->primaryMesh);
     assert(chunk->primaryMesh->gpuBufferPtr);
-    auto queue = chunk->priority == ChunkPriority::High ? PlatformHighPriorityQueue : PlatformLowPriorityQueue;
+    auto queue = chunk->priority == ChunkPriority::High ? GetPlatform()->highPriorityQueue : GetPlatform()->lowPriorityQueue;
     chunk->state = ChunkState::UploadingMesh;
     WriteFence();
-    if (!PlatformPushWork(queue, UploadChunkMeshToGPUWork, chunk, nullptr, nullptr)) {
+    if (!Platform.PushWork(queue, UploadChunkMeshToGPUWork, chunk, nullptr, nullptr)) {
         // TODO: This is not a particulary good workaround for this problem
         // If we failed to push work then we need to wait while vertex buffer is unmapped
         RendererEndLoadResource(chunk->primaryMesh);

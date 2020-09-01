@@ -195,7 +195,7 @@ enum struct RendererCommand : u32 {
     SetBlockTexture,
     RecompileShaders,
     Initialize,
-    LibraryReload
+    SetLogger
 };
 
 struct ChangeRenderResolutionArgs {
@@ -275,6 +275,13 @@ struct InitializeArgs {
     u32 wResolution;
     u32 hResolution;
     u32 sampleCount;
+};
+
+struct SetLoggerArgs {
+    LoggerFn* logger;
+    void* loggerData;
+    AssertHandlerFn* assertHandler;
+    void* assertHandlerData;
 };
 
 enum struct RendererInvoke : u32 {
