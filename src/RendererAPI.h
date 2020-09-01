@@ -195,7 +195,8 @@ enum struct RendererCommand : u32 {
     SetBlockTexture,
     RecompileShaders,
     Initialize,
-    SetLogger
+    SetLogger,
+    ToggleDebugOverlay
 };
 
 struct ChangeRenderResolutionArgs {
@@ -282,6 +283,10 @@ struct SetLoggerArgs {
     void* loggerData;
     AssertHandlerFn* assertHandler;
     void* assertHandlerData;
+};
+
+struct ToggleDebugOverlayArgs {
+    b32 enabled;
 };
 
 enum struct RendererInvoke : u32 {

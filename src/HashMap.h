@@ -35,13 +35,7 @@ struct HashMap {
     u32 size = DefaultSize;
     HashBucket<Key, Value>* table;
 
-    static HashMap Make(u32 size = DefaultSize) {
-        HashMap map = {};
-        map.table = (HashBucket<Key, Value>*)PlatformAllocClear(sizeof(HashBucket<Key, Value>) * size);
-        map.size = size;
-        return map;
-    }
-
+    static HashMap Make(u32 size = DefaultSize);
 };
 
 template<typename Key, typename Value, HashFunctionFn* HashFunction, CompareFunctionFn* CompareFunction, typename F>

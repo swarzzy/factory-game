@@ -6,8 +6,6 @@ void* PlatformAllocClear(uptr size);
 #include "Game.h"
 #include "Memory.h"
 
-#define DEBUG_OPENGL
-// NOTE: Defined only in debug build
 #include <stdlib.h>
 
 void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
@@ -19,7 +17,6 @@ inline void AssertHandler(void* data, const char* file, const char* func, u32 li
     }
     debug_break();
 }
-
 
 // NOTE: Platform globals
 static PlatformState* _GlobalPlatform = nullptr;
@@ -33,6 +30,7 @@ inline void PlatformSetInputMode(InputMode mode) { _GlobalPlatform->inputMode = 
 // TODO: Remove this
 inline Context* GetContext() { return _GlobalContext; }
 
+#define Renderer (*(const RendererAPI*)(&_GlobalPlatform->rendererAPI))
 #define Platform (*(const PlatformCalls*)(&_GlobalPlatform->functions))
 
 LoggerFn* GlobalLogger = LogMessageAPI;
@@ -56,32 +54,6 @@ bool MouseButtonHeld(MouseButton button) {
 bool MouseButtonPressed(MouseButton button) {
     return GetInput()->mouseButtons[(u32)button].pressedNow && !GetInput()->mouseButtons[(u32)button].wasPressed;
 }
-
-
-#if defined(COMPILER_MSVC)
-#define platform_call(func) _GlobalPlatform->functions.##func
-#else
-#define platform_call(func) _GlobalPlatform->functions. func
-#endif
-
-void* PlatformAllocClear(uptr size) {
-    void* memory = Platform.Allocate(size, 0, nullptr);
-    memset(memory, 0, size);
-    return memory;
-}
-
-#if defined(COMPILER_MSVC)
-#define renderer_call(func) _GlobalPlatform->rendererAPI.##func
-#else
-#define renderer_call(func) _GlobalPlatform->rendererAPI. func
-#endif
-
-#define Renderer (*(const RendererAPI*)(&_GlobalPlatform->rendererAPI))
-
-#include "Memory.h"
-// NOTE: Libs
-
-void* PlatformCalloc(uptr num, uptr size) { void* ptr = Platform.Allocate(num * size, 0, nullptr); memset(ptr, 0, num * size); return ptr; }
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "../ext/imgui/imgui.h"
@@ -136,13 +108,16 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         ImGui::SetCurrentContext(platform->imguiContext);
         _GlobalPlatform = platform;
         _GlobalContext = context;
+
+        RendererSetLogger(GlobalLogger, GlobalLoggerData, GlobalAssertHandler, GlobalAssertHandlerData);
         RendererRecompileShaders();
+
         log_print("[Info] Game was hot-reloaded\n");
         FluxReload(context);
     } break;
     case GameInvoke::Update: {
-        bool show = true;
-        ImGui::ShowDemoWindow(&show);
+        //bool show = true;
+        //ImGui::ShowDemoWindow(&show);
         FluxUpdate((Context*)(*data));
     } break;
     case GameInvoke::Render: {

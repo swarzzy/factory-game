@@ -5,8 +5,6 @@
 #include "Memory.h"
 
 #define timed_scope() // TODO(swarzzy): Fix profiler for renderer
-#define DEBUG_OVERLAY_SLIDER(...) // TODO(swarzzy): Fix debug overlay
-#define DEBUG_OVERLAY_TOGGLE(...)
 
 GLenum ToOpenGL(TextureWrapMode mode) {
     GLenum result;

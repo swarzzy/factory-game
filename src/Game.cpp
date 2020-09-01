@@ -612,6 +612,8 @@ void FluxUpdate(Context* context) {
 
     if (KeyPressed(Key::F1)) {
         Globals::ShowDebugOverlay = !Globals::ShowDebugOverlay;
+        ToggleDebugOverlayArgs args { Globals::ShowDebugOverlay };
+        Renderer.ExecuteCommand(RendererCommand::ToggleDebugOverlay, &args);
     }
 
     if (KeyPressed(Key::F2)) {

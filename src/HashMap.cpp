@@ -1,6 +1,16 @@
 #include "HashMap.h"
 
 hash_map_template_decl
+hash_map_template hash_map_template::Make(u32 size) {
+    hash_map_template map = {};
+    map.table = (HashBucket<Key, Value>*)Platform.Allocate(sizeof(HashBucket<Key, Value>) * size, alignof(HashBucket<Key, Value>), nullptr);
+    memset(map.table, 0, sizeof(HashBucket<Key, Value>) * size);
+    map.size = size;
+    return map;
+}
+
+
+hash_map_template_decl
 void Drop(hash_map_template* map) {
     if (map->size > 0) {
         PlatformFree(map->table);

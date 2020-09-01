@@ -1,5 +1,6 @@
 #include "Common.h"
 #include "Platform.h"
+#include "DebugOverlay.h"
 
 #define DEBUG_OPENGL
 
@@ -42,6 +43,16 @@ inline Renderer* GetRenderer() { return &_GlobalContext->renderer; }
 
 #define Platform (*(const PlatformCalls*)(&_GlobalPlatform->functions))
 
+// ImGui
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include "../ext/imgui/imgui.h"
+
+void* ImguiAllocWrapper(size_t size, void* _) { return Platform.Allocate((uptr)size, 0, nullptr); }
+void ImguiFreeWrapper(void* ptr, void*_) { Platform.Deallocate(ptr, nullptr); }
+
+#include "../ext/imgui/imgui_internal.h"
+
+
 void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
 
 extern "C" GAME_CODE_ENTRY void __cdecl RendererPlatformInvoke(RendererInvoke invoke, PlatformState* platform, void* apiData, void** rendererData) {
@@ -53,6 +64,10 @@ extern "C" GAME_CODE_ENTRY void __cdecl RendererPlatformInvoke(RendererInvoke in
         (*_GlobalContext) = {};
         assert(_GlobalContext);
         *rendererData = (void*)_GlobalContext;
+
+        IMGUI_CHECKVERSION();
+        ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
+        ImGui::SetCurrentContext(platform->imguiContext);
 
 #if defined(DEBUG_OPENGL)
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -67,6 +82,10 @@ extern "C" GAME_CODE_ENTRY void __cdecl RendererPlatformInvoke(RendererInvoke in
         _GlobalPlatform = platform;
         _GlobalAPI = (OpenGL*)apiData;
         _GlobalContext = (RendererContext*)(*rendererData);
+
+        IMGUI_CHECKVERSION();
+        ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
+        ImGui::SetCurrentContext(platform->imguiContext);
 
 #if defined(DEBUG_OPENGL)
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -105,6 +124,8 @@ extern "C" GAME_CODE_ENTRY void __cdecl RendererExecuteCommand(RendererCommand c
         ShadowPass(renderer, data->group);
     } break;
     case RendererCommand::MainPass: {
+        u32 someTestVariable = 2;
+        DEBUG_OVERLAY_TRACE(someTestVariable);
         auto data = (MainPassArgs*)args;
         MainPass(renderer, data->group);
     } break;
@@ -180,6 +201,11 @@ extern "C" GAME_CODE_ENTRY void __cdecl RendererExecuteCommand(RendererCommand c
         GlobalAssertHandler = data->assertHandler;
         GlobalAssertHandlerData = data->assertHandlerData;
     } break;
+    case RendererCommand::ToggleDebugOverlay: {
+        auto data = (ToggleDebugOverlayArgs*)args;
+        Globals::ShowDebugOverlay = data->enabled;
+    } break;
+
 
     default: { log_print("[Renderer] Unknown command with code %lu was submitted", (unsigned long)command); } break;
     }
@@ -224,6 +250,13 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "OpenglRenderer.cpp"
 #include "Resource.cpp"
 #include "Shaders.cpp"
+#include "DebugOverlay.cpp"
+
+#include "../ext/imgui/imconfig.h"
+#include "../ext/imgui/imgui.cpp"
+#include "../ext/imgui/imgui_draw.cpp"
+#include "../ext/imgui/imgui_widgets.cpp"
+#include "../ext/imgui/imgui_demo.cpp"
 
 // NOTE: Platform specific intrinsics implementation begins here
 #if defined(PLATFORM_WINDOWS)
