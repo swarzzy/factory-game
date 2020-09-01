@@ -4,6 +4,8 @@
 
 #include "Win32CodeLoader.h"
 
+#include "opengl/OpenGL.h"
+
 #define DISCRETE_GRAPHICS_DEFAULT
 #define ENABLE_CONSOLE
 #define DEBUG_OPENGL
@@ -112,6 +114,8 @@ struct Win32Context
     u32 saveTimeout;
     i32 mousePosX;
     i32 mousePosY;
+
+    OpenGL gl;
 
     // NOTE: WGL
     wglGetExtensionsStringARBFn* wglGetExtensionsStringARB;

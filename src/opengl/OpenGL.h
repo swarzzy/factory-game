@@ -5,7 +5,7 @@
 
 #include "glcorearb.h"
 
-#include "Platform.h"
+#include "../Platform.h"
 
 // NOTE: Extensions
 // ARB_texture_filter_anisotropic

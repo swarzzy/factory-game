@@ -7,7 +7,7 @@ struct ShaderProgramSource  {
     const char* frag;
 };
 
-#include "GENERATED_Shaders.h"
+#include "GENERATED_OpenglShaders.h"
 
 constexpr u32 ShaderCount = sizeof(Shaders) / sizeof(GLuint);
 static_assert(ShaderCount == array_count(ShaderSources));

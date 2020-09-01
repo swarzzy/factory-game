@@ -1,12 +1,12 @@
 #pragma once
 
-#include "RendererAPI.h"
-#include "Globals.h"
+#include "../RendererAPI.h"
+#include "../Globals.h"
 
-#include "Resource.h"
+#include "../Resource.h"
 
-#include "Std140.h"
-#include "Shaders.h"
+#include "OpenglStd140.h"
+#include "OpenglShaders.h"
 
 struct Renderer {
     union {

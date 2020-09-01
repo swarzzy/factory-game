@@ -8,8 +8,6 @@ void* PlatformAllocClear(uptr size);
 
 #include <stdlib.h>
 
-void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
-
 inline void AssertHandler(void* data, const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, va_list* args) {
     log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
     if (args) {
@@ -176,7 +174,8 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 const u32 GlobalDebugCallRecordsCount = __COUNTER__;
 DebugCallRecord GlobalDebugCallRecords[GlobalDebugCallRecordsCount];
 
-#include "OpenglDefs.h"
+// TODO: API!
+#include "opengl/OpenglDefs.h"
 
 #include "../ext/imgui/imconfig.h"
 #include "../ext/imgui/imgui.cpp"

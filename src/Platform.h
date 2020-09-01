@@ -14,7 +14,7 @@
 
 #include "Intrinsics.h"
 #include "Math.h"
-#include "OpenGL.h"
+//#include "OpenGL.h"
 
 enum struct GameInvoke : u32
 {
@@ -69,8 +69,6 @@ struct FileInfo {
 
 typedef void(ForEachFileCallbackFn)(const FileInfo* info, void* data);
 typedef bool(ForEachFileFn)(const wchar_t* dir, void* data, ForEachFileCallbackFn* callback);
-
-typedef void(GLDebugCallbackFn)(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
 
 enum struct InputMode
 {
@@ -236,7 +234,7 @@ struct PlatformState
 {
     PlatformCalls functions;
     RendererAPI rendererAPI;
-    OpenGL gl;
+    //OpenGL gl;
     volatile b32 supportsAsyncGPUTransfer;
     WorkQueue* lowPriorityQueue;
     WorkQueue* highPriorityQueue;
@@ -252,5 +250,4 @@ struct PlatformState
     u32 windowWidth;
     u32 windowHeight;
     DateTime localTime;
-    GLDebugCallbackFn* glDebugCallback;
 };

@@ -1,8 +1,8 @@
 #include "OpenglRenderer.h"
 
-#include "RenderGroup.h"
+#include "../RenderGroup.h"
 
-#include "Memory.h"
+#include "../Memory.h"
 
 #define timed_scope() // TODO(swarzzy): Fix profiler for renderer
 

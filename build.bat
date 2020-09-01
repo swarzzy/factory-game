@@ -9,7 +9,6 @@ goto end
 
 set BuildShaderPreprocessor=false
 set BuildResourceLoader=false
-set BuildVarParser=false
 
 set ObjOutDir=build\obj\
 set BinOutDir=build\
@@ -38,15 +37,9 @@ echo Building shader preprocessor...
 cl /W3 /wd4530 /Gm- /GR- /Od /Zi /MTd /nologo /diagnostics:classic /WX /std:c++17 /Fo%ObjOutDir% /D_CRT_SECURE_NO_WARNINGS /DWIN32_LEAN_AND_MEAN  src/tools/shader_preprocessor.cpp /link /INCREMENTAL:NO /OPT:REF /MACHINE:X64 /OUT:%BinOutDir%\shader_preprocessor.exe /PDB:%BinOutDir%\shader_preprocessor.pdb
 )
 
-if %BuildVarParser% equ true (
-echo Building variables parser...
-cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/tools/Vars.cpp /link /INCREMENTAL:NO /OPT:REF /MACHINE:X64 /OUT:%BinOutDir%\VarParser.exe /PDB:%BinOutDir%\VarParser.pdb
-)
-
-
 echo Preprocessing shaders...
-build\shader_preprocessor.exe src/ShaderConfig.txt
-COPY shader_preprocessor_output.h src\GENERATED_Shaders.h
+build\shader_preprocessor.exe src/opengl/OpenglShaderConfig.txt
+COPY shader_preprocessor_output.h src\opengl/GENERATED_OpenglShaders.h
 DEL shader_preprocessor_output.h
 
 if %BuildResourceLoader% equ true (
@@ -57,8 +50,8 @@ start /b "__flux_compilation__" cmd /c cl /EHsc /Fo%ObjOutDir% %CommonDefines% %
 echo Building platform...
 start /b "__flux_compilation__" cmd /c cl /DPLATFORM_CODE /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/Win32Platform.cpp /link %PlatformLinkerFlags%
 
-echo Building renderer...
-start /b "__flux_compilation__" cmd /c cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/OpenglRendererEntry.cpp /link %RendererLinkerFlags%
+echo Building OpenGL renderer...
+start /b "__flux_compilation__" cmd /c cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/opengl/OpenglRendererEntry.cpp /link %RendererLinkerFlags%
 
 echo Building game...
 start /b /wait "__flux_compilation__" cmd /c cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/GameEntry.cpp /link %GameLinkerFlags%

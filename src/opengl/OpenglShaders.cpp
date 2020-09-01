@@ -1,4 +1,4 @@
-#include "Shaders.h"
+#include "OpenglShaders.h"
 
 GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragmentSource)
 {

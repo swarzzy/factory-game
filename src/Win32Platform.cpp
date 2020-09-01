@@ -72,7 +72,7 @@ void* OpenGLGetProcAddress(const char* name)
 
 OpenGLLoadResult LoadOpenGL()
 {
-    OpenGL* context = &GlobalContext.state.gl;
+    OpenGL* context = &GlobalContext.gl;
 
     log_print("[Info] Loading OpenGL functions...\n");
     log_print("[Info] Functions defined: %d\n", (int)OpenGL::FunctionCount);
@@ -1168,7 +1168,7 @@ void ImguiFreeWrapper(void* ptr, void*_) { Deallocate(ptr, nullptr); }
 
 #include "../ext/imgui/imgui_impl_opengl3.h"
 
-#define gl_function(func) GlobalContext.state.gl.functions.fn. func
+#define gl_function(func) GlobalContext.gl.functions.fn. func
 
 #define glViewport gl_function(glViewport)
 #define glClearColor gl_function(glClearColor)
@@ -1436,7 +1436,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     app->state.localTime = GetLocalTime();
 
-    app->gameLib.RendererPlatformInvoke(RendererInvoke::Init, &app->state, &app->state.rendererAPI, &GlobalRendererData);
+    app->gameLib.RendererPlatformInvoke(RendererInvoke::Init, &app->state, &app->gl, &GlobalRendererData);
 
     app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Init, &GlobalGameData);
 

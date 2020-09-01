@@ -1,9 +1,9 @@
 #pragma once
 
 #if defined(COMPILER_MSVC)
-#define gl_call(func) _GlobalPlatform->gl.functions.fn.##func
+#define gl_call(func) _GlobalAPI->functions.fn.##func
 #else
-#define gl_call(func) _GlobalPlatform->gl.functions.fn. func
+#define gl_call(func) _GlobalAPI->functions.fn. func
 #endif
 
 #define glGenTextures gl_call(glGenTextures)
